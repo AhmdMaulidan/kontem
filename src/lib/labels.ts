@@ -1,0 +1,159 @@
+import {
+  BusinessCategory,
+  CampaignStatus,
+  DisputeStatus,
+  FraudFlagType,
+  ParticipationStatus,
+  PayoutStatus,
+  Role,
+  SocialPlatform,
+  SubmissionStatus,
+  VerificationStatus,
+} from "@/generated/prisma/enums";
+
+export const roleLabel: Record<Role, string> = {
+  CREATOR: "Creator",
+  VENDOR: "Vendor",
+  ADMIN: "Admin",
+};
+
+export const categoryLabel: Record<BusinessCategory, string> = {
+  KULINER: "Kuliner",
+  WISATA_ALAM: "Wisata Alam",
+  WISATA_BUATAN: "Wisata Buatan",
+  AKOMODASI: "Akomodasi",
+  LAINNYA: "Lainnya",
+};
+
+export const campaignStatusLabel: Record<CampaignStatus, string> = {
+  DRAFT: "Draft",
+  PENDING_REVIEW: "Menunggu Approval",
+  REJECTED: "Ditolak Admin",
+  ACTIVE: "Berjalan",
+  ENDED: "Periode Selesai",
+  SETTLING: "Proses Payout",
+  SETTLED: "Selesai",
+  CANCELLED: "Dibatalkan",
+};
+
+export const submissionStatusLabel: Record<SubmissionStatus, string> = {
+  PENDING_REVIEW: "Menunggu Review",
+  APPROVED: "Disetujui",
+  REJECTED: "Ditolak",
+  APPEALED: "Banding",
+  ADMIN_APPROVED: "Disetujui Admin",
+  ADMIN_REJECTED: "Ditolak Final",
+};
+
+export const participationStatusLabel: Record<ParticipationStatus, string> = {
+  JOINED: "Slot Diambil",
+  VISITED: "Sudah Berkunjung",
+  SUBMITTED: "Konten Dikirim",
+  COMPLETED: "Selesai",
+  CANCELLED: "Dibatalkan",
+};
+
+export const payoutStatusLabel: Record<PayoutStatus, string> = {
+  PENDING: "Menunggu Pencairan",
+  PROCESSING: "Diproses",
+  PAID: "Cair",
+  HELD: "Ditahan",
+  CANCELLED: "Dibatalkan",
+};
+
+export const verificationStatusLabel: Record<VerificationStatus, string> = {
+  UNVERIFIED: "Belum Verifikasi",
+  PENDING: "Menunggu Verifikasi",
+  VERIFIED: "Terverifikasi",
+  REJECTED: "Ditolak",
+};
+
+export const disputeStatusLabel: Record<DisputeStatus, string> = {
+  OPEN: "Terbuka",
+  UNDER_REVIEW: "Sedang Ditinjau",
+  RESOLVED_UPHELD: "Penolakan Dikuatkan",
+  RESOLVED_OVERTURNED: "Dimenangkan Creator",
+  WITHDRAWN: "Dicabut",
+};
+
+export const platformLabel: Record<SocialPlatform, string> = {
+  TIKTOK: "TikTok",
+  INSTAGRAM: "Instagram",
+  YOUTUBE: "YouTube",
+};
+
+export const fraudFlagLabel: Record<FraudFlagType, string> = {
+  REUSED_CONTENT: "Konten Daur Ulang",
+  INFLATED_VIEWS: "Views Tidak Wajar",
+  DUPLICATE_ACCOUNT: "Akun Ganda",
+  OFF_BRIEF: "Tidak Sesuai Brief",
+  FAKE_VISIT: "Kunjungan Palsu",
+  OTHER: "Lainnya",
+};
+
+/**
+ * Warna badge per status, dipakai komponen <Badge> dan <Callout>.
+ * Mengikuti matriks status pada design.md bagian 6.3.
+ */
+export type BadgeTone =
+  | "neutral"
+  | "info" // indigo — sedang ditinjau
+  | "success" // emerald — beres / dana terkunci
+  | "warning" // amber — menunggu tindakan
+  | "danger" // rose — ditolak / sengketa
+  | "sky" // sky — kehadiran terkonfirmasi
+  | "teal" // teal — dana sudah cair
+  | "accent"; // marigold — komplimen & sorotan
+
+export const campaignStatusTone: Record<CampaignStatus, BadgeTone> = {
+  DRAFT: "neutral",
+  PENDING_REVIEW: "warning",
+  REJECTED: "danger",
+  ACTIVE: "success",
+  ENDED: "sky",
+  SETTLING: "info",
+  SETTLED: "teal",
+  CANCELLED: "danger",
+};
+
+export const submissionStatusTone: Record<SubmissionStatus, BadgeTone> = {
+  PENDING_REVIEW: "info",
+  APPROVED: "success",
+  REJECTED: "danger",
+  APPEALED: "danger",
+  ADMIN_APPROVED: "success",
+  ADMIN_REJECTED: "danger",
+};
+
+/** Tahapan kunjungan creator: menunggu datang -> hadir -> kirim konten. */
+export const participationStatusTone: Record<ParticipationStatus, BadgeTone> = {
+  JOINED: "warning",
+  VISITED: "sky",
+  SUBMITTED: "info",
+  COMPLETED: "success",
+  CANCELLED: "neutral",
+};
+
+export const payoutStatusTone: Record<PayoutStatus, BadgeTone> = {
+  PENDING: "warning",
+  PROCESSING: "info",
+  PAID: "teal",
+  HELD: "danger",
+  CANCELLED: "neutral",
+};
+
+/** Warna per kategori usaha, dipakai badge di kartu campaign. */
+export const categoryTone: Record<BusinessCategory, BadgeTone> = {
+  KULINER: "accent",
+  WISATA_ALAM: "success",
+  WISATA_BUATAN: "sky",
+  AKOMODASI: "info",
+  LAINNYA: "neutral",
+};
+
+export const verificationStatusTone: Record<VerificationStatus, BadgeTone> = {
+  UNVERIFIED: "neutral",
+  PENDING: "warning",
+  VERIFIED: "success",
+  REJECTED: "danger",
+};

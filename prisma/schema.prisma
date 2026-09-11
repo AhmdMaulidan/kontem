@@ -1,0 +1,557 @@
+// Kontem — platform location campaign (vendor <-> creator)
+// Semua nilai uang disimpan dalam rupiah penuh (Int), bukan sen.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7: connection string hidup di prisma.config.ts + driver adapter.
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- enums
+
+enum Role {
+  CREATOR
+  VENDOR
+  ADMIN
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum SocialPlatform {
+  TIKTOK
+  INSTAGRAM
+  YOUTUBE
+}
+
+enum BusinessCategory {
+  KULINER
+  WISATA_ALAM
+  WISATA_BUATAN
+  AKOMODASI
+  LAINNYA
+}
+
+enum CampaignStatus {
+  DRAFT // vendor masih menyusun
+  PENDING_REVIEW // menunggu approval admin
+  REJECTED // ditolak admin, vendor bisa revisi
+  ACTIVE // live, terlihat di listing creator
+  ENDED // periode selesai, masa tracking views terakhir
+  SETTLING // payout sedang dihitung/dicairkan
+  SETTLED // selesai, semua payout cair
+  CANCELLED
+}
+
+enum ParticipationStatus {
+  JOINED // slot diklaim, belum datang
+  VISITED // redeem code sudah dipakai di lokasi
+  SUBMITTED // konten sudah dikirim
+  COMPLETED // submission disetujui, ikut hitungan payout
+  CANCELLED // creator mundur / slot dicabut
+}
+
+enum RedeemCodeStatus {
+  UNUSED
+  USED
+  EXPIRED
+}
+
+enum SubmissionStatus {
+  PENDING_REVIEW // menunggu vendor
+  APPROVED // disetujui, views dihitung untuk payout
+  REJECTED // ditolak vendor, masih bisa diajukan banding
+  APPEALED // creator mengajukan banding, menunggu admin
+  ADMIN_APPROVED // admin membatalkan penolakan vendor
+  ADMIN_REJECTED // admin menguatkan penolakan vendor (final)
+}
+
+enum ViewSource {
+  MANUAL // diinput admin/creator (mode demo)
+  API // ditarik otomatis dari platform
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED_UPHELD // penolakan vendor dikuatkan
+  RESOLVED_OVERTURNED // submission creator dimenangkan
+  WITHDRAWN
+}
+
+enum EscrowType {
+  DEPOSIT // vendor menyetor budget pool
+  PAYOUT // dana keluar ke creator
+  PLATFORM_FEE // komisi platform
+  REFUND // sisa dana kembali ke vendor
+}
+
+enum EscrowStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum PayoutStatus {
+  PENDING // sudah dihitung, belum dicairkan
+  PROCESSING
+  PAID
+  HELD // ditahan karena sengketa/fraud
+  CANCELLED
+}
+
+enum FraudFlagType {
+  REUSED_CONTENT
+  INFLATED_VIEWS
+  DUPLICATE_ACCOUNT
+  OFF_BRIEF
+  FAKE_VISIT
+  OTHER
+}
+
+enum FraudFlagStatus {
+  OPEN
+  REVIEWING
+  CONFIRMED
+  DISMISSED
+}
+
+enum NotificationType {
+  CAMPAIGN_NEW_NEARBY
+  CAMPAIGN_ENDING_SOON
+  SUBMISSION_APPROVED
+  SUBMISSION_REJECTED
+  PAYOUT_RELEASED
+  VENDOR_VERIFIED
+  DISPUTE_UPDATE
+  GENERAL
+}
+
+// ---------------------------------------------------------------- user
+
+model User {
+  id           String             @id @default(cuid())
+  role         Role
+  email        String             @unique
+  passwordHash String?
+  googleId     String?            @unique
+  name         String
+  phone        String?
+  avatarUrl    String?
+  status       VerificationStatus @default(UNVERIFIED)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  creatorProfile CreatorProfile?
+  vendorProfile  VendorProfile?
+
+  socialAccounts  SocialAccount[]
+  participations  CampaignParticipation[]
+  submissions     Submission[]
+  payouts         Payout[]
+  notifications   Notification[]
+  campaigns       Campaign[]              @relation("VendorCampaigns")
+  reviewedSubs    Submission[]            @relation("SubmissionReviewer")
+  openedDisputes  Dispute[]               @relation("DisputeOpener")
+  resolvedDispute Dispute[]               @relation("DisputeResolver")
+  disputeMessages DisputeMessage[]
+  raisedFlags     FraudFlag[]             @relation("FlagReporter")
+  flaggedAgainst  FraudFlag[]             @relation("FlaggedUser")
+  auditLogs       AuditLog[]
+
+  @@index([role, status])
+}
+
+model CreatorProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  city     String
+  province String
+  bio      String?
+
+  // Nice-to-have di spec: naik saat konten disetujui, turun saat terbukti curang.
+  trustScore Int @default(50)
+
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([city])
+}
+
+model VendorProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  businessName String
+  category     BusinessCategory
+  description  String?
+  address      String
+  city         String
+  province     String
+  latitude     Float
+  longitude    Float
+  photos       String[] // URL foto tempat untuk verifikasi manual admin
+  mapsUrl      String?
+
+  picName  String
+  picPhone String
+
+  // Verifikasi manual admin: cek Google Maps, telepon konfirmasi, foto lokasi.
+  verifiedAt       DateTime?
+  verifiedById     String?
+  rejectionReason  String?
+  verificationNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([city, category])
+}
+
+model SocialAccount {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  platform      SocialPlatform
+  handle        String
+  profileUrl    String
+  followerCount Int            @default(0)
+
+  // Kepemilikan akun dibuktikan dengan menempel kode unik di bio, lalu dicek.
+  verifyToken String?
+  verifiedAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([platform, handle])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------- campaign
+
+model BriefTemplate {
+  id       String           @id @default(cuid())
+  category BusinessCategory
+  name     String
+  // Struktur brief berbeda per kategori (kuliner vs wisata).
+  fields   Json
+  isActive Boolean          @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaigns Campaign[]
+
+  @@index([category, isActive])
+}
+
+model Campaign {
+  id       String @id @default(cuid())
+  vendorId String
+  vendor   User   @relation("VendorCampaigns", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  title       String
+  category    BusinessCategory
+  description String
+
+  // --- brief konten
+  templateId       String?
+  briefTemplate    BriefTemplate? @relation(fields: [templateId], references: [id])
+  briefAngle       String // angle wajib
+  briefMustShow    String[] // hal yang harus ditonjolkan
+  briefProhibited  String[] // larangan, mis. tidak boleh bandingkan kompetitor
+  minDurationSec   Int            @default(15)
+  allowedPlatforms SocialPlatform[]
+
+  // --- ekonomi campaign
+  budgetPool      Int // total pool yang disetor vendor (rupiah)
+  cpmRate         Int // rupiah per 1.000 views
+  platformFeeRate Int @default(15) // persen komisi platform
+  maxCreators     Int
+
+  // --- komplimen yang disediakan vendor di lokasi
+  complimentType  String // mis. "Gratis 1 menu utama"
+  complimentValue Int // nilai rupiah
+  complimentTerms String?
+
+  startDate DateTime
+  endDate   DateTime
+  // Views masih dihitung beberapa hari setelah endDate sebelum payout final.
+  trackingEndsAt DateTime?
+
+  status          CampaignStatus @default(DRAFT)
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  approvedById    String?
+  rejectionReason String?
+  settledAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participations CampaignParticipation[]
+  redeemCodes    RedeemCode[]
+  submissions    Submission[]
+  payouts        Payout[]
+  escrow         EscrowTransaction[]
+
+  @@index([status, category])
+  @@index([vendorId])
+}
+
+model CampaignParticipation {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId  String
+  creator    User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  status   ParticipationStatus @default(JOINED)
+  joinedAt DateTime            @default(now())
+
+  redeemCode RedeemCode?
+  submission Submission?
+
+  // Satu creator hanya boleh satu slot per campaign.
+  @@unique([campaignId, creatorId])
+  @@index([creatorId, status])
+}
+
+model RedeemCode {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  participationId String                @unique
+  participation   CampaignParticipation @relation(fields: [participationId], references: [id], onDelete: Cascade)
+
+  code       String           @unique
+  status     RedeemCodeStatus @default(UNUSED)
+  redeemedAt DateTime?
+  // Vendor yang menandai kode terpakai saat creator hadir di lokasi.
+  redeemedBy String?
+  expiresAt  DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([campaignId, status])
+}
+
+// ---------------------------------------------------------------- submission
+
+model Submission {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId  String
+  creator    User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  participationId String                @unique
+  participation   CampaignParticipation @relation(fields: [participationId], references: [id], onDelete: Cascade)
+
+  contentUrl String
+  platform   SocialPlatform
+  caption    String?
+
+  status SubmissionStatus @default(PENDING_REVIEW)
+
+  // Alasan wajib diisi saat reject — jejak audit supaya vendor tidak asal tolak.
+  reviewedById String?
+  reviewedBy   User?     @relation("SubmissionReviewer", fields: [reviewedById], references: [id])
+  reviewNote   String?
+  reviewedAt   DateTime?
+
+  // Snapshot views terakhir, dipakai saat menghitung proporsi payout.
+  lastViews     Int       @default(0)
+  lastLikes     Int       @default(0)
+  lastComments  Int       @default(0)
+  lastSyncedAt  DateTime?
+  finalViews    Int? // dikunci saat campaign settled
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  viewSnapshots ViewSnapshot[]
+  disputes      Dispute[]
+  fraudFlags    FraudFlag[]
+  payout        Payout?
+
+  @@index([campaignId, status])
+  @@index([creatorId])
+}
+
+model ViewSnapshot {
+  id           String     @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  views      Int
+  likes      Int        @default(0)
+  comments   Int        @default(0)
+  source     ViewSource @default(MANUAL)
+  capturedAt DateTime   @default(now())
+
+  @@index([submissionId, capturedAt])
+}
+
+// ---------------------------------------------------------------- trust & safety
+
+model Dispute {
+  id           String     @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  openedById String
+  openedBy   User   @relation("DisputeOpener", fields: [openedById], references: [id])
+  reason     String
+
+  status       DisputeStatus @default(OPEN)
+  resolution   String?
+  resolvedById String?
+  resolvedBy   User?         @relation("DisputeResolver", fields: [resolvedById], references: [id])
+  resolvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages DisputeMessage[]
+
+  @@index([status])
+}
+
+model DisputeMessage {
+  id        String  @id @default(cuid())
+  disputeId String
+  dispute   Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body     String
+
+  createdAt DateTime @default(now())
+
+  @@index([disputeId, createdAt])
+}
+
+model FraudFlag {
+  id           String      @id @default(cuid())
+  submissionId String?
+  submission   Submission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  flaggedUserId String?
+  flaggedUser   User?   @relation("FlaggedUser", fields: [flaggedUserId], references: [id], onDelete: Cascade)
+
+  // Null kalau flag dihasilkan otomatis oleh sistem.
+  reportedById String?
+  reportedBy   User?   @relation("FlagReporter", fields: [reportedById], references: [id])
+
+  type     FraudFlagType
+  severity Int             @default(1) // 1 rendah .. 3 tinggi
+  detail   String
+  status   FraudFlagStatus @default(OPEN)
+
+  resolutionNote String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status, severity])
+}
+
+// ---------------------------------------------------------------- uang
+
+model EscrowTransaction {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  type   EscrowType
+  amount Int
+  status EscrowStatus @default(PENDING)
+
+  // Referensi payment gateway — di versi demo diisi kode dummy.
+  reference String?
+  note      String?
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([campaignId, type])
+}
+
+model Payout {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId  String
+  creator    User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  submissionId String?     @unique
+  submission   Submission? @relation(fields: [submissionId], references: [id])
+
+  // Jejak perhitungan proporsional: views creator / total views campaign.
+  viewsCounted   Int
+  totalPoolViews Int
+  sharePercent   Float
+  grossAmount    Int
+  platformFee    Int
+  netAmount      Int
+
+  status PayoutStatus @default(PENDING)
+  paidAt DateTime?
+  note   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([campaignId, creatorId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------- operasional
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type  NotificationType
+  title String
+  body  String
+  link  String?
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+model AuditLog {
+  id      String  @id @default(cuid())
+  actorId String?
+  actor   User?   @relation(fields: [actorId], references: [id])
+
+  action   String // mis. "campaign.approve"
+  entity   String // mis. "Campaign"
+  entityId String
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+}
