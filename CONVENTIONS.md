@@ -65,6 +65,7 @@ Jawab berurutan, berhenti di jawaban "ya" pertama:
 | Ini aturan bisnis (hitungan uang, status, validasi domain)? | `src/domain/<nama>.ts` |
 | Ini komponen tampilan yang dipakai ≥ 2 halaman? | `src/components/ui/` atau `src/components/<fitur>/` |
 | Ini koneksi ke sistem luar / helper umum? | `src/lib/<nama>.ts` |
+| Ini aset gambar statis (ilustrasi, logo)? | `public/<jenis>/` — sertakan README berisi sumber & lisensinya |
 
 **Jangan** membuat komponen di `components/` "untuk jaga-jaga nanti dipakai
 ulang". Komponen naik ke `components/` **setelah** terbukti dipakai halaman
@@ -303,13 +304,21 @@ sendiri per halaman**:
 
 | Elemen | Radius | Bayangan |
 | :--- | :--- | :--- |
-| Tombol, badge, pill, tab | `rounded-full` | `shadow-brand` (primary) |
+| Tombol ajakan, badge, chip, pill, tab | `rounded-full` | `shadow-brand` (primary) |
+| Tombol di dalam kartu katalog & tombol form | `rounded-lg` | — |
 | Input, textarea, select | `rounded-xl` | — |
+| Kartu katalog & item FAQ | `rounded-lg` | `shadow-catalog` |
 | Kartu standar | `rounded-2xl` | `shadow-card` |
 | Kartu sorotan, banner, modal | `rounded-3xl` | `shadow-float` |
 
-Kartu yang bisa diklik memakai prop `hover` pada `<Card>`, bukan kelas hover
-buatan sendiri — supaya efek angkat 3px seragam di seluruh aplikasi.
+Bentuk tombol dioper lewat prop `shape` (`pill` / `block`) pada
+`<Button>`/`<ButtonLink>`, bukan lewat `className` — alasan yang sama dengan
+prop `size`.
+
+Kartu dasbor yang bisa diklik memakai prop `hover` pada `<Card>`, bukan kelas
+hover buatan sendiri — supaya efek angkat 3px seragam di seluruh aplikasi.
+Kartu katalog adalah pengecualian: ia hanya menguatkan bayangan saat hover,
+tidak terangkat.
 
 ### Warna status
 

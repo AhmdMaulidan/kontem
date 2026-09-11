@@ -9,15 +9,15 @@ export * from "./icon";
 export { cn } from "./utils";
 export { toneClasses, toneIcons } from "./tone";
 
-export { Button, ButtonLink, buttonVariants } from "./button";
-export type { ButtonVariant } from "./button";
+export { Button, ButtonLink, buttonVariants, buttonSizes } from "./button";
+export type { ButtonVariant, ButtonSize } from "./button";
 export { SubmitButton } from "./submit-button";
 
 export { Card, CardHeader } from "./card";
 export { PageHeader } from "./page-header";
 export { EmptyState } from "./empty-state";
 
-export { Badge, PillLabel } from "./badge";
+export { Badge } from "./badge";
 export { Callout } from "./callout";
 export { Stat } from "./stat";
 export { ProgressBar } from "./progress";

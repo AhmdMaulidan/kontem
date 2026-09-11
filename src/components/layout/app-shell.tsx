@@ -75,7 +75,7 @@ export async function AppShell({
             </div>
 
             <form action={logoutAction}>
-              <Button variant="ghost" type="submit" className="px-3 py-2">
+              <Button variant="ghost" type="submit" size="compact">
                 Keluar
               </Button>
             </form>

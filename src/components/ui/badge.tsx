@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { BadgeTone } from "@/lib/labels";
-import { toneClasses, toneIcons } from "./tone";
+import { toneClasses, toneDotClasses } from "./tone";
 import { cn } from "./utils";
 
 export function Badge({
@@ -9,45 +9,26 @@ export function Badge({
   children,
 }: {
   tone?: BadgeTone;
-  /** Tampilkan ikon penanda status bawaan tone. */
+  /** Tampilkan titik penanda status di sebelah kiri label. */
   icon?: boolean;
   children: ReactNode;
 }) {
-  const ToneIcon = toneIcons[tone];
-
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold whitespace-nowrap",
+        // Ukuran sengaja ditahan di 11px/medium: badge adalah keterangan,
+        // bukan judul. Pill setebal teks isi membuat tiap baris tabel
+        // berebut perhatian.
+        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap",
         toneClasses[tone],
       )}
     >
-      {icon && ToneIcon ? (
-        <ToneIcon className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+      {icon ? (
+        <span
+          className={cn("h-1.5 w-1.5 shrink-0 rounded-full", toneDotClasses[tone])}
+          aria-hidden
+        />
       ) : null}
-      {children}
-    </span>
-  );
-}
-
-/** Pill dekoratif untuk penanda seksi. */
-export function PillLabel({
-  tone = "sky",
-  icon: PillIcon,
-  children,
-}: {
-  tone?: BadgeTone;
-  icon?: React.ComponentType<{ className?: string }>;
-  children: ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold",
-        toneClasses[tone],
-      )}
-    >
-      {PillIcon ? <PillIcon className="h-3.5 w-3.5" /> : null}
       {children}
     </span>
   );

@@ -2,25 +2,36 @@ import type { ReactNode } from "react";
 import { cn } from "./utils";
 
 /**
- * Kartu putih membulat dengan bayangan difus — design.md bagian 2.3.
- * `float` untuk kartu sorotan, `hover` untuk kartu yang bisa diklik.
+ * Kartu — design.md bagian 2.3.
+ *
+ * `soft` dipakai untuk kartu berlatar biru pucat tanpa garis tepi (kartu
+ * keunggulan di halaman depan), `panel` untuk kartu besar berradius 24px.
+ * Keduanya prop, bukan kelas yang dioper lewat `className`, karena `cn()`
+ * hanya menyambung string — latar dan radius yang bertabrakan akan diputuskan
+ * urutan stylesheet, bukan yang ditulis belakangan.
  */
 export function Card({
   className,
   float,
   hover,
+  soft,
+  panel,
   children,
 }: {
   className?: string;
   float?: boolean;
   hover?: boolean;
+  soft?: boolean;
+  panel?: boolean;
   children: ReactNode;
 }) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-line bg-surface p-5",
-        float ? "shadow-float" : "shadow-card",
+        "p-5",
+        panel ? "rounded-3xl" : "rounded-2xl",
+        soft ? "bg-brand-50" : "border border-line bg-surface",
+        soft ? null : float ? "shadow-float" : "shadow-card",
         hover && "card-hover",
         className,
       )}

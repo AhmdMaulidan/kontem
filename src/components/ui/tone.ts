@@ -37,3 +37,18 @@ export const toneIcons: Record<BadgeTone, LucideIcon | null> = {
   teal: IconWallet,
   accent: IconStar,
 };
+
+/**
+ * Titik penanda status. Dipakai menggantikan ikon di dalam badge supaya
+ * pill-nya bisa dibuat kecil tanpa kehilangan pembeda antar status.
+ */
+export const toneDotClasses: Record<BadgeTone, string> = {
+  neutral: "bg-muted",
+  info: "bg-info",
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-danger",
+  sky: "bg-sky-deep",
+  teal: "bg-teal-deep",
+  accent: "bg-accent",
+};

@@ -35,6 +35,11 @@ export function formatCompact(value: number) {
   return number.format(value);
 }
 
+/** 30.000 -> "Rp 30 rb" — untuk pita sorotan kartu katalog. */
+export function formatIDRCompact(value: number) {
+  return `Rp ${formatCompact(value).replace(",0", "")}`;
+}
+
 export function formatDate(value: Date | string) {
   return dateFmt.format(new Date(value));
 }

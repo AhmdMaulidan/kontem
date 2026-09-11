@@ -1,35 +1,43 @@
-/* Plus Jakarta Sans dimuat lewat CSS @import, bukan next/font, karena
-   next/font/google gagal di-build di lingkungan ini. Fallback system font
-   tetap disiapkan supaya halaman tetap rapi kalau font gagal diunduh. */
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+/* Font dimuat lewat CSS @import, bukan next/font, karena next/font/google
+   gagal di-build di lingkungan ini. Fallback system font tetap disiapkan
+   supaya halaman tetap rapi kalau font gagal diunduh.
+
+   DM Sans untuk judul, Inter untuk teks & antarmuka — mengikuti referensi
+   visual pada design.md bagian 2. */
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..800&family=Inter:wght@400..700&display=swap");
 @import "tailwindcss";
 
 /* ----------------------------------------------------------------------
    Design tokens Kontem — acuan: design.md bagian 2.1
    ---------------------------------------------------------------------- */
 :root {
-  /* Brand primary — Sky / Cyan */
+  /* Brand primary — Sky Blue */
   --brand-50: #f0f9ff;
   --brand-100: #e0f2fe;
   --brand-200: #bae6fd;
+  --brand-300: #95d0fd; /* langit hero — panel besar berlatar penuh */
   --brand-400: #38bdf8;
-  --brand-500: #0ea5e9;
-  --brand-600: #0284c7;
+  --brand-500: #0ea5e9; /* PRIMARY — tombol & elemen aktif */
+  --brand-600: #0284c7; /* hover / panel gelap */
   --brand-700: #0369a1;
 
-  /* Secondary accent — Warm Amber / Marigold */
-  --accent-50: #fffbeb;
-  --accent-100: #fef3c7;
-  --accent-400: #fbbf24;
-  --accent-500: #f59e0b;
-  --accent-600: #d97706;
+  /* Secondary accent — Kuning telur.
+     Dipakai hemat: sorotan angka, badge komplimen, bintang. Tidak untuk
+     tombol aksi utama. */
+  --accent-50: #fffaeb;
+  --accent-100: #fdeec0;
+  --accent-400: #ffd45e;
+  --accent-500: #fabf18;
+  --accent-600: #d9a20b;
 
   /* Neutrals & surfaces */
   --background: #f8fafc;
   --surface: #ffffff;
   --surface-muted: #f1f5f9;
+  /* Latar seksi katalog — brand 10% di atas putih (design.md bagian 2.1). */
+  --surface-sky: #e7f5fe;
   --foreground: #0f172a;
-  --body: #334155;
+  --body: #475569;
   --muted: #64748b;
   --border: #e2e8f0;
   --border-brand: #bae6fd;
@@ -59,6 +67,7 @@
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-muted: var(--surface-muted);
+  --color-surface-sky: var(--surface-sky);
   --color-foreground: var(--foreground);
   --color-body: var(--body);
   --color-muted: var(--muted);
@@ -69,6 +78,7 @@
   --color-brand-50: var(--brand-50);
   --color-brand-100: var(--brand-100);
   --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
   --color-brand-400: var(--brand-400);
   --color-brand-600: var(--brand-600);
   --color-brand-700: var(--brand-700);
@@ -99,17 +109,21 @@
   --color-teal-soft: var(--teal-soft);
   --color-teal-line: var(--teal-line);
 
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+  --font-display: "DM Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
-  /* Elevasi lembut — design.md bagian 2.3 */
-  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.05),
-    0 1px 2px -1px rgba(0, 0, 0, 0.05);
-  --shadow-float: 0 20px 30px -10px rgba(14, 165, 233, 0.12),
-    0 8px 10px -6px rgba(0, 0, 0, 0.04);
-  --shadow-lift: 0 12px 24px -6px rgba(14, 165, 233, 0.15);
-  --shadow-brand: 0 4px 14px -4px rgba(14, 165, 233, 0.35);
+  /* Elevasi lembut & netral — design.md bagian 2.3 */
+  --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.05),
+    0 1px 2px -1px rgba(15, 23, 42, 0.05);
+  --shadow-float: 0 16px 38px -14px rgba(15, 23, 42, 0.16),
+    0 4px 12px -6px rgba(15, 23, 42, 0.06);
+  --shadow-lift: 0 14px 28px -10px rgba(15, 23, 42, 0.16);
+  --shadow-brand: 0 8px 18px -6px rgba(14, 165, 233, 0.4);
+  /* Khusus kartu katalog: bayangan berpendar biru, tanpa garis tepi. Alpha
+     ditahan di .35 supaya grid empat kolom tidak berubah jadi kolam biru. */
+  --shadow-catalog: 0 25px 50px -12px rgba(96, 165, 250, 0.35);
 }
 
 body {
@@ -118,12 +132,15 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Judul memakai DM Sans Bold. Tracking dibiarkan normal — DM Sans sudah
+   rapat secara bawaan, menambah tracking negatif membuatnya berdempet. */
 h1,
 h2,
 h3,
 h4 {
   color: var(--foreground);
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 
 /* Angka uang dan views lebih mudah dibandingkan kalau lebarnya seragam. */
@@ -142,4 +159,11 @@ h4 {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lift);
   border-color: var(--border-brand);
+}
+
+/* Kubah: persegi yang sisi atasnya membusur lebar. Dipakai untuk kartu angka
+   dan label langkah pada halaman depan — bentuk inilah yang membedakan
+   halaman ini dari tumpukan kartu persegi biasa. */
+.dome {
+  border-radius: 80% 80% 0.75rem 0.75rem / 45% 45% 0.75rem 0.75rem;
 }
