@@ -9,6 +9,8 @@ import {
   Card,
   CardHeader,
   DescriptionList,
+  IconCheck,
+  IconX,
   PageHeader,
   ProgressBar,
 } from "@/components/ui";
@@ -90,7 +92,7 @@ export default async function CampaignDetailPage({
                 <ul className="mt-1.5 space-y-1 text-sm">
                   {campaign.briefMustShow.map((item) => (
                     <li key={item} className="flex gap-2">
-                      <span className="text-success">✓</span>
+                      <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                       {item}
                     </li>
                   ))}
@@ -106,7 +108,7 @@ export default async function CampaignDetailPage({
                   <ul className="mt-1.5 space-y-1 text-sm">
                     {campaign.briefProhibited.map((item) => (
                       <li key={item} className="flex gap-2">
-                        <span className="text-danger">✕</span>
+                        <IconX className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
                         {item}
                       </li>
                     ))}
@@ -284,11 +286,11 @@ export default async function CampaignDetailPage({
                 <CardHeader title="Kode redeem kamu" />
                 {participation.redeemCode ? (
                   <>
-                    <div className="rounded-2xl border-2 border-dashed border-line-brand bg-gradient-to-br from-brand-50 to-brand-100 px-4 py-5 text-center">
-                      <p className="text-xs font-semibold tracking-wide text-brand-700">
-                        TUNJUKKAN KODE INI DI LOKASI
+                    <div className="rounded-2xl border border-dashed border-line-brand bg-brand-50 px-4 py-5 text-center">
+                      <p className="text-xs font-medium text-muted">
+                        Tunjukkan kode ini di lokasi
                       </p>
-                      <p className="mt-2 font-mono text-2xl font-extrabold tracking-[0.2em] text-brand-700">
+                      <p className="mt-2 font-mono text-2xl font-bold tracking-[0.18em] text-brand-700">
                         {participation.redeemCode.code}
                       </p>
                       <div className="mt-3 flex justify-center">

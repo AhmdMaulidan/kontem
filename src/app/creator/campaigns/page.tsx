@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   EmptyState,
+  IconArrowRight,
   Input,
   PageHeader,
   ProgressBar,
@@ -165,9 +166,10 @@ export default async function BrowseCampaignPage({
                   </span>
                   <Link
                     href={`/creator/campaigns/${campaign.id}`}
-                    className="text-sm font-medium text-brand"
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600"
                   >
-                    Lihat brief →
+                    Lihat brief
+                    <IconArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
               </Card>

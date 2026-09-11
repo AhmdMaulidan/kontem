@@ -7,6 +7,7 @@ import {
   CardHeader,
   DescriptionList,
   EmptyState,
+  IconExternal,
   PageHeader,
 } from "@/components/ui";
 import {
@@ -82,12 +83,13 @@ export default async function AdminVendorsPage() {
                         label: "Titik peta",
                         value: vendor.vendorProfile ? (
                           <a
-                            className="text-brand"
+                            className="inline-flex items-center gap-1 font-medium text-brand-600"
                             href={`https://maps.google.com/?q=${vendor.vendorProfile.latitude},${vendor.vendorProfile.longitude}`}
                             target="_blank"
                             rel="noreferrer"
                           >
-                            Cek di Google Maps →
+                            <IconExternal className="h-3.5 w-3.5" />
+                            Cek di Google Maps
                           </a>
                         ) : (
                           "—"

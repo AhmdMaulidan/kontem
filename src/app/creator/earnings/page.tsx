@@ -6,6 +6,9 @@ import {
   Card,
   CardHeader,
   EmptyState,
+  IconBank,
+  IconBanknote,
+  IconTrend,
   PageHeader,
   Stat,
   Table,
@@ -39,16 +42,16 @@ export default async function EarningsPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Total diterima"
-          icon="💸" value={formatIDR(totalCair)} tone="success" />
+          icon={IconBanknote} value={formatIDR(totalCair)} tone="success" />
         <Stat
           label="Views dibayar"
-          icon="📈"
+          icon={IconTrend}
           value={formatCompact(totalViews)}
           hint="Akumulasi semua campaign"
         />
         <Stat
           label="Fee platform"
-          icon="🏦"
+          icon={IconBank}
           value={formatIDR(totalFee)}
           hint="Sudah dipotong dari bruto"
         />

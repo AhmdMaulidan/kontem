@@ -258,6 +258,44 @@ langsung protes kalau ada nilai enum yang belum punya label.
   (`formatIDR`, `formatCompact`) dan diberi kelas `tabular` supaya kolom angka
   sejajar rapi.
 
+### Ikon
+
+Ikon **selalu** SVG dari `@/components/ui` (`IconPin`, `IconCheck`, …), yang
+membungkus `lucide-react`. Halaman tidak pernah mengimpor `lucide-react`
+langsung, supaya pustaka ikon bisa diganti dari satu file.
+
+**Emoji dilarang dipakai sebagai ikon antarmuka** — bentuk dan bobotnya berbeda
+di tiap sistem operasi, tidak bisa diwarnai mengikuti token, dan membuat
+tampilan terlihat tidak dirancang. Emoji hanya boleh muncul kalau memang bagian
+dari teks yang ditulis pengguna.
+
+```tsx
+// ❌ salah
+<span className="text-success">✓</span>
+<div className="...">📍</div>
+
+// ✅ benar
+<IconCheck className="h-4 w-4 text-success" />
+<IconPin className="h-4 w-4" strokeWidth={2.5} />
+```
+
+Ukuran ikon diatur lewat kelas Tailwind (`h-4 w-4`), bukan prop `size`, supaya
+konsisten dengan sistem spasi yang sama.
+
+### Menahan diri dalam dekorasi
+
+Efek visual dipakai kalau punya alasan, bukan sebagai hiasan:
+
+| Jangan | Alasan |
+| :--- | :--- |
+| Gradien sebagai latar kartu atau banner | Tidak menyampaikan informasi; permukaan datar + garis tepi lebih terbaca |
+| Blob blur dekoratif di latar | Menambah beban render tanpa makna |
+| `font-extrabold` di banyak tempat | Kalau semua ditekankan, tidak ada yang menonjol. Simpan untuk judul halaman |
+| Angka atau testimoni karangan | Ambil dari database. Kalau belum ada datanya, jangan ditampilkan |
+
+Bayangan dibatasi tiga peran saja: `shadow-card` untuk kartu biasa,
+`shadow-float` untuk kartu sorotan, `shadow-brand` untuk tombol primary.
+
 ### Geometri & elevasi
 
 Nilai-nilai ini ditetapkan design.md bagian 2.3 dan **tidak boleh dikarang
@@ -378,6 +416,8 @@ menjamin halaman benar-benar render — kesalahan query baru muncul saat dijalan
 | Memakai `formData.get()` langsung tanpa validasi | Validasi lewat skema Zod |
 | Menghitung rupiah di dalam JSX | Pusatkan di `domain/`, tampilkan hasilnya saja |
 | `bg-[#0ea5e9]` | `bg-brand` |
+| Emoji sebagai ikon antarmuka | Ikon SVG dari `@/components/ui` |
+| Gradien & blob sebagai hiasan | Permukaan datar dengan garis tepi |
 | `useEffect` untuk mengambil data | Ambil di Server Component |
 | `any` untuk meredam error TypeScript | Perbaiki tipenya, atau `unknown` + penyempitan |
 | `"use client"` di file berisi banyak komponen | Pisahkan bagian interaktifnya |

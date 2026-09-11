@@ -10,6 +10,8 @@ import {
   CardHeader,
   DescriptionList,
   EmptyState,
+  IconCheck,
+  IconX,
   PageHeader,
   ProgressBar,
   Table,
@@ -122,10 +124,16 @@ export default async function AdminCampaignsPage() {
                     <p className="mt-1 text-muted">{campaign.briefAngle}</p>
                     <ul className="mt-2 space-y-0.5 text-muted">
                       {campaign.briefMustShow.map((item) => (
-                        <li key={item}>✓ {item}</li>
+                        <li key={item} className="flex items-start gap-2">
+                          <IconCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+                          {item}
+                        </li>
                       ))}
                       {campaign.briefProhibited.map((item) => (
-                        <li key={item}>✕ {item}</li>
+                        <li key={item} className="flex items-start gap-2">
+                          <IconX className="mt-0.5 h-3.5 w-3.5 shrink-0 text-danger" />
+                          {item}
+                        </li>
                       ))}
                     </ul>
                   </div>

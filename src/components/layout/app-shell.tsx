@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { logoutAction } from "@/app/_actions/session";
 import { db } from "@/lib/db";
-import { Badge, Button } from "@/components/ui";
+import { Badge, Button, IconBell, IconPin } from "@/components/ui";
 import {
   roleLabel,
   verificationStatusLabel,
@@ -41,10 +41,10 @@ export async function AppShell({
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-2.5">
             <Link href="/" className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-base text-white shadow-brand">
-                📍
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white">
+                <IconPin className="h-4 w-4" strokeWidth={2.5} />
               </span>
-              <span className="text-lg font-extrabold tracking-tight text-foreground">
+              <span className="text-lg font-bold tracking-tight text-foreground">
                 Kontem
               </span>
             </Link>
@@ -57,7 +57,7 @@ export async function AppShell({
               className="relative rounded-full p-2 text-muted transition-colors hover:bg-brand-soft hover:text-brand-600"
               aria-label="Notifikasi"
             >
-              <span aria-hidden>🔔</span>
+              <IconBell className="h-[18px] w-[18px]" strokeWidth={2} />
               {unread > 0 ? (
                 <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
                   {unread}

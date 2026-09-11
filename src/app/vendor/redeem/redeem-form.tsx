@@ -25,7 +25,7 @@ export function RedeemForm() {
           required
           autoFocus
           placeholder="KTM-XXXX-XXXX"
-          className="rounded-2xl py-4 text-center font-mono text-2xl font-bold tracking-[0.2em] uppercase"
+          className="py-3.5 text-center font-mono text-xl font-semibold tracking-[0.18em] uppercase"
         />
       </Field>
 

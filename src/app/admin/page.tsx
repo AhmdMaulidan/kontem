@@ -7,6 +7,10 @@ import {
   Card,
   CardHeader,
   EmptyState,
+  IconBank,
+  IconBanknote,
+  IconClock,
+  IconTrend,
   PageHeader,
   Stat,
   Table,
@@ -89,27 +93,27 @@ export default async function AdminDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="GMV campaign"
-          icon="🏦"
+          icon={IconBank}
           value={formatIDR(gmv._sum.budgetPool ?? 0)}
           hint="Nilai campaign yang dikelola platform"
           tone="brand"
         />
         <Stat
           label="Pendapatan fee"
-          icon="💸"
+          icon={IconBanknote}
           value={formatIDR(feeAgg._sum.platformFee ?? 0)}
           hint="Komisi dari payout yang sudah dihitung"
           tone="success"
         />
         <Stat
           label="Total views dibayar"
-          icon="📈"
+          icon={IconTrend}
           value={formatCompact(viewsAgg._sum.lastViews ?? 0)}
           hint="Konten yang disetujui"
         />
         <Stat
           label="Menunggu pencairan"
-          icon="⏳"
+          icon={IconClock}
           value={formatIDR(payoutPending._sum.netAmount ?? 0)}
           hint={`${payoutPending._count} payout`}
           tone={payoutPending._count > 0 ? "danger" : undefined}

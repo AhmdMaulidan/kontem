@@ -10,6 +10,10 @@ import {
   Card,
   CardHeader,
   EmptyState,
+  IconCard,
+  IconClock,
+  IconLock,
+  IconTrend,
   PageHeader,
   ProgressBar,
   Stat,
@@ -76,22 +80,22 @@ export default async function VendorDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Total views didapat"
-          icon="📈"
+          icon={IconTrend}
           value={formatCompact(totalViews)}
           hint="Dari konten yang disetujui"
           tone="brand"
         />
         <Stat label="Budget dikunci"
-          icon="🔒" value={formatIDR(totalPool)} />
+          icon={IconLock} value={formatIDR(totalPool)} />
         <Stat
           label="Terpakai"
-          icon="💳"
+          icon={IconCard}
           value={formatIDR(totalTerpakai)}
           hint={`Sisa ${formatIDR(Math.max(0, totalPool - totalTerpakai))}`}
         />
         <Stat
           label="Menunggu review"
-          icon="⏳"
+          icon={IconClock}
           value={menungguReview}
           hint="Submission belum diputuskan"
           tone={menungguReview > 0 ? "danger" : undefined}

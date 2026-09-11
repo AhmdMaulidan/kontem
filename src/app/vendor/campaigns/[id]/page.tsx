@@ -11,6 +11,8 @@ import {
   CardHeader,
   DescriptionList,
   EmptyState,
+  IconCheck,
+  IconX,
   PageHeader,
   ProgressBar,
   Stat,
@@ -198,8 +200,11 @@ export default async function VendorCampaignDetail({
             )}
             {menungguReview > 0 ? (
               <p className="mt-4 text-sm">
-                <Link href="/vendor/submissions" className="font-medium text-brand">
-                  {menungguReview} submission menunggu review →
+                <Link
+                  href="/vendor/submissions"
+                  className="inline-flex items-center gap-1 font-semibold text-brand-600"
+                >
+                  {menungguReview} submission menunggu review
                 </Link>
               </p>
             ) : null}
@@ -271,13 +276,13 @@ export default async function VendorCampaignDetail({
             <ul className="mt-3 space-y-1 text-sm">
               {campaign.briefMustShow.map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="text-success">✓</span>
+                  <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                   {item}
                 </li>
               ))}
               {campaign.briefProhibited.map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="text-danger">✕</span>
+                  <IconX className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
                   {item}
                 </li>
               ))}

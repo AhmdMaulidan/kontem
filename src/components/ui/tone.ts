@@ -1,3 +1,13 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  IconAlert,
+  IconCheck,
+  IconClock,
+  IconCoffee,
+  IconPin,
+  IconStar,
+  IconWallet,
+} from "./icon";
 import type { BadgeTone } from "@/lib/labels";
 
 /**
@@ -17,13 +27,13 @@ export const toneClasses: Record<BadgeTone, string> = {
 };
 
 /** Ikon penanda status, sesuai kolom Icon pada matriks design.md. */
-export const toneIcons: Record<BadgeTone, string> = {
-  neutral: "",
-  info: "⏳",
-  success: "✓",
-  warning: "📍",
-  danger: "⚠️",
-  sky: "☕",
-  teal: "💸",
-  accent: "★",
+export const toneIcons: Record<BadgeTone, LucideIcon | null> = {
+  neutral: null,
+  info: IconClock,
+  success: IconCheck,
+  warning: IconPin,
+  danger: IconAlert,
+  sky: IconCoffee,
+  teal: IconWallet,
+  accent: IconStar,
 };

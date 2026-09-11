@@ -139,16 +139,7 @@ h4 {
     border-color 180ms ease;
 }
 .card-hover:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-lift);
   border-color: var(--border-brand);
-}
-
-/* Blob organik lembut untuk latar hero. */
-.blob {
-  position: absolute;
-  border-radius: 9999px;
-  filter: blur(64px);
-  opacity: 0.55;
-  pointer-events: none;
 }

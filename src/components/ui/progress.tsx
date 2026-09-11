@@ -18,7 +18,7 @@ export function ProgressBar({
         ? "bg-warning"
         : tone === "accent"
           ? "bg-accent"
-          : "bg-gradient-to-r from-brand-400 to-brand-600";
+          : "bg-brand";
 
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-surface-muted">

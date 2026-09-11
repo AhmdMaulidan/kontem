@@ -9,6 +9,10 @@ import {
   Card,
   CardHeader,
   EmptyState,
+  IconBanknote,
+  IconClock,
+  IconTrend,
+  IconWallet,
   PageHeader,
   Stat,
 } from "@/components/ui";
@@ -89,27 +93,27 @@ export default async function CreatorDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Estimasi berjalan"
-          icon="💰"
+          icon={IconWallet}
           value={formatIDR(totalEstimasi)}
           hint={`${campaignBerjalan.length} campaign aktif`}
           tone="brand"
         />
         <Stat
           label="Menunggu cair"
-          icon="⏳"
+          icon={IconClock}
           value={formatIDR(menungguCair)}
           hint="Sudah dihitung, belum ditransfer"
         />
         <Stat
           label="Total diterima"
-          icon="💸"
+          icon={IconBanknote}
           value={formatIDR(totalCair)}
           hint="Sepanjang waktu"
           tone="success"
         />
         <Stat
           label="Total views"
-          icon="📈"
+          icon={IconTrend}
           value={formatCompact(totalViews)}
           hint="Dari semua submission"
         />

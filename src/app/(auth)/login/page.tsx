@@ -3,14 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { loginAction, type AuthState } from "../actions";
-import {
-  Card,
-  Field,
-  FormError,
-  Input,
-  PillLabel,
-  SubmitButton,
-} from "@/components/ui";
+import { Card, Field, FormError, Input, SubmitButton } from "@/components/ui";
 
 const akunDemo = [
   { label: "Creator", email: "dita@creator.id" },
@@ -27,8 +20,7 @@ export default function LoginPage() {
   return (
     <div className="space-y-5">
       <Card float className="p-7">
-        <PillLabel tone="sky">👋 Selamat datang kembali</PillLabel>
-        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-foreground">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Masuk ke Kontem
         </h1>
         <p className="mt-1.5 text-sm text-muted">

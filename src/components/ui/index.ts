@@ -5,6 +5,7 @@
  * ke file per komponen — sehingga penyesuaian visual cukup dilakukan di dalam
  * folder ini tanpa menyentuh halaman.
  */
+export * from "./icon";
 export { cn } from "./utils";
 export { toneClasses, toneIcons } from "./tone";
 

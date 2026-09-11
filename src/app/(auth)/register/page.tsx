@@ -10,7 +10,6 @@ import {
   Field,
   FormError,
   Input,
-  PillLabel,
   Select,
   SubmitButton,
   cn,
@@ -35,8 +34,7 @@ export default function RegisterPage({
 
   return (
     <Card float className="p-7">
-      <PillLabel tone="accent">🚀 Gratis, tanpa minimum followers</PillLabel>
-      <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-foreground">
+      <h1 className="text-2xl font-bold tracking-tight text-foreground">
         Daftar akun
       </h1>
       <p className="mt-1.5 text-sm text-muted">

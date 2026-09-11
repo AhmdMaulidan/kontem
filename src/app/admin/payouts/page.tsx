@@ -8,6 +8,9 @@ import {
   Card,
   CardHeader,
   EmptyState,
+  IconBank,
+  IconBanknote,
+  IconClock,
   PageHeader,
   Stat,
   Table,
@@ -75,11 +78,11 @@ export default async function AdminPayoutsPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Menunggu pencairan"
-          icon="⏳" value={formatIDR(totalPending)} tone="danger" />
+          icon={IconClock} value={formatIDR(totalPending)} tone="danger" />
         <Stat label="Sudah dicairkan"
-          icon="💸" value={formatIDR(totalPaid)} tone="success" />
+          icon={IconBanknote} value={formatIDR(totalPaid)} tone="success" />
         <Stat label="Fee platform terkumpul"
-          icon="🏦" value={formatIDR(totalFee)} />
+          icon={IconBank} value={formatIDR(totalFee)} />
       </div>
 
       <div className="mt-8 space-y-6">

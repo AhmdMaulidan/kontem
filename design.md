@@ -20,81 +20,160 @@ Mengadopsi mekanika performa *views-based* (CPM / Cost Per Mille) seperti Motion
 
 ## 2. Brand Identity & Visual Design Language
 
-> **Referensi Desain**: Mengikuti gaya visual modern, ceria, bersih, dan berkelas seperti referensi *Volume One Studios / Modern Creator SaaS*:
-> - Dominasi warna **Sky Blue / Cyan** yang segar dan membangkitkan rasa percaya (*high-trust*).
-> - Aksen hangat **Warm Amber / Marigold** untuk elemen kuliner, bintang rating, dan *urgency*.
-> - Sudut membulat lembut (*rounded pill / modern curved cards* `rounded-2xl` s/d `rounded-3xl`).
-> - Komponen mengambang (*floating micro-cards & metric chips*) dengan bayangan difus yang elegan (*soft ambient shadows*).
-> - Tipografi modern nan ramah dengan hierarki visual yang kuat (*Plus Jakarta Sans / Inter*).
+> **Referensi Desain**: Landing page *Volume One Studios — The Social Media Manager Insider*.
+> Karakter yang diambil dari referensi tersebut:
+>
+> - **Biru azure yang cerah dan bersahabat**, bukan cyan teknis. Biru ini muncul di tombol utama, panel instruktur, dan pita seksi — dominan tapi tidak pernah gelap.
+> - **Latar putih hangat** sebagai dasar, diselingi **pita biru sangat pucat** untuk memisahkan seksi tanpa garis tegas.
+> - **Aksen marigold** dipakai hemat: konfeti dekoratif, bintang rating, dan satu sorotan angka. Tidak pernah untuk tombol utama.
+> - **Teks judul biru navy pekat**, bukan hitam — menjaga kesan hangat sekaligus kontras tinggi.
+> - **Sudut sangat membulat**: tombol berbentuk pill penuh, kartu 16–20px, panel besar 24–32px.
+> - **Kartu putih mengambang** dengan bayangan difus berpendar biru tipis, dipakai untuk menonjolkan metrik dan testimoni.
+> - **Konfeti vektor datar** (bentuk kelopak kecil biru muda & marigold) tersebar tipis di latar. Bentuk tegas, bukan blur.
+> - **Tipografi geometris yang ramah** dengan judul tebal ber-*tracking* rapat dan teks isi berbobot ringan.
+
+**Catatan kalibrasi**: nilai hex di bawah diturunkan secara visual dari tangkapan layar referensi, lalu dirapikan menjadi skala 50–800 yang konsisten. Nilai inilah yang berlaku — bukan padanan Tailwind bawaan.
 
 ### 2.1 Color Palette & Design Tokens
 
 ```css
-/* Design Tokens (Tailwind v4 / CSS Variables) */
+/* Design Tokens Kontem (Tailwind v4 / CSS Variables) */
 :root {
-  /* Brand Primary - Vibrant Sky & Cyan (Utama) */
-  --brand-50:  #f0f9ff;
-  --brand-100: #e0f2fe;
-  --brand-200: #bae6fd;
-  --brand-400: #38bdf8; /* Accent Highlights */
-  --brand-500: #0ea5e9; /* Primary Action Button & Main Theme */
-  --brand-600: #0284c7; /* Hover & Active States */
-  --brand-700: #0369a1;
+  /* ---------- Brand Primary — Azure ----------
+     Tombol utama, panel sorotan, tautan, state aktif. */
+  --brand-50:  #f1f8fe;
+  --brand-100: #ddeefc;
+  --brand-200: #bfe0fa;  /* garis tepi bernuansa brand */
+  --brand-300: #95cdf6;
+  --brand-400: #6eb8f3;  /* konfeti biru, aksen ringan */
+  --brand-500: #4ba3ef;  /* PRIMARY — tombol & panel instruktur */
+  --brand-600: #2e88dc;  /* hover / active */
+  --brand-700: #236fb4;
+  --brand-800: #1d5a92;
 
-  /* Secondary Accent - Warm Amber & Tangerine (Rating, Komplimen, Alert) */
-  --accent-50:  #fffbeb;
-  --accent-100: #fef3c7;
-  --accent-400: #fbbf24;
-  --accent-500: #f59e0b;
-  --accent-600: #d97706;
+  /* ---------- Secondary Accent — Marigold ----------
+     Konfeti, bintang rating, badge komplimen, sorotan angka.
+     TIDAK untuk tombol aksi utama. */
+  --accent-50:  #fff9ec;
+  --accent-100: #fdefcd;
+  --accent-300: #f9dc97;
+  --accent-400: #f7c765;  /* konfeti marigold */
+  --accent-500: #f4b13c;  /* bintang rating */
+  --accent-600: #db9724;
 
-  /* Neutrals & Surfaces */
-  --bg-main:       #f8fafc; /* Slate-50: Latar belakang aplikasi yang sangat lembut */
-  --surface-card:  #ffffff; /* Pure White Card */
-  --surface-muted: #f1f5f9; /* Slate-100 */
-  --text-heading:  #0f172a; /* Slate-900: Kontras tajam dan terbaca */
-  --text-body:     #334155; /* Slate-700 */
-  --text-muted:    #64748b; /* Slate-500 */
-  --border-subtle: #e2e8f0; /* Slate-200 */
-  --border-brand:  #bae6fd; /* Sky-200 */
+  /* ---------- Ink — Navy kebiruan, bukan hitam ---------- */
+  --ink-heading: #13304e;  /* judul & angka penting */
+  --ink-body:    #53657a;  /* teks isi */
+  --ink-muted:   #8496a8;  /* label, keterangan, placeholder */
 
-  /* Status Tokens */
-  --success-bg:    #ecfdf5; /* Emerald-50 */
-  --success-text:  #059669; /* Emerald-600 */
-  --warning-bg:    #fffbeb; /* Amber-50 */
-  --warning-text:  #d97706; /* Amber-600 */
-  --danger-bg:     #fef2f2; /* Rose-50 */
-  --danger-text:   #e11d48; /* Rose-600 */
+  /* ---------- Surfaces ---------- */
+  --bg-page:    #ffffff;   /* dasar halaman */
+  --bg-warm:    #fdfcf9;   /* header & area hero, putih kehangatan */
+  --bg-soft:    #e9f4fd;   /* pita seksi biru pucat */
+  --surface:    #ffffff;   /* kartu */
+  --surface-muted: #f3f7fa;/* baris tabel, kotak info dalam kartu */
+
+  /* ---------- Borders ---------- */
+  --border-subtle: #e3edf5; /* garis tepi umum, bernuansa biru */
+  --border-brand:  #bfe0fa; /* garis tepi kartu aktif/terpilih */
+
+  /* ---------- Status ----------
+     Disetel ulang agar duduk berdampingan dengan azure:
+     semuanya diturunkan saturasinya supaya tidak berteriak. */
+  --success:      #0f9d76;  --success-bg: #e8f8f2;  --success-line: #b4e7d6;
+  --warning:      #d9891b;  --warning-bg: #fff7e8;  --warning-line: #f8dfa8;
+  --danger:       #e0555f;  --danger-bg:  #fdedee;  --danger-line:  #f7c9cd;
+  --review:       #5566d6;  --review-bg:  #eef0fd;  --review-line:  #cdd4f7;
+  --visit:        #236fb4;  --visit-bg:   #f1f8fe;  --visit-line:   #bfe0fa;
+  --payout:       #0e8f8a;  --payout-bg:  #e9f7f6;  --payout-line:  #a9e4e1;
 }
 ```
 
+**Proporsi pemakaian warna** — inilah yang membuat tampilan terasa seperti referensi, bukan sekadar hex yang sama:
+
+| Warna | Porsi layar | Dipakai untuk |
+| :--- | :--- | :--- |
+| Putih & putih hangat | ±70% | Dasar halaman dan kartu |
+| Biru pucat `--bg-soft` | ±15% | Pita pemisah seksi, panel hero |
+| Azure `--brand-500` | ±10% | Tombol utama, panel sorotan, ikon aktif |
+| Navy `--ink-heading` | ±4% | Judul dan angka penting |
+| Marigold | ±1% | Konfeti, bintang, satu sorotan per layar |
+
+Marigold yang melebihi porsi itu membuat halaman terasa seperti promo diskon. Azure yang melebihi porsinya membuat halaman terasa seperti dasbor korporat.
+
 ### 2.2 Typography Hierarchy
 
-| Level | Desktop Size / Weight | Mobile Size / Weight | Karakter & Penggunaan |
-| :--- | :--- | :--- | :--- |
-| **Hero Display** | 48px – 56px / ExtraBold (800) | 36px / Bold (700) | `tracking-tight`, headline landing page dengan highlight warna brand |
-| **H1 (Page Title)**| 32px – 36px / Bold (700) | 26px / Bold (700) | Header dashboard & judul modul |
-| **H2 (Section)** | 24px – 28px / SemiBold (600) | 20px / SemiBold (600) | Judul seksi landing page & card besar |
-| **H3 (Card Title)**| 18px – 20px / SemiBold (600) | 16px / SemiBold (600) | Judul kampanye, nama outlet, modal title |
-| **Body Regular** | 15px – 16px / Regular (400) | 14px / Regular (400) | Teks deskripsi brief, penjelasan alur |
-| **Micro / Badges**| 12px – 13px / Medium & SemiBold | 11px – 12px / Medium | Status pill, chip tag, CPM counter, tabular data |
+Dua keluarga huruf, keduanya tersedia di Google Fonts:
+
+- **Judul — `Plus Jakarta Sans`** (600/700/800). Geometris, hangat, dengan bentuk huruf membulat yang cocok dengan sudut kartu.
+- **Teks & antarmuka — `Inter`** (400/500/600). Netral dan sangat terbaca pada ukuran kecil seperti label tabel dan angka tabular.
+
+```css
+--font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+--font-sans:    "Inter", ui-sans-serif, system-ui, sans-serif;
+```
+
+| Level | Desktop | Mobile | Keluarga & Bobot | Tracking |
+| :--- | :--- | :--- | :--- | :--- |
+| **Hero Display** | 48–56px | 34–38px | Display / ExtraBold 800 | `-0.03em` |
+| **H1 (Page Title)** | 30–34px | 25px | Display / Bold 700 | `-0.02em` |
+| **H2 (Section)** | 24–28px | 21px | Display / Bold 700 | `-0.02em` |
+| **H3 (Card Title)** | 17–19px | 16px | Display / SemiBold 600 | `-0.01em` |
+| **Body Large** | 16–17px | 15px | Sans / Regular 400 | normal |
+| **Body Regular** | 14–15px | 14px | Sans / Regular 400 | normal |
+| **Label & Badge** | 12–13px | 11–12px | Sans / SemiBold 600 | `0.01em` |
+| **Angka tabular** | mengikuti konteks | — | Sans / SemiBold 600 + `tabular-nums` | normal |
+
+Aturan penting yang terbaca dari referensi:
+
+1. **Judul selalu navy, tidak pernah biru azure.** Azure hanya untuk satu frasa yang sengaja disorot di dalam judul.
+2. **Tinggi baris judul rapat** (`leading-[1.1]`), tinggi baris teks isi longgar (`leading-relaxed`).
+3. **Jangan menumpuk bobot tebal.** Dalam satu kartu hanya ada satu elemen berbobot 700 ke atas.
+4. **Label kecil tidak memakai huruf kapital semua.** Referensi memakai *sentence case* dengan bobot SemiBold.
 
 ### 2.3 UI Geometry, Elevation & Micro-Interactions
 
-1. **Border Radius**:
-   - Buttons, Inputs, Pill Badges: `rounded-full` (9999px)
-   - Standard Cards & Feature Boxes: `rounded-2xl` (16px)
-   - Hero Highlight Containers, Modals: `rounded-3xl` (24px)
-2. **Shadow & Elevation (Soft Diffusion)**:
-   - Floating Cards: `box-shadow: 0 20px 30px -10px rgba(14, 165, 233, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.04);`
-   - Normal Cards: `box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);`
-   - Hover Card Transition: `transform: translateY(-3px); box-shadow: 0 12px 24px -6px rgba(14, 165, 233, 0.15);`
-3. **Decorative Elements (Sesuai Desain Acuan)**:
-   - Floating badge dengan avatar tumpuk (*stacked avatars*) + bintang kepuasan (⭐️ 5.0).
-   - Soft organic blobs di latar belakang hero (kuning pastel & biru langit transparan).
-   - Mini metric widget mengambang: chip persentase naik (`+28% views bulan ini`), nominal payout, dan ikon hati/senyum.
+**Radius**
 
----
+| Elemen | Radius |
+| :--- | :--- |
+| Tombol, badge, pill, chip, tab | `rounded-full` |
+| Input, select, textarea | 12px (`rounded-xl`) |
+| Kartu standar & kartu fitur | 16px (`rounded-2xl`) |
+| Panel besar, banner, modal, kartu harga | 24px (`rounded-3xl`) |
+| Kotak ikon di dalam kartu | 12px (`rounded-xl`) |
+
+**Elevasi** — bayangan berpendar biru tipis, bukan abu-abu netral:
+
+```css
+--shadow-card:  0 1px 2px rgba(19, 48, 78, 0.04),
+                0 2px 6px rgba(19, 48, 78, 0.04);
+--shadow-float: 0 18px 32px -12px rgba(75, 163, 239, 0.22),
+                0 6px 12px -6px rgba(19, 48, 78, 0.06);
+--shadow-lift:  0 14px 26px -10px rgba(75, 163, 239, 0.26);
+--shadow-brand: 0 6px 16px -6px rgba(75, 163, 239, 0.50);
+```
+
+- **Kartu biasa** memakai `--shadow-card` plus garis tepi `--border-subtle`. Bayangan sendirian tidak cukup memisahkan kartu dari latar putih.
+- **Kartu mengambang** (metrik, testimoni, kartu harga) memakai `--shadow-float` tanpa garis tepi.
+- **Tombol primary** memakai `--shadow-brand`.
+
+**Micro-interaction**
+
+- Kartu yang bisa diklik: `translateY(-2px)` + `--shadow-lift`, transisi 180ms.
+- Tombol: `scale(1.02)` saat hover, `scale(0.98)` saat ditekan.
+- Fokus keyboard: cincin 4px `--brand-100` dengan garis tepi `--brand-400`. Wajib terlihat jelas — jangan dimatikan.
+
+**Elemen dekoratif**
+
+Referensi memakai konfeti vektor datar: bentuk kelopak/oval kecil (8–20px) berwarna `--brand-400` dan `--accent-400`, tersebar jarang di sekitar hero dan judul seksi, dengan opasitas penuh dan tepi tajam.
+
+- **Boleh**: bentuk SVG datar bertepi tajam, jumlahnya sedikit (4–8 per layar), tidak pernah menutupi teks.
+- **Jangan**: lingkaran ber-*blur* besar (blob gradien). Efek itu membuat halaman terlihat seperti template generik, dan sudah dihapus dari implementasi — lihat bagian 10.
+
+**Ikon**
+
+Ikon adalah SVG bergaya garis (*stroke*) dengan ketebalan 2px dan sudut membulat, diletakkan di dalam kotak `rounded-xl` berlatar lembut sewarna maknanya (biru untuk netral/informasi, marigold untuk komplimen, hijau untuk status selesai). **Emoji tidak dipakai sebagai ikon antarmuka** — lihat bagian 10.
 
 ## 3. Arsitektur Peran & Alur Pengguna (User Journeys)
 
@@ -240,6 +319,9 @@ Kondisi B: Total Tagihan CPM >= Budget Pool (Over-Cap)
 > Seluruh halaman dirancang dengan adaptasi langsung dari **Visual Referensi Desain** yang dikirimkan: menggunakan card putih membal, aksen pill button cyan cerah, floating micro-card statistik, avatar sosial, dan layout yang bernafas lapang.
 
 ### 5.1 LANDING PAGE (Sesuai Struktur Desain Referensi)
+
+> Emoji pada sketsa di bawah hanya penanda posisi ikon dalam diagram ASCII —
+> pada implementasi semuanya menjadi ikon SVG garis. Lihat bagian 2.3 dan 10.
 
 ```
 +-----------------------------------------------------------------------------------------------+
@@ -421,40 +503,108 @@ Kondisi B: Total Tagihan CPM >= Budget Pool (Over-Cap)
 ### 6.1 Buttons & Interactive Controls
 
 ```tsx
-// Variasi Tombol (Pill Style Sesuai Desain Acuan)
-PrimaryButton:   "bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-full px-6 py-3 shadow-md shadow-sky-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-SecondaryButton: "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium rounded-full px-6 py-3 shadow-sm transition-all"
-GhostIconButton: "p-2 rounded-full hover:bg-sky-50 text-sky-600 transition-colors"
-BadgePill:       "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide"
+// Semua tombol berbentuk pill penuh, padding lega, transisi 180ms.
+PrimaryButton:
+  "rounded-full bg-[--brand-500] px-6 py-3 text-sm font-semibold text-white
+   shadow-[--shadow-brand] transition-all
+   hover:bg-[--brand-600] hover:scale-[1.02] active:scale-[0.98]"
+
+SecondaryButton:
+  "rounded-full border border-[--border-subtle] bg-white px-6 py-3 text-sm
+   font-semibold text-[--ink-body] shadow-[--shadow-card] transition-all
+   hover:border-[--border-brand] hover:bg-[--bg-warm]"
+
+AccentButton:   // hanya untuk sorotan sekunder, bukan aksi utama
+  "rounded-full bg-[--accent-500] px-6 py-3 text-sm font-semibold text-white
+   hover:bg-[--accent-600]"
+
+GhostButton:
+  "rounded-full px-4 py-2 text-sm font-medium text-[--ink-muted]
+   transition-colors hover:bg-[--brand-50] hover:text-[--brand-700]"
+
+// Kontrol isian memakai radius 12px, bukan pill — teks panjang harus terbaca.
+Input:
+  "w-full rounded-xl border border-[--border-subtle] bg-white px-4 py-2.5
+   text-sm text-[--ink-body] outline-none transition-colors
+   placeholder:text-[--ink-muted]
+   focus:border-[--brand-400] focus:ring-4 focus:ring-[--brand-100]"
 ```
 
-### 6.2 Floating Badges & Card Decorators
+Aturan hierarki: **satu tombol primary per layar**. Aksi lain memakai
+secondary atau ghost. Dua tombol azure bersebelahan membuat pengguna ragu mana
+langkah yang dimaksud.
+
+### 6.2 Floating Cards & Metric Chips
+
+Kartu putih mengambang dipakai untuk menonjolkan satu angka atau satu kutipan —
+persis seperti kartu "Monthly Income" dan kartu testimoni pada referensi.
 
 ```tsx
-// Floating Metric Chip (Untuk Hero & Visual Banner)
-<div className="absolute -top-4 -right-4 bg-white/95 backdrop-blur-md border border-sky-100 rounded-2xl p-3.5 shadow-xl shadow-sky-900/5 flex items-center gap-3">
-  <div className="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center text-sky-500 font-bold">
-    📈
-  </div>
-  <div>
-    <p className="text-xs text-slate-500 font-medium">Estimasi Views</p>
-    <p className="text-sm font-bold text-slate-800 tabular-nums">48.500+ Tayang</p>
-  </div>
+<div className="rounded-2xl bg-white p-4 shadow-[--shadow-float]">
+  <p className="text-xs text-[--ink-muted]">Estimasi penghasilan</p>
+  <p className="mt-1 font-display text-lg font-bold tabular-nums
+                text-[--ink-heading]">
+    Rp 1.105.000
+  </p>
+  <p className="mt-0.5 text-xs font-semibold text-[--success]">
+    +28% pekan ini
+  </p>
 </div>
 ```
 
+Ketentuan:
+
+- Isinya maksimal tiga baris: label, angka, satu keterangan pendek.
+- Tanpa garis tepi — bayangan mengambang yang memisahkannya dari latar.
+- Maksimal tiga kartu mengambang per layar. Lebih dari itu tidak ada lagi yang terasa menonjol.
+- **Angka di dalamnya wajib berasal dari database.** Kartu metrik berisi angka karangan adalah alasan utama sebuah halaman terbaca sebagai template.
+
 ### 6.3 State & Status Indicator Matrix
 
-| State Name | Background | Text Color | Border Color | Icon |
-| :--- | :--- | :--- | :--- | :--- |
-| **Escrow Dikunci** | `bg-emerald-50` | `text-emerald-700` | `border-emerald-200` | 🔒 Gembok |
-| **Menunggu Kunjungan**| `bg-amber-50` | `text-amber-700` | `border-amber-200` | 📍 Pin Lokasi |
-| **Terkonfirmasi Hadir** | `bg-sky-50` | `text-sky-700` | `border-sky-200` | ☕ Cangkir/Check |
-| **Dalam Review Vendor**| `bg-indigo-50`| `text-indigo-700` | `border-indigo-200` | ⏳ Jam Pasir |
-| **Dispute / Sengketa** | `bg-rose-50` | `text-rose-700` | `border-rose-200` | ⚠️ Segitiga Waspada |
-| **Payout Dicairkan** | `bg-teal-50` | `text-teal-700` | `border-teal-200` | 💸 Dompet Cuan |
+Semua badge berbentuk pill dengan garis tepi tipis, latar lembut, dan ikon garis
+berukuran 14px di sebelah kiri.
 
----
+| State | Token latar | Token teks | Token garis | Ikon |
+| :--- | :--- | :--- | :--- | :--- |
+| **Escrow dikunci / disetujui** | `--success-bg` | `--success` | `--success-line` | Check |
+| **Menunggu kunjungan** | `--warning-bg` | `--warning` | `--warning-line` | MapPin |
+| **Kunjungan terkonfirmasi** | `--visit-bg` | `--visit` | `--visit-line` | Coffee |
+| **Dalam review vendor** | `--review-bg` | `--review` | `--review-line` | Clock |
+| **Ditolak / sengketa** | `--danger-bg` | `--danger` | `--danger-line` | AlertTriangle |
+| **Payout dicairkan** | `--payout-bg` | `--payout` | `--payout-line` | Wallet |
+| **Komplimen / sorotan** | `--accent-50` | `--accent-600` | `--accent-100` | Star |
+| **Netral / draft** | `--surface-muted` | `--ink-muted` | `--border-subtle` | — |
+
+```tsx
+BadgePill:
+  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1
+   text-xs font-semibold"
+```
+
+### 6.4 Kartu Fitur & Kotak Ikon
+
+Kartu fitur pada referensi berisi kotak ikon kecil di atas, judul pendek, lalu
+dua baris penjelasan — bukan paragraf panjang.
+
+```tsx
+<div className="rounded-2xl border border-[--border-subtle] bg-white p-5
+                shadow-[--shadow-card]">
+  <div className="flex h-10 w-10 items-center justify-center rounded-xl
+                  bg-[--brand-50] text-[--brand-700]">
+    <IconShield className="h-5 w-5" strokeWidth={2} />
+  </div>
+  <h3 className="mt-4 font-display font-semibold text-[--ink-heading]">
+    Dana dikunci di escrow
+  </h3>
+  <p className="mt-1.5 text-sm leading-relaxed text-[--ink-muted]">
+    Vendor menyetor di depan. Creator tidak pernah bekerja tanpa jaminan.
+  </p>
+</div>
+```
+
+Warna kotak ikon mengikuti maknanya, bukan dirotasi asal supaya "berwarna-warni":
+biru untuk mekanisme netral, marigold untuk komplimen dan imbalan, hijau untuk
+hasil yang sudah beres.
 
 ## 7. Skema Data & Relasi Entitas (Prisma References)
 
@@ -574,11 +724,55 @@ Bila Anda menginstruksikan Claude untuk membuat atau memodifikasi halaman dalam 
 ```markdown
 "Tolong buatkan komponen/halaman [Nama Halaman/Fitur] untuk Kontem. 
 Gunakan panduan dari design.md:
-- Visual Style: Mengacu pada design system cerah dengan primary sky-500, aksen amber-500, rounded pill buttons, rounded-2xl cards, dan soft ambient shadows.
+- Visual Style: Ikuti token pada bagian 2.1 — primary azure `--brand-500` (#4ba3ef), aksen marigold `--accent-500` dipakai hemat, judul navy `--ink-heading`, tombol pill, kartu `rounded-2xl`, bayangan difus berpendar biru. Jangan memakai padanan Tailwind bawaan seperti `sky-500` atau `amber-500`.
 - Role: [CREATOR / VENDOR / ADMIN]
 - Logic & Guardrail: Pastikan validasi alur [misal: status redeem code sebelum submit / escrow check].
 - Gunakan Next.js 16 App Router, Tailwind CSS v4, dan TypeScript."
 ```
 
 ---
+## 10. Catatan Implementasi & Status Sinkronisasi
+
+### 10.1 Keputusan yang sudah diserap ke dalam spesifikasi
+
+Setelah tinjauan tampilan pertama, enam ketentuan versi awal dokumen ini diubah
+karena hasilnya terbaca sebagai desain hasil generate mesin, bukan desain yang
+dirancang. Perubahannya **sudah dijadikan aturan resmi** di bagian 2 dan 6:
+
+| Versi awal | Berlaku sekarang | Alasan |
+| :--- | :--- | :--- |
+| Ikon emoji (🚀 👥 💰 📍 🛡️ 📈) | Ikon SVG garis 2px | Emoji berbeda bentuk di tiap OS dan tidak bisa mengikuti token warna |
+| Soft organic blob ber-*blur* | Konfeti vektor datar bertepi tajam | Blob gradien adalah penanda template generik |
+| Container gradien | Permukaan datar + garis tepi | Gradien bertumpuk menurunkan keterbacaan |
+| Stacked avatar + rating ⭐️ 5.0 | Dihapus | Data karangan |
+| "2.500+ kreator telah bergabung" | Hitungan nyata dari database | Angka publik tidak boleh dikarang |
+| ExtraBold menyeluruh | Bold untuk judul, SemiBold untuk sisanya | Penekanan menyeluruh meniadakan penekanan |
+
+Aturan operasionalnya ada di `CONVENTIONS.md` bagian "Ikon" dan "Menahan diri
+dalam dekorasi".
+
+### 10.2 Selisih spesifikasi terhadap kode saat ini
+
+Palet dan tipografi pada bagian 2 **baru dikalibrasi ulang ke referensi Volume
+One Studios dan belum diterapkan ke kode.** Yang masih berbeda:
+
+| Aspek | Kode saat ini | Spesifikasi baru |
+| :--- | :--- | :--- |
+| Primary | `#0ea5e9` (sky, cenderung cyan) | `#4ba3ef` (azure, lebih lembut) |
+| Aksen | `#f59e0b` | `#f4b13c` |
+| Warna judul | `#0f172a` (slate, netral) | `#13304e` (navy kebiruan) |
+| Warna teks isi | `#334155` | `#53657a` |
+| Latar halaman | `#f8fafc` rata | `#ffffff` + pita `#e9f4fd` + hero `#fdfcf9` |
+| Garis tepi | `#e2e8f0` (abu netral) | `#e3edf5` (bernuansa biru) |
+| Huruf | Plus Jakarta Sans untuk semua | Plus Jakarta Sans (judul) + Inter (isi) |
+| Status | Nada penuh | Saturasi diturunkan agar duduk dengan azure |
+| Bayangan | Berpendar `rgba(14,165,233,…)` | Berpendar `rgba(75,163,239,…)`, lebih halus |
+| Dekorasi | Tidak ada | Konfeti vektor datar, 4–8 per layar |
+
+Titik sentuh penerapan terpusat di dua berkas: `src/app/globals.css` untuk
+seluruh token, dan `src/components/ui/` untuk komponennya. Halaman tidak perlu
+disentuh karena semuanya memakai token dan barrel design system.
+
+---
+
 *Dokumen ini adalah acuan desain resmi (Single Source of Truth) untuk pengembangan antarmuka dan implementasi sistem Kontem.*

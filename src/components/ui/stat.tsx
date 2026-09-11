@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { LucideIcon } from "./icon";
 import { Card } from "./card";
 import { cn } from "./utils";
 
@@ -24,8 +25,9 @@ export function Stat({
   value: ReactNode;
   hint?: ReactNode;
   tone?: "brand" | "accent" | "success" | "danger";
-  icon?: ReactNode;
+  icon?: LucideIcon;
 }) {
+  const StatIcon = icon;
   const valueTone =
     tone === "brand"
       ? "text-brand-700"
@@ -40,14 +42,14 @@ export function Stat({
   return (
     <Card className="p-4" hover>
       <div className="flex items-start gap-3">
-        {icon ? (
+        {StatIcon ? (
           <div
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base",
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
               toneRing[tone ?? "brand"],
             )}
           >
-            {icon}
+            <StatIcon className="h-4.5 w-4.5" strokeWidth={2} aria-hidden />
           </div>
         ) : null}
         <div className="min-w-0">

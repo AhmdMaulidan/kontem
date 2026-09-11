@@ -13,34 +13,41 @@ export function Badge({
   icon?: boolean;
   children: ReactNode;
 }) {
+  const ToneIcon = toneIcons[tone];
+
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold tracking-wide whitespace-nowrap",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold whitespace-nowrap",
         toneClasses[tone],
       )}
     >
-      {icon && toneIcons[tone] ? <span aria-hidden>{toneIcons[tone]}</span> : null}
+      {icon && ToneIcon ? (
+        <ToneIcon className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+      ) : null}
       {children}
     </span>
   );
 }
 
-/** Pill dekoratif untuk penanda seksi, mis. "✨ Kenapa Kontem Lebih Unggul". */
+/** Pill dekoratif untuk penanda seksi. */
 export function PillLabel({
   tone = "sky",
+  icon: PillIcon,
   children,
 }: {
   tone?: BadgeTone;
+  icon?: React.ComponentType<{ className?: string }>;
   children: ReactNode;
 }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold",
+        "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold",
         toneClasses[tone],
       )}
     >
+      {PillIcon ? <PillIcon className="h-3.5 w-3.5" /> : null}
       {children}
     </span>
   );
