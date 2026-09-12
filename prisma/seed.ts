@@ -154,6 +154,126 @@ async function main() {
   });
 
   // Vendor ini sengaja dibiarkan menunggu supaya panel approval admin ada isinya.
+  const vendorKafe = await db.user.create({
+    data: {
+      role: "VENDOR",
+      email: "vendor@kafearsip.id",
+      name: "Dimas Prakoso",
+      phone: "081234567804",
+      passwordHash,
+      status: "VERIFIED",
+      vendorProfile: {
+        create: {
+          businessName: "Kafe Arsip Surabaya",
+          category: "KULINER",
+          description:
+            "Kafe dengan ruang kerja bersama dan koleksi buku, cocok untuk konten produktif.",
+          address: "Jl. Dharmawangsa No. 48, Gubeng",
+          city: "Surabaya",
+          province: "Jawa Timur",
+          latitude: -7.2687,
+          longitude: 112.7581,
+          photos: ["/demo/kafe-arsip-1.jpg"],
+          mapsUrl: "https://maps.google.com/?q=-7.2687,112.7581",
+          picName: "Dimas Prakoso",
+          picPhone: "081234567804",
+          verifiedAt: daysFromNow(-22),
+          verifiedById: admin.id,
+        },
+      },
+    },
+  });
+
+  const vendorPantai = await db.user.create({
+    data: {
+      role: "VENDOR",
+      email: "vendor@pantailestari.id",
+      name: "Ayu Kartika",
+      phone: "081234567805",
+      passwordHash,
+      status: "VERIFIED",
+      vendorProfile: {
+        create: {
+          businessName: "Pantai Lestari Gunungkidul",
+          category: "WISATA_ALAM",
+          description:
+            "Pantai berpasir putih dengan area camping dan spot sunset.",
+          address: "Desa Kemadang, Kec. Tanjungsari",
+          city: "Gunungkidul",
+          province: "DI Yogyakarta",
+          latitude: -8.1364,
+          longitude: 110.5931,
+          photos: ["/demo/pantai-lestari-1.jpg"],
+          mapsUrl: "https://maps.google.com/?q=-8.1364,110.5931",
+          picName: "Ayu Kartika",
+          picPhone: "081234567805",
+          verifiedAt: daysFromNow(-14),
+          verifiedById: admin.id,
+        },
+      },
+    },
+  });
+
+  const vendorDanau = await db.user.create({
+    data: {
+      role: "VENDOR",
+      email: "vendor@danautirta.id",
+      name: "Rangga Wibowo",
+      phone: "081234567806",
+      passwordHash,
+      status: "VERIFIED",
+      vendorProfile: {
+        create: {
+          businessName: "Danau Tirta Recreation Park",
+          category: "WISATA_BUATAN",
+          description:
+            "Danau buatan dengan sewa perahu, jalur sepeda, dan food court tepi air.",
+          address: "Jl. Raya Pujon KM 8, Ngantang",
+          city: "Malang",
+          province: "Jawa Timur",
+          latitude: -7.8412,
+          longitude: 112.4187,
+          photos: ["/demo/danau-tirta-1.jpg"],
+          mapsUrl: "https://maps.google.com/?q=-7.8412,112.4187",
+          picName: "Rangga Wibowo",
+          picPhone: "081234567806",
+          verifiedAt: daysFromNow(-9),
+          verifiedById: admin.id,
+        },
+      },
+    },
+  });
+
+  const vendorPanggung = await db.user.create({
+    data: {
+      role: "VENDOR",
+      email: "vendor@panggungkota.id",
+      name: "Laras Anindya",
+      phone: "081234567807",
+      passwordHash,
+      status: "VERIFIED",
+      vendorProfile: {
+        create: {
+          businessName: "Panggung Kota Semarang",
+          category: "LAINNYA",
+          description:
+            "Ruang pertunjukan musik mingguan dengan panggung terbuka dan area jajanan.",
+          address: "Jl. Pemuda No. 148, Semarang Tengah",
+          city: "Semarang",
+          province: "Jawa Tengah",
+          latitude: -6.9825,
+          longitude: 110.4098,
+          photos: ["/demo/panggung-kota-1.jpg"],
+          mapsUrl: "https://maps.google.com/?q=-6.9825,110.4098",
+          picName: "Laras Anindya",
+          picPhone: "081234567807",
+          verifiedAt: daysFromNow(-6),
+          verifiedById: admin.id,
+        },
+      },
+    },
+  });
+
   const vendorBaru = await db.user.create({
     data: {
       role: "VENDOR",
@@ -512,6 +632,149 @@ async function main() {
     },
   });
 
+  // ---------------------------------------------------------------- campaign aktif lainnya
+
+  // Empat campaign aktif tambahan supaya katalog halaman depan terisi enam
+  // kartu — cukup untuk melihat grid dua barisnya, dan tetap data nyata,
+  // bukan angka contoh yang ditulis di JSX (design.md bagian 10.1).
+  console.log("Membuat campaign aktif lainnya...");
+
+  const campaignAktifLain = [
+    {
+      vendorId: vendorKafe.id,
+      title: "Work From Kafe — Sesi Pagi",
+      category: "KULINER" as const,
+      description:
+        "Cari creator Surabaya untuk menunjukkan suasana kerja pagi dan menu sarapan.",
+      briefAngle:
+        "Tunjukkan sudut kerja favorit, colokan, dan menu sarapan andalan.",
+      briefMustShow: ["Nama 'Kafe Arsip Surabaya'", "Area kerja lantai dua"],
+      briefProhibited: ["Merekam tamu lain tanpa izin"],
+      budgetPool: 2_200_000,
+      cpmRate: 14_000,
+      maxCreators: 7,
+      complimentType: "Gratis kopi + roti bakar",
+      complimentValue: 55_000,
+      startDate: daysFromNow(-5),
+      endDate: daysFromNow(16),
+      reference: "DEMO-TRX-004",
+    },
+    {
+      vendorId: vendorPantai.id,
+      title: "Sunset Camping — Pantai Lestari",
+      category: "WISATA_ALAM" as const,
+      description:
+        "Butuh konten yang menunjukkan area camping dan proses reservasinya.",
+      briefAngle: "Dari parkiran sampai tenda berdiri, lalu sunset dari bibir pantai.",
+      briefMustShow: ["Nama 'Pantai Lestari'", "Tarif camping Rp 35.000"],
+      briefProhibited: ["Menyalakan api unggun di luar area yang ditentukan"],
+      budgetPool: 3_400_000,
+      cpmRate: 16_000,
+      maxCreators: 12,
+      complimentType: "Tiket masuk + slot camping semalam",
+      complimentValue: 75_000,
+      startDate: daysFromNow(-8),
+      endDate: daysFromNow(22),
+      reference: "DEMO-TRX-005",
+    },
+    {
+      vendorId: vendorKopi.id,
+      title: "Menu Baru Nusantara — Kopi Senja",
+      category: "KULINER" as const,
+      description: "Peluncuran tiga menu kopi rempah, butuh konten rasa jujur.",
+      briefAngle: "Cicip tiga menu rempah baru dan bandingkan karakter rasanya.",
+      briefMustShow: ["Tiga menu rempah baru", "Harga per gelas"],
+      briefProhibited: ["Klaim khasiat kesehatan"],
+      budgetPool: 1_500_000,
+      cpmRate: 13_000,
+      maxCreators: 5,
+      complimentType: "Gratis 3 menu rempah baru",
+      complimentValue: 90_000,
+      startDate: daysFromNow(-3),
+      endDate: daysFromNow(9),
+      reference: "DEMO-TRX-006",
+    },
+    {
+      vendorId: vendorDanau.id,
+      title: "Sewa Perahu Sore — Danau Tirta",
+      category: "WISATA_BUATAN" as const,
+      description:
+        "Konten yang menunjukkan rute perahu dan suasana food court tepi danau.",
+      briefAngle: "Naik perahu saat sore, lalu jajan di food court tepi air.",
+      briefMustShow: ["Nama 'Danau Tirta'", "Tarif sewa perahu Rp 25.000"],
+      briefProhibited: ["Melepas pelampung saat di atas perahu"],
+      budgetPool: 2_600_000,
+      cpmRate: 15_000,
+      maxCreators: 10,
+      complimentType: "Sewa perahu + voucher food court",
+      complimentValue: 70_000,
+      startDate: daysFromNow(-4),
+      endDate: daysFromNow(20),
+      reference: "DEMO-TRX-008",
+    },
+    {
+      vendorId: vendorPanggung.id,
+      title: "Panggung Sabtu Malam — Semarang",
+      category: "LAINNYA" as const,
+      description:
+        "Butuh konten suasana pertunjukan musik mingguan dan cara beli tiketnya.",
+      briefAngle: "Suasana panggung dari antre masuk sampai lagu penutup.",
+      briefMustShow: ["Nama 'Panggung Kota Semarang'", "Jadwal Sabtu 19.00"],
+      briefProhibited: ["Merekam penonton lain dari dekat tanpa izin"],
+      budgetPool: 1_900_000,
+      cpmRate: 14_000,
+      maxCreators: 8,
+      complimentType: "Tiket masuk + minuman",
+      complimentValue: 50_000,
+      startDate: daysFromNow(-6),
+      endDate: daysFromNow(13),
+      reference: "DEMO-TRX-009",
+    },
+    {
+      vendorId: vendorAirTerjun.id,
+      title: "Coban Tirta Sunrise — Batch Kedua",
+      category: "WISATA_ALAM" as const,
+      description: "Konten trek pagi buta sampai matahari terbit di air terjun.",
+      briefAngle: "Perjalanan sebelum subuh, perlengkapan wajib, dan momen sunrise.",
+      briefMustShow: ["Nama 'Coban Tirta'", "Jam buka gerbang 04.30"],
+      briefProhibited: ["Trekking sendirian tanpa pemandu (larangan keselamatan)"],
+      budgetPool: 2_800_000,
+      cpmRate: 17_000,
+      maxCreators: 9,
+      complimentType: "Tiket sunrise + pemandu lokal",
+      complimentValue: 60_000,
+      startDate: daysFromNow(-1),
+      endDate: daysFromNow(30),
+      reference: "DEMO-TRX-007",
+    },
+  ];
+
+  for (const item of campaignAktifLain) {
+    const { reference, ...data } = item;
+    await db.campaign.create({
+      data: {
+        ...data,
+        minDurationSec: 20,
+        allowedPlatforms: ["TIKTOK"],
+        platformFeeRate: 15,
+        trackingEndsAt: daysFromNow(40),
+        status: "ACTIVE",
+        submittedAt: daysFromNow(-12),
+        approvedAt: daysFromNow(-10),
+        approvedById: admin.id,
+        escrow: {
+          create: {
+            type: "DEPOSIT",
+            amount: data.budgetPool,
+            status: "COMPLETED",
+            reference,
+            completedAt: daysFromNow(-10),
+          },
+        },
+      },
+    });
+  }
+
   // ---------------------------------------------------------------- campaign menunggu approval
 
   console.log("Membuat campaign menunggu approval admin...");
@@ -783,6 +1046,10 @@ async function main() {
     { role: "ADMIN", email: admin.email },
     { role: "VENDOR (verified)", email: vendorKopi.email },
     { role: "VENDOR (verified)", email: vendorAirTerjun.email },
+    { role: "VENDOR (verified)", email: vendorKafe.email },
+    { role: "VENDOR (verified)", email: vendorPantai.email },
+    { role: "VENDOR (verified)", email: vendorDanau.email },
+    { role: "VENDOR (verified)", email: vendorPanggung.email },
     { role: "VENDOR (pending)", email: vendorBaru.email },
     ...creators.map((c) => ({ role: "CREATOR", email: c.email })),
   ]);

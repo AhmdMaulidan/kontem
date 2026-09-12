@@ -1,102 +1,101 @@
 import Image from "next/image";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession, dashboardPath } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { formatCompact, formatIDR } from "@/lib/format";
+import { daysUntil, formatIDR } from "@/lib/format";
 import {
   Badge,
   ButtonLink,
   Card,
+  CatalogCard,
+  CountUp,
   IconArrowRight,
   IconCheck,
   IconEye,
-  IconGift,
-  IconMegaphone,
   IconPin,
-  IconScale,
-  IconShield,
-  IconTrend,
-  IconUsers,
-  IconWallet,
-  ProgressBar,
+  LogoInstagram,
+  LogoTikTok,
+  LogoYouTube,
 } from "@/components/ui";
-import { WaveBand } from "./illustrations";
+import { categoryLabel, categoryTone } from "@/lib/labels";
+import { LandingNav } from "./landing-nav";
+import { RibbonBand, WaveBand } from "./illustrations";
 
-const keunggulan = [
-  {
-    Ikon: IconUsers,
-    tone: "text-brand-600",
-    judul: "Tanpa batas followers",
-    isi: "Nano-creator ikut bersaing setara. Yang dinilai performa konten, bukan ukuran akun.",
-  },
-  {
-    Ikon: IconWallet,
-    tone: "text-accent-600",
-    judul: "Dana dikunci di escrow",
-    isi: "Vendor menyetor di depan. Creator tidak pernah bekerja tanpa jaminan bayaran.",
-  },
-  {
-    Ikon: IconScale,
-    tone: "text-brand-600",
-    judul: "Pembagian berbasis CPM",
-    isi: "Pool dibagi proporsional menurut views riil, dihitung sampai satuan rupiah terkecil.",
-  },
-  {
-    Ikon: IconPin,
-    tone: "text-brand-600",
-    judul: "Bukti kunjungan fisik",
-    isi: "Konten hanya bisa dikirim setelah kode redeem ditukar langsung di lokasi.",
-  },
-  {
-    Ikon: IconShield,
-    tone: "text-brand-600",
-    judul: "Penolakan bisa dibanding",
-    isi: "Vendor wajib menuliskan alasan. Creator bisa mengajukan banding, admin yang memutus.",
-  },
-  {
-    Ikon: IconTrend,
-    tone: "text-brand-600",
-    judul: "Transparan dua arah",
-    isi: "Kedua pihak melihat angka views dan serapan budget yang sama, diperbarui berkala.",
-  },
-];
-
+/**
+ * Sembilan langkah alur campaign, dari vendor menyusun sampai payout cair.
+ *
+ * Judul tiap langkah selalu menyebut pelakunya — vendor, admin, creator, atau
+ * sistem — karena alurnya berpindah tangan beberapa kali; langkah tanpa pelaku
+ * membuat pengunjung tidak tahu bagian mana yang jadi tanggung jawabnya.
+ */
 const langkah = [
   {
-    judul: "Vendor menyusun campaign",
-    isi: "Tentukan budget pool, CPM rate, kuota creator, dan brief konten.",
+    judul: "Vendor buat campaign",
+    isi: "Tentukan budget pool, tarif CPM, kuota creator, dan brief kontennya.",
     gambar: "/illustrations/langkah-1-campaign.svg",
   },
   {
-    judul: "Dana masuk escrow",
-    isi: "Budget disetor lebih dulu dan dikunci sampai campaign selesai dihitung.",
-    gambar: "/illustrations/langkah-2-escrow.svg",
+    judul: "Admin approve campaign",
+    isi: "Setelah disetujui, campaign live dan muncul di listing creator.",
+    gambar: "/illustrations/langkah-2-approve.svg",
+  },
+  {
+    judul: "Creator join",
+    isi: "Creator mengambil slot yang tersedia dan menerima kode redeem.",
+    gambar: "/illustrations/langkah-3-join.svg",
   },
   {
     judul: "Creator datang ke lokasi",
-    isi: "Klaim slot, tukar kode redeem di kasir, lalu nikmati komplimennya.",
-    gambar: "/illustrations/langkah-3-kunjungan.svg",
+    isi: "Kode ditukar di tempat, komplimen dinikmati, kunjungan tercatat.",
+    gambar: "/illustrations/langkah-4-lokasi.svg",
   },
   {
-    judul: "Konten tayang & dinilai",
-    isi: "Video dikirim, vendor meninjau, views dilacak selama periode campaign.",
-    gambar: "/illustrations/langkah-4-konten.svg",
+    judul: "Creator submit konten",
+    isi: "Tautan video publik dikirim lewat form submission.",
+    gambar: "/illustrations/langkah-5-submit.svg",
   },
   {
-    judul: "Pool dibagi & cair",
-    isi: "Pembagian proporsional menurut views, langsung ke rekening creator.",
-    gambar: "/illustrations/langkah-5-payout.svg",
+    judul: "Vendor / admin review",
+    isi: "Submission disetujui, atau ditolak dengan alasan yang bisa dibanding.",
+    gambar: "/illustrations/langkah-6-review.svg",
+  },
+  {
+    judul: "Sistem tracking views",
+    isi: "Angka views dilacak berkala selama periode campaign berjalan.",
+    gambar: "/illustrations/langkah-7-tracking.svg",
+  },
+  {
+    judul: "Campaign selesai",
+    isi: "Views dikunci, lalu proporsi tiap creator dihitung dari total views.",
+    gambar: "/illustrations/langkah-8-hitung.svg",
+  },
+  {
+    judul: "Admin cairkan payout",
+    isi: "Pool budget vendor dibagi sesuai proporsi, langsung ke rekening creator.",
+    gambar: "/illustrations/langkah-9-payout.svg",
   },
 ];
 
-const platform = ["TikTok", "Instagram Reels", "YouTube Shorts", "Google Maps"];
+// Enum SocialPlatform mengenal tiga kanal, tapi yang benar-benar dibuka untuk
+// campaign baru sekarang hanya TikTok — dua sisanya ditandai "Segera hadir"
+// supaya creator tidak menyiapkan konten untuk kanal yang belum bisa dipilih
+// saat submit.
+const platform = [
+  { nama: "TikTok", format: "Video pendek", aktif: true, Logo: LogoTikTok },
+  {
+    nama: "Instagram",
+    format: "Reels",
+    aktif: false,
+    Logo: LogoInstagram,
+  },
+  { nama: "YouTube", format: "Shorts", aktif: false, Logo: LogoYouTube },
+];
 
 export default async function LandingPage() {
   const session = await getSession();
   if (session) redirect(dashboardPath(session.role));
 
-  const [campaignAktif, totalCreator, totalVendor, poolAgg, viewsAgg, sorotan] =
+  const [campaignAktif, totalCreator, totalVendor, poolAgg, viewsAgg, katalog] =
     await Promise.all([
       db.campaign.count({ where: { status: "ACTIVE" } }),
       db.user.count({ where: { role: "CREATOR" } }),
@@ -109,82 +108,70 @@ export default async function LandingPage() {
         _sum: { lastViews: true },
         where: { status: { in: ["APPROVED", "ADMIN_APPROVED"] } },
       }),
-      // Campaign aktif dengan pool terbesar dipakai sebagai contoh nyata.
-      db.campaign.findFirst({
-        where: { status: "ACTIVE" },
+      // Delapan campaign aktif dengan pool terbesar — dua baris penuh pada
+      // grid empat kolom. Yang sudah lewat tenggat tidak ikut: kartunya akan
+      // menawarkan slot yang tidak bisa diklaim.
+      db.campaign.findMany({
+        where: { status: "ACTIVE", endDate: { gt: new Date() } },
         include: {
           vendor: { include: { vendorProfile: true } },
           _count: { select: { participations: true } },
         },
         orderBy: { budgetPool: "desc" },
+        take: 8,
       }),
     ]);
 
   // Angka pada kartu kubah selalu berasal dari database — design.md bagian 10.1
   // melarang angka publik yang dikarang.
+  // Urutan warna kubah tetap: azure -> violet -> mango -> melon (design.md
+  // bagian 5.1), tidak diacak per-render. Kubahnya terang, jadi angka dan
+  // labelnya navy — putih di atas warna seterang ini tidak terbaca.
   const angka = [
-    { Ikon: IconUsers, value: String(totalCreator), label: "Creator" },
-    { Ikon: IconMegaphone, value: String(campaignAktif), label: "Campaign" },
-    { Ikon: IconPin, value: String(totalVendor), label: "Vendor" },
     {
-      Ikon: IconEye,
-      value: formatCompact(viewsAgg._sum.lastViews ?? 0),
+      gambar: { src: "/illustrations/Creator.svg", w: 730, h: 1085 },
+      value: totalCreator,
+      label: "Creator",
+      warna: "bg-stat-azure",
+    },
+    {
+      gambar: { src: "/illustrations/Campaign.svg", w: 1287, h: 1464 },
+      value: campaignAktif,
+      label: "Campaign",
+      warna: "bg-stat-violet",
+    },
+    {
+      gambar: { src: "/illustrations/Vendor.svg", w: 1403, h: 1403 },
+      value: totalVendor,
+      label: "Vendor",
+      warna: "bg-stat-mango",
+    },
+    {
+      gambar: { src: "/illustrations/Views.svg", w: 1500, h: 1270 },
+      value: viewsAgg._sum.lastViews ?? 0,
+      compact: true,
       label: "Views",
+      warna: "bg-stat-melon",
     },
   ];
 
   return (
     <div className="bg-surface">
       {/* ------------------------------------------------------------ nav */}
-      <header className="absolute inset-x-0 top-0 z-20">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-5">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-brand-600">
-              <IconPin className="h-4.5 w-4.5" strokeWidth={2.5} />
-            </span>
-            <span className="font-display text-xl font-bold text-white">
-              Kontem
-            </span>
-          </Link>
-
-          <nav className="hidden items-center gap-7 lg:flex">
-            {[
-              { href: "#keunggulan", label: "Keunggulan" },
-              { href: "#cara-kerja", label: "Cara kerja" },
-              { href: "#campaign", label: "Campaign" },
-            ].map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className="text-sm font-medium text-white/90 transition-colors hover:text-white"
-              >
-                {item.label}
-              </a>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <ButtonLink href="/login" variant="outlineLight" size="sm">
-              Masuk
-            </ButtonLink>
-            <ButtonLink href="/register" size="sm">
-              Daftar
-            </ButtonLink>
-          </div>
-        </div>
-      </header>
+      <LandingNav />
 
       <main>
         {/* -------------------------------------------------------- hero */}
         <section className="relative bg-brand-300 pt-24">
           <div className="mx-auto flex max-w-6xl flex-col-reverse items-center gap-8 px-4 pb-4 lg:flex-row lg:gap-10 lg:pb-0">
             <div className="flex-[3] text-center lg:text-left">
-              <h1 className="font-display text-[1.85rem] leading-tight font-bold text-white lg:text-[3.25rem]">
-                Promosikan tempatmu lewat kreator lokal, bayar sesuai views
+              <h1 className="font-display text-[2rem] leading-[1.16] font-bold tracking-tight text-white drop-shadow-[0_2px_4px_rgba(2,132,199,0.2)] sm:text-4xl lg:text-[3.25rem]">
+                Promosikan tempatmu lewat kreator lokal,{" "}
+                <span className="block text-brand-700">
+                  bayar sesuai views
+                </span>
               </h1>
-              {/* Navy, bukan putih: teks 15px putih di atas biru langit hanya
-                  mencapai rasio kontras ~1,9:1 dan praktis tidak terbaca. */}
-              <p className="mt-3 text-[15px] text-foreground/80 lg:text-xl">
+              <p className="mt-4 max-w-xl text-base font-medium text-foreground lg:text-xl lg:leading-relaxed">
                 Budget dikunci di escrow, kunjungan dibuktikan di lokasi, dan
                 pembagian mengikuti views yang benar-benar tercipta.
               </p>
@@ -202,12 +189,14 @@ export default async function LandingPage() {
                 memotong bidang langit jadi dua (design.md bagian 5.1). */}
             <div className="flex-[3]">
               <Image
-                src="/illustrations/hero-konten-kreator.svg"
-                alt="Konten kreator tentang sebuah kedai sedang ditonton dan disukai lewat ponsel"
-                width={852}
-                height={664}
+                src="/illustrations/image-hero.svg"
+                alt="Tiga kreator lokal membuat konten lewat ponsel, dikelilingi angka views dan suka"
+                width={1500}
+                height={1000}
                 priority
-                className="mx-auto h-auto w-9/12 lg:w-full"
+                // Ilustrasi dibesarkan melewati kolomnya hanya mulai xl — di lebar lg
+                // ruang sisanya tidak cukup dan halaman jadi bisa digeser ke samping.
+                className="mx-auto h-auto w-full max-w-md lg:max-w-none xl:-mx-[7%] xl:w-[114%]"
               />
             </div>
           </div>
@@ -215,17 +204,35 @@ export default async function LandingPage() {
           {/* Pita awan penutup hero. translate-y-px menutup celah subpiksel
               antara tepi bawah gambar dan seksi putih di bawahnya. */}
           <Image
-            src="/illustrations/clouds.webp"
+            src="/illustrations/clouds.svg"
             alt=""
-            width={1281}
-            height={231}
+            width={1496}
+            height={314}
             priority
-            className="block w-full translate-y-px"
+            // Tinggi gambar selalu jatuh di angka pecahan (302,48px di 1440),
+            // jadi tepi bawah panel biru menyembul di bawah awan dan terbaca
+            // sebagai garis. Tumpang tindihnya dibuat 3px — satu piksel tidak
+            // cukup karena pembulatan bisa menyisakan dua baris, dan tiga
+            // piksel masih tertutup penuh oleh bidang putih di kaki awan.
+            className="-mt-10 -mb-[3px] block w-full sm:-mt-14"
           />
         </section>
 
+        {/* ----------------------------------------- pita penghubung ----
+            Seksi angka dan seksi platform dibungkus satu wadah supaya pita
+            gelombangnya bisa mengalir menyambung dari bawah pita awan sampai
+            "Tayang di mana saja" — kalau tiap seksi menggambar pitanya
+            sendiri, sambungannya patah di batas seksi.
+
+            Latarnya `bg-surface` (putih), bukan `bg-background`: dasar halaman
+            depan memang putih (design.md bagian 2.1 — `--background` itu dasar
+            dasbor), dan abu kebiruan #f8fafc terlihat sebagai bidang berbeda
+            begitu bertemu putih pita awan di atasnya. */}
+        <div className="relative overflow-hidden bg-surface">
+          <RibbonBand className="pointer-events-none absolute inset-0 hidden h-full w-full lg:block" />
+
         {/* ------------------------------------------------------- angka */}
-        <section className="mx-auto max-w-6xl px-4 pt-6 pb-16 text-center">
+        <section className="relative z-10 mx-auto max-w-6xl px-4 pt-6 pb-16 text-center">
           <h2 className="font-display text-xl font-bold sm:text-2xl">
             Gabung di Kontem sekarang!
           </h2>
@@ -234,20 +241,29 @@ export default async function LandingPage() {
             hemat, aman, dan angkanya terbuka untuk kedua pihak.
           </p>
 
-          <div className="mt-16 flex flex-wrap justify-center gap-5 xl:gap-10">
-            {angka.map(({ Ikon, value, label }) => (
+          <div className="mt-14 flex flex-wrap justify-center gap-5 xl:gap-10">
+            {angka.map(({ gambar, value, compact, label, warna }) => (
               <div
                 key={label}
-                className="relative flex h-[150px] w-[170px] flex-col items-center"
+                className="flex w-[150px] flex-col sm:w-[200px] lg:w-[235px]"
               >
-                <span className="absolute -top-9 z-10 flex h-[72px] w-[72px] items-center justify-center rounded-full bg-accent text-white shadow-float">
-                  <Ikon className="h-8 w-8" strokeWidth={2} />
-                </span>
-                <div className="dome flex h-full w-full flex-col justify-end bg-brand pb-5">
-                  <p className="tabular font-display text-2xl font-bold text-white lg:text-[28px]">
-                    {value}
+                {/* Ilustrasi menumpang di atas kubah dengan tinggi dipatok —
+                    rasio unDraw yang berbeda-beda diseragamkan oleh tinggi
+                    tetap, bukan oleh bingkai (design.md bagian 2.3). */}
+                <Image
+                  src={gambar.src}
+                  alt=""
+                  width={gambar.w}
+                  height={gambar.h}
+                  className="relative z-10 -mb-10 h-24 w-auto self-center object-contain sm:-mb-12 sm:h-28 lg:h-32"
+                />
+                <div
+                  className={`dome flex h-[126px] w-full flex-col justify-end pb-5 text-white sm:h-[140px] sm:pb-6 ${warna}`}
+                >
+                  <p className="tabular font-display text-[28px] font-bold sm:text-[34px] lg:text-[40px]">
+                    <CountUp value={value} compact={compact} />
                   </p>
-                  <p className="mt-0.5 text-sm font-medium text-white/90">
+                  <p className="mt-0.5 text-sm font-medium sm:text-base lg:text-lg">
                     {label}
                   </p>
                 </div>
@@ -258,69 +274,83 @@ export default async function LandingPage() {
 
         {/* ---------------------------------------------------- platform */}
         <section className="relative overflow-hidden">
-          <WaveBand className="absolute inset-x-0 bottom-0 h-[300px] w-full sm:h-[380px] lg:h-[440px]" />
+          {/* Di bawah lg pita panjang dimatikan — seksi yang menumpuk jadi
+              terlalu tinggi dan pitanya hanya terbaca sebagai coretan. Pita
+              pendek ini yang menggantikannya di layar sempit. */}
+          <WaveBand className="absolute inset-x-0 bottom-0 h-[300px] w-full sm:h-[380px] lg:hidden" />
 
-          <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-8 px-4 pt-14 pb-16 lg:grid-cols-2 lg:gap-12 lg:pb-24">
+          <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-4 pt-14 pb-16 lg:grid-cols-2 lg:gap-16 lg:pb-24">
             <div className="text-center lg:text-left">
-              <h2 className="font-display text-2xl font-bold lg:text-[2.15rem]">
+              <div className="flex items-center justify-center gap-2 lg:justify-start">
+                <span className="h-px w-8 bg-brand" />
+                <span className="text-xs font-medium text-brand-600">
+                  Distribusi konten
+                </span>
+              </div>
+
+              <h2 className="mt-3 font-display text-2xl font-bold lg:text-[2.15rem]">
                 Tayang di mana saja
               </h2>
-              <p className="mt-2 text-sm text-muted sm:text-base">
-                Konten creator boleh tayang di platform video pendek mana pun.
-                Views dari tautan publiknya yang dihitung, bukan jumlah pengikut
-                akunnya.
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted sm:text-base lg:mx-0">
+                Untuk sekarang campaign berjalan di TikTok. Yang dihitung views
+                dari tautan publik kontenmu, bukan jumlah pengikut akunmu.
               </p>
-              <div className="mt-6 flex flex-wrap justify-center gap-3 lg:justify-start">
-                {platform.map((nama) => (
-                  <span
-                    key={nama}
-                    className="rounded-full bg-surface px-5 py-2.5 text-sm font-semibold text-body shadow-card"
-                  >
-                    {nama}
-                  </span>
+
+              <ul className="mx-auto mt-6 max-w-md divide-y divide-line overflow-hidden rounded-2xl bg-surface text-left shadow-float lg:mx-0">
+                {platform.map(({ nama, format, aktif, Logo }) => (
+                  <li key={nama} className="flex items-center gap-3 px-4 py-3">
+                    {/* Logo merek dipakai apa adanya, hanya diredam jadi abu
+                        untuk platform yang belum dibuka — bentuknya tidak
+                        boleh diubah. */}
+                    <span
+                      className={`flex h-9 w-9 flex-none items-center justify-center rounded-xl ${
+                        aktif
+                          ? "bg-surface-muted text-foreground"
+                          : "bg-surface-muted text-muted/60"
+                      }`}
+                    >
+                      <Logo className="h-[18px] w-[18px]" />
+                    </span>
+                    <div className="min-w-0">
+                      <p
+                        className={`text-sm font-semibold ${aktif ? "" : "text-muted"}`}
+                      >
+                        {nama}
+                      </p>
+                      <p className="text-xs text-muted">{format}</p>
+                    </div>
+                    <span
+                      className={`ml-auto rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap ${
+                        aktif
+                          ? "bg-brand-50 text-brand-600"
+                          : "bg-surface-muted text-muted"
+                      }`}
+                    >
+                      {aktif ? "Tersedia" : "Segera hadir"}
+                    </span>
+                  </li>
                 ))}
-              </div>
+              </ul>
+
+              <p className="mx-auto mt-4 flex max-w-md items-start gap-2 text-xs text-muted lg:mx-0">
+                <IconEye className="mt-0.5 h-4 w-4 flex-none text-brand-600" />
+                <span>
+                  Angka views diambil berkala dari tautan yang kamu kirim, dan
+                  terlihat sama oleh creator maupun vendor.
+                </span>
+              </p>
             </div>
 
             <Image
-              src="/illustrations/platform-creator.svg"
-              alt="Kreator konten dikelilingi ikon media sosial"
-              width={974}
-              height={827}
-              className="mx-auto h-auto w-8/12 lg:w-10/12"
+              src="/illustrations/cowo-konten.svg"
+              alt="Creator merekam dirinya sendiri lewat ponsel"
+              width={967}
+              height={1450}
+              className="mx-auto h-auto w-7/12 sm:w-5/12 lg:w-8/12"
             />
           </div>
         </section>
-
-        {/* ------------------------------------------------- keunggulan */}
-        <section id="keunggulan" className="mx-auto max-w-6xl px-4 py-16">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-display text-2xl font-bold lg:text-[2.15rem]">
-              Kenapa lewat Kontem?
-            </h2>
-            <p className="mt-2 text-sm text-muted sm:text-base">
-              Endorse biasa menyisakan dua risiko: vendor membayar tanpa
-              kepastian hasil, creator bekerja tanpa kepastian bayaran. Setiap
-              mekanisme di bawah menutup salah satunya.
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {keunggulan.map(({ Ikon, tone, judul, isi }) => (
-              <Card key={judul} soft hover className="p-6">
-                <div
-                  className={`flex h-14 w-14 items-center justify-center rounded-full bg-surface ${tone}`}
-                >
-                  <Ikon className="h-7 w-7" strokeWidth={1.9} />
-                </div>
-                <h3 className="mt-4 font-display text-lg font-bold">{judul}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted">
-                  {isi}
-                </p>
-              </Card>
-            ))}
-          </div>
-        </section>
+        </div>
 
         {/* ------------------------------------------------- cara kerja */}
         <section id="cara-kerja" className="bg-surface-muted py-16">
@@ -330,41 +360,49 @@ export default async function LandingPage() {
                 Cara kerjanya
               </h2>
               <p className="mt-2 text-sm text-muted sm:text-base">
-                Lima langkah, dari setoran budget sampai dana cair ke rekening
-                creator.
+                Sembilan langkah berurutan, dari vendor menyusun campaign sampai
+                payout cair ke rekening creator.
               </p>
             </div>
 
             {/* Tiga baris subgrid: ilustrasi, kubah, penjelasan. Tanpa ini
                 kubah yang judulnya dua baris jadi lebih tinggi dari
-                tetangganya dan deretnya terlihat bergelombang. */}
-            <ol className="mt-12 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-5 lg:grid-rows-[auto_auto_auto] lg:gap-y-0">
+                tetangganya dan deretnya terlihat bergelombang.
+
+                Di lg dibagi 5 + 4: grid 10 kolom, tiap langkah mengambil 2
+                kolom, lalu langkah ke-6 digeser setengah petak (col-start 2)
+                sehingga empat langkah terakhir tampil di tengah, bukan rata
+                kiri dengan satu petak kosong menganga di kanan. */}
+            <ol className="mt-12 grid gap-x-5 gap-y-10 sm:grid-cols-2 lg:grid-cols-10 lg:grid-rows-[repeat(6,auto)] lg:gap-y-6">
               {langkah.map((item, i) => (
                 <li
                   key={item.judul}
-                  className="flex flex-col lg:row-span-3 lg:grid lg:grid-rows-subgrid lg:gap-0"
+                  className={`flex flex-col lg:col-span-2 lg:row-span-3 lg:grid lg:grid-rows-subgrid lg:gap-0 ${
+                    i === 5 ? "lg:col-start-2" : ""
+                  }`}
                 >
-                  {/* Ilustrasi menumpang di atas kubah, seperti referensi.
-                      Lingkaran di belakangnya menyamakan bidang tiap gambar —
-                      rasio aspek ilustrasi unDraw berbeda-beda. */}
-                  <div className="relative z-10 -mb-8 flex h-32 w-32 shrink-0 items-center justify-center self-center rounded-full bg-[#D6EAF8]">
-                    <Image
-                      src={item.gambar}
-                      alt=""
-                      width={320}
-                      height={240}
-                      className="h-20 w-24 object-contain"
-                    />
-                  </div>
-                  <div className="dome flex items-start gap-2 bg-brand-600 px-5 pt-14 pb-5">
-                    <span className="tabular mt-px grid h-5 w-5 flex-none place-items-center rounded-full bg-white text-xs font-semibold text-brand-600">
+                  {/* Ilustrasi menumpang LANGSUNG di atas kubah, tanpa
+                      lingkaran di belakangnya (design.md bagian 2.3) — tiap
+                      aset sudah membawa gelembung birunya sendiri, jadi
+                      lingkaran tambahan hanya jadi bidang kedua di baliknya.
+                      Tingginya dipatok: bidang tiap langkah tetap seragam
+                      meski isi gambarnya berbeda-beda. */}
+                  <Image
+                    src={item.gambar}
+                    alt=""
+                    width={1500}
+                    height={1500}
+                    className="relative z-10 -mb-9 mx-auto h-36 w-36 shrink-0 object-contain lg:-mb-12 lg:h-44 lg:w-44"
+                  />
+                  <div className="dome flex items-start gap-1.5 bg-brand-600 px-3.5 pt-12 pb-4">
+                    <span className="tabular mt-px grid h-[18px] w-[18px] flex-none place-items-center rounded-full bg-white text-[11px] font-semibold text-brand-600">
                       {i + 1}
                     </span>
-                    <p className="text-sm font-semibold text-white">
+                    <p className="text-[13px] leading-snug font-semibold text-white">
                       {item.judul}
                     </p>
                   </div>
-                  <p className="mt-4 px-1 text-sm leading-relaxed text-muted">
+                  <p className="mt-3 px-1 text-[13px] leading-relaxed text-muted">
                     {item.isi}
                   </p>
                 </li>
@@ -374,87 +412,73 @@ export default async function LandingPage() {
         </section>
 
         {/* ---------------------------------------------------- campaign */}
-        <section id="campaign" className="mx-auto max-w-6xl px-4 py-16">
-          <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-center">
-            <div>
+        <section
+          id="campaign"
+          className="bg-surface-sky py-16"
+        >
+          <div className="mx-auto max-w-6xl px-4">
+            <div className="mx-auto max-w-2xl text-center">
               <h2 className="font-display text-2xl font-bold lg:text-[2.15rem]">
                 Campaign yang sedang berjalan
               </h2>
               <p className="mt-2 text-sm text-muted sm:text-base">
-                Setiap campaign menampilkan budget pool, CPM rate, sisa slot,
-                dan komplimen yang didapat creator sejak awal — tidak ada angka
-                yang baru muncul setelah kamu ikut.
+                Setiap kartu menampilkan budget pool, tarif CPM, sisa slot, dan
+                komplimen yang didapat creator sejak awal — tidak ada angka yang
+                baru muncul setelah kamu ikut.
               </p>
-              <div className="mt-6 rounded-2xl bg-brand-50 p-5">
-                <p className="text-sm text-body">
-                  Total nilai campaign yang dikelola dan dikunci di escrow
-                </p>
-                <p className="tabular mt-1 font-display text-3xl font-bold text-brand-600">
+              <p className="mt-4 text-sm text-body">
+                Total nilai campaign yang dikelola dan dikunci di escrow{" "}
+                <span className="tabular font-display font-bold text-brand-600">
                   {formatIDR(poolAgg._sum.budgetPool ?? 0)}
-                </p>
-              </div>
+                </span>
+              </p>
             </div>
 
-            {sorotan ? (
-              <Card float className="p-6">
-                <div className="flex items-center justify-between gap-3">
-                  <Badge tone="success" icon>
-                    Sedang berjalan
-                  </Badge>
-                  <span className="text-xs text-muted">
-                    Contoh campaign aktif
-                  </span>
-                </div>
-
-                <h3 className="mt-4 font-display text-lg font-bold">
-                  {sorotan.title}
-                </h3>
-                <p className="mt-1 text-sm text-muted">
-                  {sorotan.vendor.vendorProfile?.businessName} ·{" "}
-                  {sorotan.vendor.vendorProfile?.city}
-                </p>
-
-                <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line">
-                  <div className="bg-surface p-3.5">
-                    <dt className="text-xs text-muted">Budget pool</dt>
-                    <dd className="tabular mt-1 font-semibold text-foreground">
-                      {formatIDR(sorotan.budgetPool)}
-                    </dd>
-                  </div>
-                  <div className="bg-surface p-3.5">
-                    <dt className="text-xs text-muted">CPM rate</dt>
-                    <dd className="tabular mt-1 font-semibold text-foreground">
-                      {formatIDR(sorotan.cpmRate)}
-                      <span className="text-xs font-normal text-muted">
-                        {" "}
-                        / 1.000 views
-                      </span>
-                    </dd>
-                  </div>
-                </dl>
-
-                <div className="mt-5">
-                  <div className="mb-2 flex justify-between text-xs text-muted">
-                    <span>Slot creator</span>
-                    <span className="tabular">
-                      {sorotan._count.participations} / {sorotan.maxCreators}
-                    </span>
-                  </div>
-                  <ProgressBar
-                    value={sorotan._count.participations}
-                    max={sorotan.maxCreators}
-                  />
-                </div>
-
-                <div className="mt-5 flex items-start gap-2.5 border-t border-line pt-4">
-                  <IconGift className="mt-0.5 h-4 w-4 shrink-0 text-accent-600" />
-                  <p className="text-sm text-body">{sorotan.complimentType}</p>
-                </div>
-              </Card>
-            ) : (
-              <Card className="p-10 text-center text-sm text-muted">
+            {katalog.length === 0 ? (
+              <Card className="mx-auto mt-10 max-w-md p-10 text-center text-sm text-muted">
                 Belum ada campaign berjalan.
               </Card>
+            ) : (
+              <>
+                {/* Grid 2/3/4 kolom — design.md bagian 5.1. Empat kolom hanya
+                    dipakai kalau kartunya memang cukup untuk mengisinya. */}
+                {/* Empat kolom mulai xl — design.md bagian 5.1. Di lebar itu
+                    tiga kolom membuat tiap kartu selebar ~370px, jauh lebih
+                    besar daripada yang dibutuhkan tiga baris fakta. */}
+                <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-5 xl:grid-cols-4">
+                  {katalog.map((campaign) => (
+                    <CatalogCard
+                      key={campaign.id}
+                      href={`/creator/campaigns/${campaign.id}`}
+                      judul={campaign.title}
+                      vendor={
+                        campaign.vendor.vendorProfile?.businessName ?? "Vendor"
+                      }
+                      kota={campaign.vendor.vendorProfile?.city ?? "—"}
+                      kategori={categoryLabel[campaign.category]}
+                      kategoriTone={categoryTone[campaign.category]}
+                      budgetPool={campaign.budgetPool}
+                      cpmRate={campaign.cpmRate}
+                      maxCreators={campaign.maxCreators}
+                      slotTerpakai={campaign._count.participations}
+                      komplimen={campaign.complimentType}
+                      sisaHari={daysUntil(campaign.endDate)}
+                      foto={campaign.vendor.vendorProfile?.photos[0]}
+                    />
+                  ))}
+                </div>
+
+                {/* Tombol hanya muncul kalau memang ada campaign lain yang
+                    belum tampil di sini. */}
+                {campaignAktif > katalog.length ? (
+                  <div className="mt-10 text-center">
+                    <ButtonLink href="/creator/campaigns" size="lg">
+                      Lihat semua campaign
+                      <IconArrowRight className="h-4 w-4" strokeWidth={2.5} />
+                    </ButtonLink>
+                  </div>
+                ) : null}
+              </>
             )}
           </div>
         </section>

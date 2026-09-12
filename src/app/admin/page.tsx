@@ -9,15 +9,41 @@ import {
   EmptyState,
   IconBank,
   IconBanknote,
+  IconBusiness,
   IconClock,
+  IconGavel,
+  IconMegaphone,
+  IconShieldAlert,
   IconTrend,
   PageHeader,
   Stat,
   Table,
   Td,
   Th,
+  cn,
 } from "@/components/ui";
 import { campaignStatusLabel, campaignStatusTone } from "@/lib/labels";
+
+/**
+ * Nama aksi audit ditulis sebagai kalimat, bukan kode mentah.
+ *
+ * `vendor.verify` benar sebagai kunci di database, tapi di layar ia menuntut
+ * pembacanya menerjemahkan sendiri. Aksi yang belum punya terjemahan tetap
+ * ditampilkan apa adanya — lebih baik terbaca teknis daripada hilang.
+ */
+const auditLabel = (action: string) =>
+  ({
+    "vendor.verify": "Vendor diverifikasi",
+    "vendor.reject": "Vendor ditolak",
+    "campaign.approve": "Campaign disetujui",
+    "campaign.reject": "Campaign ditolak",
+    "submission.approve": "Submission disetujui",
+    "submission.reject": "Submission ditolak",
+    "dispute.resolve": "Sengketa diputus",
+    "payout.release": "Payout dicairkan",
+    "campaign.settle": "Campaign disettle",
+    "views.update": "Views diperbarui",
+  })[action] ?? action;
 
 export default async function AdminDashboard() {
   await requireRole("ADMIN");
@@ -73,14 +99,26 @@ export default async function AdminDashboard() {
       label: "Vendor menunggu verifikasi",
       count: vendorPending,
       href: "/admin/vendors",
+      Ikon: IconBusiness,
     },
     {
       label: "Campaign menunggu approval",
       count: campaignPending,
       href: "/admin/campaigns",
+      Ikon: IconMegaphone,
     },
-    { label: "Sengketa terbuka", count: sengketaTerbuka, href: "/admin/disputes" },
-    { label: "Laporan fraud", count: fraudTerbuka, href: "/admin/fraud" },
+    {
+      label: "Sengketa terbuka",
+      count: sengketaTerbuka,
+      href: "/admin/disputes",
+      Ikon: IconGavel,
+    },
+    {
+      label: "Laporan fraud",
+      count: fraudTerbuka,
+      href: "/admin/fraud",
+      Ikon: IconShieldAlert,
+    },
   ];
 
   return (
@@ -120,37 +158,77 @@ export default async function AdminDashboard() {
         />
       </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Vendor aktif" value={vendorAktif} />
-        <Stat label="Creator terdaftar" value={creatorAktif} />
-        <Stat
-          label="Rasio creator per vendor"
-          value={vendorAktif > 0 ? (creatorAktif / vendorAktif).toFixed(1) : "—"}
-          hint="Indikator keseimbangan dua sisi"
-        />
-        <Stat
-          label="Antrean kerja admin"
-          value={antrean.reduce((sum, item) => sum + item.count, 0)}
-        />
-      </div>
+      {/* Empat angka pendukung digabung jadi satu panel berpembatas, bukan
+          empat kartu tersendiri: kartu sebanyak itu berjejer di bawah baris
+          metrik utama membuat keduanya terbaca setara, padahal yang di atas
+          yang penting (design.md bagian 6.2 — maksimal tiga kartu menonjol
+          per layar). */}
+      <Card className="mt-4 p-0">
+        <dl className="grid divide-y divide-line sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
+          {[
+            { label: "Vendor aktif", value: vendorAktif },
+            { label: "Creator terdaftar", value: creatorAktif },
+            {
+              label: "Rasio creator per vendor",
+              value:
+                vendorAktif > 0
+                  ? (creatorAktif / vendorAktif).toFixed(1)
+                  : "—",
+            },
+            {
+              label: "Antrean kerja admin",
+              value: antrean.reduce((sum, item) => sum + item.count, 0),
+            },
+          ].map((item) => (
+            <div key={item.label} className="px-5 py-4">
+              <dt className="text-xs font-medium text-muted">{item.label}</dt>
+              <dd className="tabular mt-1 font-display text-xl font-bold text-foreground">
+                {item.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
         <Card>
           <CardHeader title="Antrean menunggu" />
-          <ul className="space-y-2">
-            {antrean.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="flex items-center justify-between rounded-xl border border-line px-3 py-2.5 text-sm hover:border-brand"
-                >
-                  <span>{item.label}</span>
-                  <Badge tone={item.count > 0 ? "warning" : "neutral"}>
-                    {item.count}
-                  </Badge>
-                </Link>
-              </li>
-            ))}
+          <ul className="space-y-1.5">
+            {antrean.map(({ href, label, count, Ikon }) => {
+              const menunggu = count > 0;
+              return (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-surface-muted"
+                  >
+                    <span
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition-colors",
+                        menunggu
+                          ? "bg-warning-soft text-warning"
+                          : "bg-surface-muted text-muted",
+                      )}
+                    >
+                      <Ikon className="h-4.5 w-4.5" strokeWidth={2} />
+                    </span>
+                    <span className="min-w-0 flex-1 text-sm text-body group-hover:text-foreground">
+                      {label}
+                    </span>
+                    {/* Angka nol ditulis abu tanpa badge: antrean kosong itu
+                        kabar baik, bukan status yang perlu menarik mata. */}
+                    <span
+                      className={cn(
+                        "tabular font-display text-lg font-bold",
+                        menunggu ? "text-warning" : "text-muted/60",
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </Card>
 
@@ -198,24 +276,34 @@ export default async function AdminDashboard() {
           {auditTerbaru.length === 0 ? (
             <EmptyState title="Belum ada aktivitas" />
           ) : (
-            <ul className="divide-y divide-line text-sm">
+            <ol className="relative space-y-4 pl-5">
+              {/* Garis waktu vertikal: jejak audit dibaca sebagai urutan
+                  kejadian, dan garis ini yang membuat urutannya terlihat
+                  tanpa perlu membaca tanggalnya satu per satu. */}
+              <span
+                className="absolute top-1.5 bottom-1.5 left-[3px] w-px bg-line"
+                aria-hidden
+              />
               {auditTerbaru.map((log) => (
-                <li
-                  key={log.id}
-                  className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0"
-                >
-                  <span>
-                    <code className="font-mono text-xs text-brand">{log.action}</code>{" "}
-                    <span className="text-muted">
-                      oleh {log.actor?.name ?? "sistem"} pada {log.entity}
+                <li key={log.id} className="relative">
+                  <span
+                    className="absolute top-1.5 -left-5 h-[7px] w-[7px] rounded-full bg-brand-200 ring-4 ring-surface"
+                    aria-hidden
+                  />
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                    <p className="text-sm text-body">
+                      <span className="font-medium text-foreground">
+                        {auditLabel(log.action)}
+                      </span>{" "}
+                      oleh {log.actor?.name ?? "sistem"}
+                    </p>
+                    <span className="tabular text-xs text-muted">
+                      {formatDateTime(log.createdAt)}
                     </span>
-                  </span>
-                  <span className="text-xs text-muted">
-                    {formatDateTime(log.createdAt)}
-                  </span>
+                  </div>
                 </li>
               ))}
-            </ul>
+            </ol>
           )}
         </Card>
       </div>

@@ -30,7 +30,7 @@ Mengadopsi mekanika performa _views-based_ (CPM / Cost Per Mille) seperti Motion
 > - **Panel hero biru langit penuh** (`#95D0FD`) selebar layar, nav melayang
 >   tanpa latar di atasnya. Judul putih DM Sans Bold `1,75rem → 3,25rem`,
 >   ilustrasi figur diletakkan langsung di atas biru — **tanpa panel putih**.
-> - **Pita awan putih** (`clouds.webp`, `w-full translate-y-1`) menutup hero.
+> - **Pita awan putih** (`clouds.svg`, selebar layar) menutup hero.
 > - **Kartu kubah** (`rounded-t-[80%] rounded-b-xl`) untuk angka statistik dan
 >   label langkah. Kubah statistik **berganti-ganti empat warna**, bukan biru
 >   semua; kubah langkah selalu biru `#0284C7`.
@@ -42,8 +42,9 @@ Mengadopsi mekanika performa _views-based_ (CPM / Cost Per Mille) seperti Motion
 >   tombol blok `rounded-lg` selebar kartu.
 > - **Panel hitung mundur** di atas grid: kartu putih `rounded-2xl` berisi
 >   spanduk biru bergradien, penghitung `00 : 00 : 00`, tiga kartu mini.
-> - **Bayangan kartu katalog berpendar biru** (`shadow-2xl shadow-blue-400`) —
->   bukan bayangan netral seperti kartu dasbor.
+> - **Kartu katalog timbul dengan bayangan netral yang lebih dalam** daripada
+>   kartu dasbor. Referensi memakai pendar biru (`shadow-2xl shadow-blue-400`);
+>   Kontem sengaja tidak — lihat bagian 2.3.
 > - **Baris manfaat**, bukan kartu fitur: satu ilustrasi besar di tengah dengan
 >   tiga baris ikon + satu kalimat di kiri dan tiga di kanan.
 > - **FAQ akordeon** di atas pita gradien `sky-200 → putih`.
@@ -74,13 +75,18 @@ Mengadopsi mekanika performa _views-based_ (CPM / Cost Per Mille) seperti Motion
   --accent-600: #d9a20b;
 
   /* ---------- Warna kubah statistik ----------
-     Referensi memutar empat warna pada deret kubah angka. Dipakai HANYA di
-     sana. Coral dan teal di bawah bukan warna status: jangan dipakai untuk
-     badge, callout, atau apa pun yang berarti "gagal" / "berhasil". */
-  --stat-sky: #0ea5e9; /* = --brand-500 */
-  --stat-coral: #ff5968;
-  --stat-teal: #34bb9e;
-  --stat-marigold: #fabf18; /* = --accent-500 */
+     Deret kubah angka memutar empat warna terang. Dipakai HANYA di sana, dan
+     sengaja TIDAK memakai kuartet referensi (biru langit / coral / teal /
+     kuning) supaya deret angka Kontem punya identitas sendiri. Keempatnya
+     bukan warna status: jangan dipakai untuk badge, callout, atau apa pun
+     yang berarti "gagal" / "berhasil". Angka di dalam kubah ditulis navy
+     `--foreground` dan labelnya `--foreground/80` — putih di atas warna seterang ini
+     tidak lolos ambang kontras, persis alasan yang sama dengan pita sorotan
+     marigold pada kartu katalog. */
+  --stat-azure: #38bdf8;
+  --stat-violet: #a78bfa;
+  --stat-mango: #fbbf24;
+  --stat-melon: #fb7185;
 
   /* ---------- Ink ---------- */
   --foreground: #0f172a; /* judul & angka penting */
@@ -209,9 +215,15 @@ tetap + rata tengah, persis seperti referensi.
 --shadow-brand: 0 8px 18px -6px rgba(14, 165, 233, 0.4);
 
 /* Khusus kartu katalog. Referensi memakai `shadow-2xl shadow-blue-400`, yaitu
-   bayangan berpendar biru pekat. Di sini alpha-nya diturunkan ke .35 supaya
-   grid empat kolom tidak berubah jadi kolam biru. */
---shadow-catalog: 0 25px 50px -12px rgba(96, 165, 250, 0.35);
+   bayangan berpendar biru pekat. Kontem TIDAK mengikutinya: di atas latar
+   --surface-sky, grid enam kartu berpendar biru terbaca seperti kolam biru dan
+   warnanya bersaing dengan bidang brand di sekitarnya. Ganti nya bayangan
+   netral dua lapis — satu rapat untuk tepi kartu, satu lebar dan lembut untuk
+   kesan timbulnya. */
+--shadow-catalog: 0 2px 4px -1px rgba(15, 23, 42, 0.06),
+  0 12px 24px -6px rgba(15, 23, 42, 0.12);
+--shadow-catalog-hover: 0 4px 8px -2px rgba(15, 23, 42, 0.08),
+  0 20px 40px -8px rgba(15, 23, 42, 0.18);
 ```
 
 - **Kartu dasbor** memakai `--shadow-card` plus garis tepi `--border`.
@@ -221,8 +233,9 @@ tetap + rata tengah, persis seperti referensi.
 
 **Micro-interaction**
 
-- Kartu katalog: bayangan menguat saat hover (`--shadow-float` → pekat),
-  tanpa `translateY` — kartu dalam grid rapat yang ikut bergerak terasa gelisah.
+- Kartu katalog: bayangan menguat saat hover (`--shadow-catalog` →
+  `--shadow-catalog-hover`), tanpa `translateY` — kartu dalam grid rapat yang
+  ikut bergerak terasa gelisah.
 - Kartu dasbor yang bisa diklik: `translateY(-2px)` + `--shadow-lift`, 180ms.
 - Tombol: `scale(1.02)` saat hover, `scale(0.98)` saat ditekan.
 - Akordeon FAQ: judul berubah jadi `--brand-500` saat terbuka, ikon berputar
@@ -243,10 +256,15 @@ selama asetnya tidak didistribusikan ulang sebagai paket. Berkasnya ada di
 - **Ilustrasi hero diletakkan langsung di atas panel biru**, tanpa kartu putih
   di belakangnya — seperti referensi.
 - Bentuk abstrak yang warnanya harus ikut token tetap ditulis sebagai SVG
-  inline di `src/app/illustrations.tsx`: `WaveBand` (pita gelombang) dan
-  `DomeShape` (badan kubah statistik). Pita awan penutup hero memakai berkas
-  gambar `public/illustrations/clouds.webp`, dipasang selebar layar di ujung
-  bawah panel biru dengan `translate-y-px` untuk menutup celah subpiksel.
+  inline di `src/app/illustrations.tsx`: `WaveBand` (pita gelombang pendek),
+  `RibbonBand` (pita panjang penghubung awan → seksi platform) dan
+  `DomeShape` (badan kubah statistik). `RibbonBand` digambar dengan
+  `preserveAspectRatio="none"` supaya koordinat viewBox-nya memetakan lurus ke
+  persentase kotak pembungkus — itulah yang membuat figur yang berdiri di
+  atasnya tetap menempel di tepi pita berapa pun tinggi seksinya. Pita awan penutup hero memakai berkas
+  gambar `public/illustrations/clouds.svg`, dipasang selebar layar di ujung
+  bawah panel biru dengan `-mb-px` supaya tepi panel biru tidak menyembul di
+  bawahnya — tinggi gambarnya selalu jatuh di angka pecahan.
 - **Boleh**: konfeti bulat/persegi kecil, gelembung putih berisi satu ikon,
   pita awan dan gelombang, pita sorotan menyudut di pojok kartu katalog.
 - **Jangan**: lingkaran ber-_blur_ besar (blob gradien), bayangan drop pada
@@ -442,22 +460,31 @@ tautan `#campaign` harus langsung melihat barangnya.
 |  Budget dikunci di escrow...  (navy, 15px -> 20px)                                            |
 |  [ Lihat campaign ]  <- pill besar: px-14 py-3.5/py-5, 15px -> 20px, brand-500                |
 |                                                                                               |
-|  ~~~~~~~~~~~~~~~  PITA AWAN (clouds.webp, w-full translate-y-px)  ~~~~~~~~~~~~~~~~~~~~~~~~~~  |
+|  ~~~~~~~~~~~~~~~  PITA AWAN (clouds.svg, w-full -mb-px)  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  |
 +-----------------------------------------------------------------------------------------------+
 |  2. ANGKA NYATA — "Gabung di Kontem sekarang!" (rata tengah + satu kalimat)                    |
+|     Seksi 2 dan 3 dibungkus SATU wadah berpita: pita gelombang panjang mengalir keluar dari    |
+|     balik pita awan, melewati deret kubah, lalu berakhir di seksi "Tayang di mana saja".       |
+|     Pita muncul mulai lg — di ponsel seksinya menumpuk jadi terlalu tinggi dan pitanya cuma    |
+|     terbaca sebagai coretan. TANPA figur yang berdiri di atasnya: keputusan pemilik produk,    |
+|     figur di pias kiri-kanan berebut perhatian dengan ilustrasi di atas kubah angka.           |
+|     Pita masuk dari TEPI KIRI layar, bukan dari balik pita awan: bidang bawah clouds.svg      |
+|     putih polos, jadi pita yang disembunyikan di baliknya selalu muncul terpotong garis lurus. |
+|     Pitanya SATU lapis — dua lapis dengan lebar berbeda terbaca sebagai warna dobel di pita    |
+|     sepanjang ini.                                                                             |
 |                                                                                               |
 |    [ilustrasi]   [ilustrasi]   [ilustrasi]   [ilustrasi]   <- menumpang, h-28, -mb-10         |
 |   +---------+   +---------+   +---------+   +---------+                                       |
+|     Angkanya menghitung naik dari nol saat kubahnya mendekati layar (~1,4 detik,               |
+|     easeOutCubic). Nilai akhir tetap dirender di server — tanpa JavaScript dan sebelum         |
+|     hidrasi yang terbaca angka sebenarnya, bukan nol. Pengunjung yang menyetel                 |
+|     prefers-reduced-motion langsung melihat angka akhirnya.                                    |
 |   |  KUBAH  |   |  KUBAH  |   |  KUBAH  |   |  KUBAH  |   <- .dome, EMPAT WARNA berbeda:      |
 |   |    5    |   |    2    |   |    2    |   | 467,9k  |      sky / coral / teal / marigold    |
 |   | Creator |   |Campaign |   | Vendor  |   | Views   |      angka & label putih, DARI DB     |
 |   +---------+   +---------+   +---------+   +---------+                                       |
 +-----------------------------------------------------------------------------------------------+
-|  3. MANFAAT — "Kenapa lewat Kontem?"  (BUKAN grid kartu)                                      |
-|   tiga baris ikon + satu kalimat  |  ILUSTRASI BESAR  |  tiga baris ikon + satu kalimat       |
-|   (rata kanan, ikon di kanan)     |   di tengah       |   (rata kiri, ikon di kiri)           |
-+-----------------------------------------------------------------------------------------------+
-|  4. KATALOG CAMPAIGN — latar --surface-sky, id="campaign"      <-- INTI REFERENSI              |
+|  3. KATALOG CAMPAIGN — latar --surface-sky, id="campaign"      <-- INTI REFERENSI              |
 |                                                                                               |
 |   "Campaign yang sedang berjalan"  (judul rata tengah)                                        |
 |   [ Cari campaign............ ]   [ Semua kategori v ]   <- toolbar 4/12 + 4/12 kolom         |
@@ -471,25 +498,42 @@ tautan `#campaign` harus langsung melihat barangnya.
 |   |                      Lihat semua ->                                            |          |
 |   +-------------------------------------------------------------------------------+          |
 |                                                                                               |
-|   GRID KARTU KATALOG — grid-cols-2 lg:grid-cols-3 xl:grid-cols-4, gap-3 lg:gap-7              |
+|   GRID KARTU KATALOG — grid-cols-2 lg:grid-cols-3 xl:grid-cols-4, gap-3 lg:gap-5             |
 |   (spesifikasi kartunya di bagian 6.5)                                                        |
+|   Halaman depan menampilkan MAKSIMAL 8 kartu — dua baris penuh pada grid empat kolom —        |
+|   diurutkan dari budget pool terbesar, lalu                                                   |
+|   tombol pil "Lihat semua campaign" -> /creator/campaigns. Tombolnya hanya dirender kalau     |
+|   memang ada campaign aktif yang belum tampil; kalau semuanya sudah muat, tombol itu          |
+|   mengantar ke halaman yang isinya sama persis.                                               |
 +-----------------------------------------------------------------------------------------------+
-|  5. CARA KERJANYA — lima langkah, id="cara-kerja"                                             |
-|   Tiap langkah: ilustrasi unDraw h-28 menumpang di atas KUBAH biru --brand-600 berisi          |
-|   lingkaran putih bernomor + judul langkah sebaris. Penjelasan di bawah kubah.                 |
+|  4. CARA KERJANYA — SEMBILAN LANGKAH BERURUTAN, id="cara-kerja"                               |
+|   Tiap langkah: ilustrasi menumpang LANGSUNG di atas KUBAH — tanpa lingkaran di belakangnya,   |
+|   biru --brand-600 berisi lingkaran putih bernomor + judul langkah sebaris. Penjelasan di      |
+|   bawah kubah. Di lg: DUA BARIS, 5 langkah di atas dan 4 di bawah. Dikerjakan dengan grid 10   |
+|   kolom, tiap langkah mengambil 2 kolom, dan langkah ke-6 digeser setengah petak               |
+|   (`lg:col-start-2`) supaya baris kedua tampil di tengah, bukan rata kiri dengan satu petak    |
+|   kosong menganga di kanan. Di bawah lg: 2 kolom (sm) lalu 1 kolom (ponsel).                   |
+|   Sembilan kubah sejajar dalam satu baris tidak dipakai — tiap kubah jadi selebar ~110px dan   |
+|   judulnya pecah.                                                                              |
+|   Urutannya: Vendor buat campaign -> Admin approve -> Creator join -> Creator datang ke        |
+|   lokasi -> Creator submit konten -> Vendor/admin review -> Sistem tracking views ->           |
+|   Campaign selesai & hitung proporsi -> Admin cairkan payout.                                  |
+|   Judul tiap langkah WAJIB menyebut pelakunya (vendor / admin / creator / sistem) — alurnya    |
+|   berpindah tangan beberapa kali dan langkah tanpa pelaku membuat pengunjung tidak tahu        |
+|   bagian mana yang jadi tanggung jawabnya.                                                     |
 +-----------------------------------------------------------------------------------------------+
-|  6. CARA DANA DIJAGA — deretan lambang metode pembayaran + ilustrasi figur di atas             |
+|  5. CARA DANA DIJAGA — deretan lambang metode pembayaran + ilustrasi figur di atas             |
 |   bidang gelombang (WaveBand), satu paragraf penjelas escrow rata tengah                      |
 +-----------------------------------------------------------------------------------------------+
-|  7. APA KATA MEREKA — hanya ditampilkan kalau ada testimoni nyata di database.                |
+|  6. APA KATA MEREKA — hanya ditampilkan kalau ada testimoni nyata di database.                |
 |   Kalau belum ada, seksi ini TIDAK dirender (jangan diisi kutipan karangan).                  |
 +-----------------------------------------------------------------------------------------------+
-|  8. MULAI HARI INI — dua kartu ajakan (creator / pemilik usaha), 4 poin + tombol               |
+|  7. MULAI HARI INI — dua kartu ajakan (creator / pemilik usaha), 4 poin + tombol               |
 +-----------------------------------------------------------------------------------------------+
-|  9. FAQ — akordeon di atas pita gradien sky-200 -> putih, id="faq"                             |
+|  8. FAQ — akordeon di atas pita gradien sky-200 -> putih, id="faq"                             |
 |   Tiap item: kartu putih rounded-lg shadow, judul SemiBold, ikon chevron berputar 90 derajat   |
 +-----------------------------------------------------------------------------------------------+
-|  10. Kartu akun demo                                                                          |
+|  9. Kartu akun demo                                                                          |
 +-----------------------------------------------------------------------------------------------+
 |  FOOTER ARANG (--footer #2d2d2d), empat kolom: deskripsi + Kontem + Campaign + Sosial media    |
 +-----------------------------------------------------------------------------------------------+
@@ -506,9 +550,13 @@ Aturan yang mengikat pada halaman ini:
 3. **Hanya satu tombol primary per layar hero.** Tombol pada kartu katalog tidak
    dihitung sebagai primary layar, karena letaknya di dalam kartu.
 4. **Empat kubah statistik memutar empat warna** sesuai urutan token
-   `--stat-sky → --stat-coral → --stat-teal → --stat-marigold`. Urutannya tetap,
+   `--stat-azure → --stat-violet → --stat-mango → --stat-melon`. Urutannya tetap,
    tidak diacak per-render.
-5. **Panel tenggat hanya muncul kalau ada campaign yang berakhir < 72 jam.**
+5. **Alur ditampilkan sebagai satu deret bernomor, bukan dua jalur terpisah.**
+   Keputusan pemilik produk: alur sebenarnya memang berurutan dan berpindah
+   tangan, jadi memecahnya jadi jalur vendor dan creator menyembunyikan
+   urutan aslinya. Pelakunya disebut di judul tiap langkah.
+6. **Panel tenggat hanya muncul kalau ada campaign yang berakhir < 72 jam.**
    Hitung mundur palsu adalah bentuk tekanan jual yang tidak boleh dipakai di
    platform yang menjanjikan transparansi.
 
@@ -987,6 +1035,57 @@ Seluruh teks footer putih; tautan tanpa garis bawah, `hover:underline`. Footer
 **tidak** memakai biru — biru sudah dipakai hero dan seksi katalog, dan footer
 biru membuat halaman terasa dibungkus warna yang sama dari atas sampai bawah.
 
+### 6.8 Rangka Dasbor & Menu Samping
+
+Halaman depan dan dasbor memakai bahasa visual yang sama, tapi rangkanya
+berbeda: halaman depan memakai nav melayang di atas panel biru, sedangkan
+**seluruh dasbor (Creator, Vendor, Admin) memakai menu samping tetap**. Alasan
+pemisahan ini: menu dasbor tumbuh mengikuti fitur — Admin saja sudah delapan —
+dan deretan pil horizontal mulai tergulung ke samping di laptop kecil, sehingga
+menu yang paling jarang dipakai justru yang paling sulit ditemukan.
+
+```
++----------------+-------------------------------------------------------+
+| MENU SAMPING   |  BILAH ATAS (sticky, border bawah, latar surface/85)   |
+| w-64, tetap    |  [≡ di ponsel] [badge role]      [lonceng] [nama] [Keluar]
+| bg-surface     +-------------------------------------------------------+
+| border-r       |                                                       |
+|                |  <main> max-w-6xl px-4 py-8                           |
+| [logo Kontem]  |    PageHeader                                         |
+|                |    Kartu-kartu dasbor (rounded-2xl, shadow-card)      |
+| (o) Ringkasan  |                                                       |
+| (o) Verifikasi |                                                       |
+| ...            |                                                       |
+|                |                                                       |
+| [nama + role]  |                                                       |
+| [Keluar]       |                                                       |
++----------------+-------------------------------------------------------+
+```
+
+Ketentuan yang mengikat:
+
+1. **Lebar menu `w-64`, tetap (`fixed inset-y-0`), hanya mulai `lg`.** Di bawah
+   `lg` menu berubah jadi laci yang ditarik dari kiri (`w-72 max-w-[85vw]`)
+   dengan latar gelap `--foreground/40` di belakangnya, dibuka lewat tombol
+   `≡` di bilah atas dan tertutup sendiri begitu salah satu menunya ditekan.
+2. **Item menu berbentuk pil** (`rounded-full`, sama dengan tab pada bagian
+   2.3), berisi ikon garis 18px + label 14px Medium. Aktif: latar
+   `--brand-50`, teks `--brand-700`, ikon `--brand-600`. Tidak aktif: teks
+   `--muted`, hover berlatar `--surface-muted`.
+3. **Hanya satu item yang boleh menyala.** Menu beranda (`/admin`) mengawali
+   URL semua halaman di bawahnya, jadi kecocokan persis selalu menang; kalau
+   tidak ada yang persis (halaman detail seperti `/admin/disputes/123`), yang
+   menyala adalah menu terpanjang yang mengawali URL sekarang.
+4. **Ikon menu memakai nama, bukan komponen.** Layout role adalah Server
+   Component sedangkan menunya Client Component — komponen React tidak bisa
+   menyeberangi batas itu. Peta nama → ikon ada di
+   `src/components/layout/nav-icons.tsx`.
+5. **Bilah atas hanya memuat hal yang berubah per pengguna**: badge role,
+   lonceng notifikasi berikut jumlah belum dibaca, nama, dan tombol keluar.
+   Menu navigasi tidak diulang di sana.
+6. **Isi halaman tetap `max-w-6xl`** supaya baris tabel tidak melar di layar
+   lebar, dan pita peringatan status verifikasi tetap di bawah bilah atas.
+
 ## 7. Skema Data & Relasi Entitas (Prisma References)
 
 ```prisma
@@ -1127,11 +1226,11 @@ ketentuan versi sebelumnya:
 | :--------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------- |
 | Semua tombol `rounded-full`                                | Pil untuk ajakan hero & chip; **blok `rounded-lg`** untuk tombol di dalam kartu dan form                                                | Referensi membedakan keduanya; pil selebar kartu membuat aksi kartu terbaca sebagai ajakan halaman                          |
 | Kartu campaign tanpa spesifikasi tersendiri                | **Kartu Katalog bagian 6.5** — pita sorotan, tiga baris fakta berchip, bilah slot bertulisan di dalam, tautan skema payout, tombol blok | Ini komponen inti `#products` dan halaman yang paling sering dilihat creator                                                |
-| Bayangan selalu netral                                     | **`--shadow-catalog` berpendar biru** khusus kartu katalog                                                                              | Referensi memakai `shadow-2xl shadow-blue-400`; inilah yang membuat grid katalog terasa mengambang di atas latar biru pucat |
-| Empat kubah statistik semuanya `--brand-500`               | **Empat warna berputar**: sky, coral `#ff5968`, teal `#34bb9e`, marigold                                                                | Deret satu warna terbaca sebagai tabel, bukan sebagai deretan pencapaian                                                    |
+| Bayangan kartu katalog berpendar biru                      | **`--shadow-catalog` netral dua lapis**, lebih dalam daripada kartu dasbor                                                              | Keputusan pemilik produk: pendar biru di atas latar biru pucat membuat grid enam kartu terbaca seperti kolam biru           |
+| Empat kubah statistik semuanya `--brand-500`               | **Empat warna terang berputar**: azure `#38bdf8`, violet `#a78bfa`, mangga `#fbbf24`, semangka `#fb7185`, angka navy                     | Deret satu warna terbaca sebagai tabel, bukan sebagai deretan pencapaian; kuartetnya dibedakan dari referensi atas permintaan pemilik produk |
 | Ikon bulat kuning di atas kubah                            | **Ilustrasi unDraw menumpang langsung**, tinggi dipatok `h-28`/`h-36`                                                                   | Referensi tidak memakai lingkaran; tinggi tetap sudah cukup menyeragamkan rasio unDraw yang berbeda-beda                    |
 | Hero berisi panel putih `rounded-3xl` pembungkus ilustrasi | **Ilustrasi langsung di atas panel biru**                                                                                               | Panel putih memotong bidang biru jadi dua dan menghilangkan kesan langit penuh                                              |
-| Enam kartu fitur `rounded-2xl` di halaman depan            | **Baris manfaat**: satu ilustrasi tengah + tiga baris ikon di tiap sisi                                                                 | Grid kartu berisi satu kalimat adalah bentuk paling cepat terbaca sebagai template                                          |
+| Enam kartu fitur `rounded-2xl` di halaman depan            | **Seksi manfaat dihapus seluruhnya** dari halaman depan                                                                                 | Keputusan pemilik produk: isinya sudah terwakili dua jalur Vendor/Creator di "Cara kerjanya"                                |
 | Footer biru `--brand-600`                                  | **Footer arang `#2d2d2d`** empat kolom                                                                                                  | Biru sudah memegang hero dan seksi katalog                                                                                  |
 | Gradien dilarang seluruhnya                                | Diizinkan **tepat di tiga tempat**: spanduk hitung mundur, pita sorotan kartu, pita FAQ                                                 | Referensi memakai gradien hanya pada bidang yang memang "berbunyi"                                                          |
 | Tidak ada seksi katalog berfilter                          | **Toolbar cari + select kategori**, grid `2/3/4` kolom, panel tenggat berhitung mundur                                                  | Ini struktur `#products` itu sendiri                                                                                        |
@@ -1168,20 +1267,25 @@ katalog pada bagian 5.1, 6.1, dan 6.5–6.7 adalah hasil revisi terbaru dan
 
 | Berkas                               | Isi                                                                  | Status terhadap dokumen ini                                                                                        |
 | :----------------------------------- | :------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- |
-| `src/app/globals.css`                | Token, muat DM Sans + Inter, utilitas `.dome`                        | Perlu tambahan: `--stat-*`, `--surface-sky`, `--footer`, `--shadow-catalog`; resep `.dome` disamakan dengan 2.3    |
+| `src/app/globals.css`                | Token, muat DM Sans + Inter, utilitas `.dome`                        | `--stat-*`, `--surface-sky`, `--shadow-catalog` sudah ada; masih perlu `--footer`                                  |
 | `src/app/illustrations.tsx`          | `WaveBand`                                                           | Perlu tambahan `DomeShape` untuk kubah statistik empat warna                                                       |
 | `public/illustrations/`              | Ilustrasi unDraw yang sudah diwarnai ulang                           | Sesuai                                                                                                             |
 | `src/components/ui/button.tsx`       | Tombol design system                                                 | Perlu prop `shape` (`pill` / `block`)                                                                              |
-| `src/components/ui/` (baru)          | `catalog-card.tsx`, `fact-chip.tsx`, `slot-bar.tsx`, `accordion.tsx` | Belum ada                                                                                                          |
-| `src/app/page.tsx`                   | Halaman depan                                                        | Urutan seksi perlu disesuaikan ke 5.1: katalog naik ke atas "Cara kerjanya", manfaat jadi baris, footer jadi arang |
+| `src/components/ui/`                 | `catalog-card.tsx`, `fact-chip.tsx`, `slot-bar.tsx`, `count-up.tsx`  | Sudah ada dan sesuai bagian 6.5; `accordion.tsx` untuk FAQ belum ada                                               |
+| `src/app/page.tsx`                   | Halaman depan                                                        | Seksi katalog memakai `CatalogCard` (maksimal 8 kartu + tombol "Lihat semua"); footer masih perlu jadi arang       |
 | `src/app/creator/campaigns/page.tsx` | Browse campaign                                                      | Perlu memakai Kartu Katalog 6.5 dan toolbar 6.6                                                                    |
+| `src/components/layout/dashboard-chrome.tsx` | Menu samping + bilah atas seluruh dasbor                     | Sesuai bagian 6.8                                                                                                  |
+| `src/components/layout/nav-icons.tsx` | Peta nama ikon menu samping                                         | Sesuai bagian 6.8 butir 4                                                                                          |
+| `src/components/ui/stat.tsx`, `page-header.tsx`, `card.tsx`, `table.tsx`, `empty-state.tsx` | Primitif dasbor           | Angka dan judul memakai DM Sans, label tabel 12px Medium, kotak ikon `rounded-2xl` — sesuai 2.2–2.3                |
 
 `CONVENTIONS.md` bagian 7 ("Geometri & elevasi") memuat salinan tabel radius dan
 bayangan. Tabel itu ikut diperbarui bersama revisi ini; kalau keduanya berbeda,
 **dokumen inilah yang berlaku**.
 
 Halaman dasbor lain tidak perlu disentuh saat palet berubah karena semuanya
-memakai token dan barrel design system. Yang juga **belum** dikerjakan: halaman
+memakai token dan barrel design system. Rangka dasbor ketiga role sudah memakai
+menu samping bagian 6.8 — mengganti tampilannya cukup dari
+`components/layout/`, bukan dari tiap layout role. Yang juga **belum** dikerjakan: halaman
 `/login` dan `/register` masih memakai tata letak lama — keduanya tetap benar
 secara warna karena ikut token, tapi belum mengadopsi bentuk hero biru.
 

@@ -19,7 +19,7 @@ export function Th({
   return (
     <th
       className={cn(
-        "border-b border-line px-3 py-2.5 text-xs font-semibold tracking-wide text-muted",
+        "border-b border-line px-3 py-2.5 text-xs font-medium text-muted",
         align === "right" ? "text-right" : "text-left",
       )}
     >
@@ -59,7 +59,7 @@ export function DescriptionList({
     <dl className="grid gap-3 sm:grid-cols-2">
       {items.map((item) => (
         <div key={item.label}>
-          <dt className="text-xs font-semibold tracking-wide text-muted">
+          <dt className="text-xs font-medium text-muted">
             {item.label}
           </dt>
           <dd className="mt-0.5 text-sm text-body">{item.value}</dd>

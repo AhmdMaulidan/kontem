@@ -6,6 +6,7 @@
  * folder ini tanpa menyentuh halaman.
  */
 export * from "./icon";
+export { LogoTikTok, LogoInstagram, LogoYouTube } from "./social-logo";
 export { cn } from "./utils";
 export { toneClasses, toneIcons } from "./tone";
 
@@ -14,6 +15,12 @@ export type { ButtonVariant, ButtonSize } from "./button";
 export { SubmitButton } from "./submit-button";
 
 export { Card, CardHeader } from "./card";
+export { CountUp } from "./count-up";
+export { CatalogCard } from "./catalog-card";
+// Blok penyusun kartu katalog (design.md 6.3 & 6.5). Diekspor juga karena
+// keduanya dipakai ulang di luar kartu: chip pada baris fakta dan bilah slot.
+export { FactChip } from "./fact-chip";
+export { SlotBar } from "./slot-bar";
 export { PageHeader } from "./page-header";
 export { EmptyState } from "./empty-state";
 

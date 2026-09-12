@@ -3,10 +3,11 @@ import { AppShell, type NavItem } from "@/components/layout/app-shell";
 import { requireRole } from "@/lib/auth";
 
 const nav: NavItem[] = [
-  { href: "/vendor", label: "Dashboard" },
-  { href: "/vendor/campaigns/new", label: "Buat Campaign" },
-  { href: "/vendor/submissions", label: "Review Submission" },
-  { href: "/vendor/redeem", label: "Cek Kode Redeem" },
+  { href: "/vendor", label: "Dashboard", icon: "dashboard" },
+  { href: "/vendor/campaigns/new", label: "Buat Campaign", icon: "campaign" },
+  { href: "/vendor/submissions", label: "Review Submission", icon: "review" },
+  { href: "/vendor/redeem", label: "Cek Kode Redeem", icon: "redeem" },
+  { href: "/vendor/notifications", label: "Notifikasi", icon: "notification" },
 ];
 
 export default async function VendorLayout({
