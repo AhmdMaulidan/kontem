@@ -2,6 +2,7 @@
   "name": "kontem",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -44,15 +45,6 @@
     "typescript": "^5"
   },
   "packageManager": "pnpm@12.3.4",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "@prisma/engines",
-      "prisma",
-      "@prisma/client",
-      "sharp"
-    ]
-  },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   }

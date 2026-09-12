@@ -226,3 +226,14 @@ diganti yang asli:
 - Status dana untuk submission yang sedang disengketakan. Sekarang settle
   diblokir sampai sengketa selesai; alternatifnya menahan porsi dana tertentu dan
   tetap mencairkan sisanya.
+
+## Lisensi
+
+Proyek ini dirilis di bawah [Lisensi MIT](LICENSE) — bebas dipakai, diubah, dan
+didistribusikan, termasuk untuk keperluan komersial, selama pemberitahuan hak
+cipta dan teks lisensinya ikut disertakan.
+
+Aset di `public/` punya ketentuannya sendiri dan **tidak** tercakup lisensi ini
+secara otomatis; sumber dan lisensi tiap aset dicatat di
+`public/illustrations/README.md` dan `public/demo/README.md`.
+

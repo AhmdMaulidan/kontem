@@ -1,11 +1,19 @@
+# Paket yang boleh menjalankan skrip build saat install.
+#
+# pnpm 12 memblokir skrip pasca-install secara bawaan. Paket yang tidak
+# terdaftar di sini membuat `pnpm install` berhenti dengan
+# ERR_PNPM_IGNORED_BUILDS — itu yang menggagalkan build di Vercel.
+#
+# Kuncinya `allowBuilds` dengan nilai boolean. `onlyBuiltDependencies` adalah
+# format pnpm 10 dan DIABAIKAN oleh pnpm 12, jadi daftar yang ditulis di sana
+# (termasuk di package.json) terlihat benar tapi tidak berpengaruh sama sekali.
+#
+# - prisma & @prisma/engines : mengunduh engine biner; tanpa ini Prisma Client
+#                              tidak bisa dipakai sama sekali.
+# - esbuild & unrs-resolver  : mengunduh biner sesuai platform, dipakai tsx
+#                              (seed) dan resolver ESLint.
 allowBuilds:
-  '@prisma/engines': set this to true or false
-  esbuild: set this to true or false
-  prisma: set this to true or false
-  unrs-resolver: set this to true or false
-onlyBuiltDependencies:
-  - esbuild
-  - prisma
-  - "@prisma/engines"
-  - "@prisma/client"
-  - sharp
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
+  unrs-resolver: true
