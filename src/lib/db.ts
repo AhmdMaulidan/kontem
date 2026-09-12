@@ -29,10 +29,33 @@ function createClient() {
   });
 }
 
-// Hot reload di dev membuat modul dievaluasi ulang; tanpa cache global
-// tiap reload membuka pool koneksi baru sampai Postgres menolak.
-export const db = globalForPrisma.prisma ?? createClient();
+let cached: PrismaClient | undefined;
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = db;
+function getClient() {
+  // Hot reload di dev membuat modul dievaluasi ulang; tanpa cache global
+  // tiap reload membuka pool koneksi baru sampai Postgres menolak. Di
+  // produksi cache modul sudah cukup — global sengaja tidak dikotori.
+  cached ??= globalForPrisma.prisma ?? createClient();
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma = cached;
+  }
+  return cached;
 }
+
+/**
+ * Klien dibuat saat query PERTAMA, bukan saat modul diimpor.
+ *
+ * `next build` mengimpor tiap halaman untuk membaca konfigurasinya. Kalau
+ * klien dibuat di ruang modul, impor itu sendiri sudah melempar saat
+ * DATABASE_URL belum ada, sehingga build gagal di mesin yang memang tidak
+ * memegang kredensial. Menunda pembuatannya membuat pesan error tetap muncul
+ * di tempat yang benar — saat aplikasi sungguh butuh database — persis seperti
+ * `secret()` di auth.ts yang membaca AUTH_SECRET di dalam fungsi.
+ */
+export const db = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getClient();
+    const value = Reflect.get(client, prop) as unknown;
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
