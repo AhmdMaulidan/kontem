@@ -22,6 +22,7 @@ export { SubmitButton } from "./submit-button";
 export { Accordion } from "./accordion";
 export type { AccordionItem } from "./accordion";
 export { Card, CardHeader } from "./card";
+export { Logo } from "./logo";
 export { CountUp } from "./count-up";
 export { CatalogCard } from "./catalog-card";
 // Blok penyusun kartu katalog (design.md 6.3 & 6.5). Diekspor juga karena

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ButtonLink, IconPin, cn } from "@/components/ui";
+import { ButtonLink, Logo, cn } from "@/components/ui";
 
 const menu = [
   { href: "#cara-kerja", label: "Cara kerja" },
@@ -46,23 +46,17 @@ export function LandingNav() {
           digulir ? "py-3" : "py-5",
         )}
       >
-        <Link href="/" className="flex items-center gap-2.5">
-          <span
-            className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-xl transition-colors",
-              digulir ? "bg-brand text-white" : "bg-white text-brand-600",
-            )}
-          >
-            <IconPin className="h-4.5 w-4.5" strokeWidth={2.5} />
-          </span>
-          <span
-            className={cn(
-              "font-display text-xl font-bold transition-colors",
-              digulir ? "text-brand-600" : "text-white",
-            )}
-          >
-            Kontem
-          </span>
+        {/* Melayang di atas panel hero: logo putih. Begitu digulir, nav
+            berlatar putih dan logonya berganti biru. Keputusan pemilik produk
+            — di atas --brand-300 yang terang, putih memang lebih pudar
+            daripada biru, tapi logo putih itu yang menyatu dengan panel hero
+            dan dengan tautan nav yang juga putih di sana. */}
+        <Link href="/" className="flex items-center">
+          <Logo
+            variant={digulir ? "biru" : "putih"}
+            priority
+            className="h-9 lg:h-10"
+          />
         </Link>
 
         <nav className="hidden items-center gap-7 lg:flex">

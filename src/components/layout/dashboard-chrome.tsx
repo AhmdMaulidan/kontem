@@ -10,8 +10,8 @@ import {
   IconBell,
   IconLogout,
   IconMenu,
-  IconPin,
   IconX,
+  Logo,
   cn,
 } from "@/components/ui";
 import {
@@ -111,9 +111,9 @@ export function DashboardChrome({
               >
                 <IconMenu className="h-5 w-5" strokeWidth={2} />
               </button>
-              <span className="truncate font-display text-lg font-bold text-foreground lg:hidden">
-                Kontem
-              </span>
+              <Link href="/" className="lg:hidden">
+                <Logo className="h-7" />
+              </Link>
               <Badge tone={roleTone[user.role]}>{roleLabel[user.role]}</Badge>
             </div>
 
@@ -184,13 +184,8 @@ function SidebarContent({
   return (
     <>
       <div className="flex items-center justify-between gap-2 px-5 py-4">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white shadow-brand">
-            <IconPin className="h-4.5 w-4.5" strokeWidth={2.5} />
-          </span>
-          <span className="font-display text-lg font-bold text-foreground">
-            Kontem
-          </span>
+        <Link href="/" className="flex items-center">
+          <Logo className="h-8" />
         </Link>
         {onTutup ? (
           <button

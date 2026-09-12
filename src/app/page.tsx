@@ -11,7 +11,7 @@ import {
   CountUp,
   IconArrowRight,
   IconEye,
-  IconPin,
+  Logo,
   LogoInstagram,
   LogoTikTok,
   LogoYouTube,
@@ -630,14 +630,7 @@ export default async function LandingPage() {
 
       <footer className="bg-brand-600">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-10">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-brand-600">
-              <IconPin className="h-4 w-4" strokeWidth={2.5} />
-            </span>
-            <span className="font-display text-lg font-bold text-white">
-              Kontem
-            </span>
-          </div>
+          <Logo variant="putih" className="h-9" />
           <p className="max-w-md text-sm text-white/90">
             Platform campaign lokasi berbasis CPM dan escrow untuk UMKM dan
             kreator lokal.
