@@ -73,3 +73,119 @@ export function RibbonBand({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/**
+ * Layar ponsel bergaya vektor datar untuk seksi "Tayang di mana saja".
+ *
+ * Menggantikan daftar baris berlogo: tiap kanal digambar sebagai satu layar
+ * video pendek, sehingga yang terbaca lebih dulu adalah bentuk kontennya,
+ * bukan tabel status.
+ *
+ * Warnanya diambil dari `socialBrandColor` — warna merek tiap platform, bukan
+ * token Kontem. Ini satu-satunya tempat di halaman depan yang memakai palet di
+ * luar token, dan alasannya sama dengan logo mereknya sendiri: yang digambar
+ * memang milik pihak lain. Bidang layarnya memakai warna aplikasinya apa
+ * adanya — gelap untuk TikTok, magenta untuk Instagram, merah untuk YouTube —
+ * supaya kanal dikenali dari temanya sebelum logonya terbaca; tanda di dalam
+ * layar jadi putih karena harus terbaca di atas ketiga bidang pekat itu.
+ *
+ * Kanal yang belum dibuka tetap berwarna penuh, hanya sedikit diredam lewat
+ * `active` — pembeda utamanya ada pada chip "Segera hadir" di bawah gambar.
+ */
+export function PhoneScreen({
+  layar,
+  tanda,
+  aksen,
+  active = false,
+  className,
+}: {
+  layar: string;
+  tanda: string;
+  aksen: string;
+  active?: boolean;
+  className?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 132 216"
+      className={className}
+      aria-hidden
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Badan ponsel */}
+      <rect
+        x="9"
+        y="5"
+        width="114"
+        height="202"
+        rx="20"
+        fill="var(--surface)"
+        stroke="var(--border)"
+        strokeWidth="2"
+      />
+
+      {/* Kanal yang belum dibuka diredam setipis mungkin — cukup untuk
+          mundur selangkah, tidak sampai warna temanya ikut pudar. Pembeda
+          sebenarnya ada pada chip "Segera hadir" di bawah gambar. */}
+      <g opacity={active ? 1 : 0.85}>
+        <rect x="15" y="11" width="102" height="174" rx="14" fill={layar} />
+
+        {/* Pil penghitung views di pojok layar — bentuk, bukan angka: angka
+            yang sebenarnya tidak boleh dikarang (design.md 10.1). */}
+        <rect
+          x="24"
+          y="24"
+          width="46"
+          height="14"
+          rx="7"
+          fill="#FFFFFF"
+          opacity="0.9"
+        />
+        <circle cx="33" cy="31" r="3.5" fill={tanda} />
+        <rect
+          x="40"
+          y="28"
+          width="22"
+          height="6"
+          rx="3"
+          fill={layar}
+          opacity="0.35"
+        />
+
+        {/* Tombol putar */}
+        <circle cx="66" cy="92" r="21" fill="#FFFFFF" />
+        <path d="M61 83.5 76 92l-15 8.5z" fill={tanda} />
+
+        {/* Dua baris takarir */}
+        <rect
+          x="24"
+          y="138"
+          width="64"
+          height="7"
+          rx="3.5"
+          fill="#FFFFFF"
+          opacity="0.85"
+        />
+        <rect
+          x="24"
+          y="152"
+          width="40"
+          height="7"
+          rx="3.5"
+          fill={aksen}
+          opacity="0.95"
+        />
+      </g>
+
+      {/* Garis genggam di bawah layar */}
+      <rect
+        x="52"
+        y="192"
+        width="28"
+        height="5"
+        rx="2.5"
+        fill="var(--border)"
+      />
+    </svg>
+  );
+}

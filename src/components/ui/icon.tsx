@@ -15,6 +15,8 @@ export {
   Bell as IconBell,
   Building2 as IconBusiness,
   Check as IconCheck,
+  ChevronLeft as IconChevronLeft,
+  ChevronRight as IconChevronRight,
   Clock as IconClock,
   Compass as IconCompass,
   Coffee as IconCoffee,

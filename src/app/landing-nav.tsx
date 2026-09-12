@@ -7,6 +7,7 @@ import { ButtonLink, IconPin, cn } from "@/components/ui";
 const menu = [
   { href: "#cara-kerja", label: "Cara kerja" },
   { href: "#campaign", label: "Campaign" },
+  { href: "#faq", label: "FAQ" },
 ];
 
 /**

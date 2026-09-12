@@ -6,7 +6,12 @@
  * folder ini tanpa menyentuh halaman.
  */
 export * from "./icon";
-export { LogoTikTok, LogoInstagram, LogoYouTube } from "./social-logo";
+export {
+  LogoTikTok,
+  LogoInstagram,
+  LogoYouTube,
+  socialBrandColor,
+} from "./social-logo";
 export { cn } from "./utils";
 export { toneClasses, toneIcons } from "./tone";
 
@@ -14,6 +19,8 @@ export { Button, ButtonLink, buttonVariants, buttonSizes } from "./button";
 export type { ButtonVariant, ButtonSize } from "./button";
 export { SubmitButton } from "./submit-button";
 
+export { Accordion } from "./accordion";
+export type { AccordionItem } from "./accordion";
 export { Card, CardHeader } from "./card";
 export { CountUp } from "./count-up";
 export { CatalogCard } from "./catalog-card";

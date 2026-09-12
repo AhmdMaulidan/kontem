@@ -4,22 +4,23 @@ import { getSession, dashboardPath } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { daysUntil, formatIDR } from "@/lib/format";
 import {
-  Badge,
+  Accordion,
   ButtonLink,
   Card,
   CatalogCard,
   CountUp,
   IconArrowRight,
-  IconCheck,
   IconEye,
   IconPin,
   LogoInstagram,
   LogoTikTok,
   LogoYouTube,
+  cn,
+  socialBrandColor,
 } from "@/components/ui";
 import { categoryLabel, categoryTone } from "@/lib/labels";
 import { LandingNav } from "./landing-nav";
-import { RibbonBand, WaveBand } from "./illustrations";
+import { PhoneScreen, RibbonBand, WaveBand } from "./illustrations";
 
 /**
  * Sembilan langkah alur campaign, dari vendor menyusun sampai payout cair.
@@ -81,14 +82,75 @@ const langkah = [
 // supaya creator tidak menyiapkan konten untuk kanal yang belum bisa dipilih
 // saat submit.
 const platform = [
-  { nama: "TikTok", format: "Video pendek", aktif: true, Logo: LogoTikTok },
+  {
+    nama: "TikTok",
+    format: "Video pendek",
+    aktif: true,
+    Logo: LogoTikTok,
+    warna: socialBrandColor.TikTok,
+  },
   {
     nama: "Instagram",
     format: "Reels",
     aktif: false,
     Logo: LogoInstagram,
+    warna: socialBrandColor.Instagram,
   },
-  { nama: "YouTube", format: "Shorts", aktif: false, Logo: LogoYouTube },
+  {
+    nama: "YouTube",
+    format: "Shorts",
+    aktif: false,
+    Logo: LogoYouTube,
+    warna: socialBrandColor.YouTube,
+  },
+];
+
+/**
+ * Isi FAQ halaman depan. Jawabannya mengikuti aturan main yang benar-benar
+ * berlaku di sistem (escrow, largest remainder, fee 15%, bukti kunjungan) —
+ * kalau salah satunya berubah, teks di sini ikut diperbarui.
+ */
+const faq = [
+  {
+    pertanyaan: "Berapa lama dana escrow dikunci?",
+    jawaban:
+      "Dana dikunci sejak vendor menyetor sampai campaign selesai dihitung. Selama periode itu vendor tidak bisa menariknya, dan creator tidak pernah bekerja tanpa jaminan. Sisa pool yang tidak terserap dikembalikan utuh ke vendor saat settlement.",
+  },
+  {
+    pertanyaan: "Apakah ada minimum followers untuk jadi creator?",
+    jawaban:
+      "Tidak ada. Siapa pun yang punya akun media sosial aktif boleh mengambil slot campaign. Yang dibayar adalah views yang benar-benar tercipta, bukan jumlah pengikut akunmu.",
+  },
+  {
+    pertanyaan: "Bagaimana penghasilan creator dihitung?",
+    jawaban:
+      "Dasarnya tarif CPM: setiap 1.000 views dihargai sesuai tarif yang dipasang vendor. Kalau total tagihan seluruh creator melebihi budget pool, pool dibagi proporsional menurut kontribusi views masing-masing, dibulatkan dengan metode largest remainder supaya jumlahnya genap sampai rupiah terakhir.",
+  },
+  {
+    pertanyaan: "Berapa potongan platform Kontem?",
+    jawaban:
+      "15% dan dipotong hanya dari pembayaran yang benar-benar diterima creator. Tidak ada biaya pendaftaran, baik untuk creator maupun vendor.",
+  },
+  {
+    pertanyaan: "Kenapa creator harus datang ke lokasi dulu?",
+    jawaban:
+      "Setiap slot menghasilkan kode redeem yang hanya bisa disahkan kasir atau PIC di outlet. Kunjungan yang belum terkonfirmasi membuat form submission belum terbuka — inilah yang memastikan konten dibuat di tempat, bukan dari materi orang lain.",
+  },
+  {
+    pertanyaan: "Bagaimana kalau konten saya ditolak vendor?",
+    jawaban:
+      "Vendor wajib memilih kategori pelanggaran brief dan menuliskan alasannya; penolakan tanpa alasan tidak bisa dikirim. Kalau kamu tidak setuju, ajukan banding dan admin akan menengahi dengan melihat video, brief, serta argumen kedua pihak.",
+  },
+  {
+    pertanyaan: "Kapan payout dicairkan?",
+    jawaban:
+      "Setelah periode campaign berakhir, angka views dikunci, pembagian pool dihitung, lalu admin mengeksekusi transfer ke rekening atau e-wallet yang terdaftar di profilmu.",
+  },
+  {
+    pertanyaan: "Platform media sosial mana yang didukung?",
+    jawaban:
+      "Untuk sekarang campaign berjalan di TikTok. Instagram Reels dan YouTube Shorts sedang disiapkan dan akan dibuka menyusul.",
+  },
 ];
 
 export default async function LandingPage() {
@@ -296,43 +358,61 @@ export default async function LandingPage() {
                 dari tautan publik kontenmu, bukan jumlah pengikut akunmu.
               </p>
 
-              <ul className="mx-auto mt-6 max-w-md divide-y divide-line overflow-hidden rounded-2xl bg-surface text-left shadow-float lg:mx-0">
-                {platform.map(({ nama, format, aktif, Logo }) => (
-                  <li key={nama} className="flex items-center gap-3 px-4 py-3">
-                    {/* Logo merek dipakai apa adanya, hanya diredam jadi abu
-                        untuk platform yang belum dibuka — bentuknya tidak
-                        boleh diubah. */}
-                    <span
-                      className={`flex h-9 w-9 flex-none items-center justify-center rounded-xl ${
-                        aktif
-                          ? "bg-surface-muted text-foreground"
-                          : "bg-surface-muted text-muted/60"
-                      }`}
+              {/* Ketiga layar dibingkai satu panel putih, bukan berdiri
+                  sendiri di atas pita biru: bidang warna merek yang pekat
+                  butuh permukaan netral supaya tidak beradu dengan biru
+                  halaman. Panelnya memakai bahasa kartu sorotan Kontem
+                  (rounded-3xl + shadow-float, design.md 2.3). */}
+              <div className="mx-auto mt-7 max-w-md rounded-3xl bg-surface p-4 shadow-float sm:p-5 lg:mx-0">
+                <ul className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                  {platform.map(({ nama, format, aktif, Logo, warna }) => (
+                    <li
+                      key={nama}
+                      // Kanal yang sudah bisa dipakai diberi alas biru pucat —
+                      // satu-satunya warna Kontem di kelompok ini, dan yang
+                      // mengikat bidang merek yang ramai itu ke palet halaman.
+                      className={cn(
+                        "flex flex-col items-center rounded-2xl px-1.5 py-3 text-center sm:px-3",
+                        aktif && "bg-brand-50",
+                      )}
                     >
-                      <Logo className="h-[18px] w-[18px]" />
-                    </span>
-                    <div className="min-w-0">
-                      <p
-                        className={`text-sm font-semibold ${aktif ? "" : "text-muted"}`}
-                      >
+                      <PhoneScreen
+                        layar={warna.layar}
+                        tanda={warna.tanda}
+                        aksen={warna.aksen}
+                        active={aktif}
+                        className="h-auto w-full max-w-[88px]"
+                      />
+
+                      <p className="mt-3 flex items-center gap-1.5 font-display text-sm font-semibold">
+                        {/* Logo merek dipakai apa adanya: bentuk dan warna
+                            aslinya, termasuk untuk kanal yang belum dibuka. */}
+                        <Logo
+                          className="h-3.5 w-3.5 flex-none"
+                          style={{ color: warna.mark }}
+                        />
                         {nama}
                       </p>
                       <p className="text-xs text-muted">{format}</p>
-                    </div>
-                    <span
-                      className={`ml-auto rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap ${
-                        aktif
-                          ? "bg-brand-50 text-brand-600"
-                          : "bg-surface-muted text-muted"
-                      }`}
-                    >
-                      {aktif ? "Tersedia" : "Segera hadir"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+                      <span
+                        className={cn(
+                          "mt-2 rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap",
+                          // Di atas kolom yang sudah beralas biru pucat,
+                          // chip biru pucat hilang bentuknya — chipnya jadi
+                          // putih supaya tetap terbaca sebagai chip.
+                          aktif
+                            ? "bg-surface text-brand-600 shadow-card"
+                            : "bg-surface-muted text-muted",
+                        )}
+                      >
+                        {aktif ? "Tersedia" : "Segera hadir"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-              <p className="mx-auto mt-4 flex max-w-md items-start gap-2 text-xs text-muted lg:mx-0">
+              <p className="mx-auto mt-7 flex max-w-md items-start gap-2 text-xs text-muted lg:mx-0">
                 <IconEye className="mt-0.5 h-4 w-4 flex-none text-brand-600" />
                 <span>
                   Angka views diambil berkala dari tautan yang kamu kirim, dan
@@ -483,73 +563,36 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        {/* ----------------------------------------------------- mulai */}
-        <section className="bg-surface-muted py-16">
+        {/* ------------------------------------------------------- faq */}
+        {/* Pita gradien brand-200 -> putih adalah satu-satunya gradien yang
+            diizinkan sebagai latar seksi (design.md bagian 2.3 & 6.7): ia
+            pemisah antar seksi, bukan hiasan kartu.
+
+            Arahnya ke bawah, bukan ke atas seperti tertulis di design.md 6.7:
+            di sana FAQ duduk sesudah seksi berlatar abu, sedangkan sekarang ia
+            langsung menyambung seksi katalog yang berlatar biru pucat. Gradien
+            yang memutih di ujung atas memotong bidang biru itu dengan garis
+            terang; memulai dari biru membuat keduanya menyatu lalu meluruh ke
+            putih menjelang footer. Ujung atasnya brand-100, bukan brand-200,
+            karena nilainya praktis sama dengan --surface-sky milik seksi
+            katalog — perpindahan seksinya jadi tidak berjejak sama sekali. */}
+        <section
+          id="faq"
+          className="bg-gradient-to-b from-brand-100 to-surface py-16"
+        >
           <div className="mx-auto max-w-6xl px-4">
-            <h2 className="text-center font-display text-2xl font-bold lg:text-[2.15rem]">
-              Mulai hari ini
-            </h2>
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="font-display text-2xl font-bold lg:text-[2.15rem]">
+                Pertanyaan yang sering ditanyakan
+              </h2>
+              <p className="mt-2 text-sm text-muted sm:text-base">
+                Hal yang paling sering ditanyakan creator dan pemilik usaha
+                sebelum campaign pertamanya jalan.
+              </p>
+            </div>
 
-            <div className="mt-10 grid gap-6 lg:grid-cols-2">
-              <Card panel hover className="flex h-full flex-col p-7 lg:p-8">
-                <div>
-                  <Badge tone="sky">Untuk kreator konten</Badge>
-                </div>
-                <h3 className="mt-4 font-display text-xl font-bold">
-                  Liput tempat favoritmu, dibayar sesuai performa
-                </h3>
-                <ul className="mt-5 space-y-3 text-sm text-body">
-                  {[
-                    "Gratis mendaftar, tanpa minimum followers",
-                    "Campaign disaring otomatis menurut kotamu",
-                    "Komplimen menu atau tiket masuk di lokasi",
-                    "Payout ditransfer ke rekening terdaftar",
-                  ].map((poin) => (
-                    <li key={poin} className="flex items-start gap-2.5">
-                      <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                      {poin}
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-auto pt-7">
-                  <ButtonLink href="/register?role=creator" className="w-full">
-                    Daftar sebagai creator
-                    <IconArrowRight className="h-4 w-4" />
-                  </ButtonLink>
-                </div>
-              </Card>
-
-              <Card panel hover className="flex h-full flex-col p-7 lg:p-8">
-                <div>
-                  <Badge tone="sky">Untuk pemilik usaha</Badge>
-                </div>
-                <h3 className="mt-4 font-display text-xl font-bold">
-                  Anggaran promosi yang habisnya bisa dipertanggungjawabkan
-                </h3>
-                <ul className="mt-5 space-y-3 text-sm text-body">
-                  {[
-                    "Tentukan sendiri budget pool dan CPM rate",
-                    "Tidak pernah membayar melebihi pool yang disetor",
-                    "Sisa dana yang tidak terserap dikembalikan",
-                    "Laporan reach lengkap saat campaign ditutup",
-                  ].map((poin) => (
-                    <li key={poin} className="flex items-start gap-2.5">
-                      <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                      {poin}
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-auto pt-7">
-                  <ButtonLink
-                    href="/register?role=vendor"
-                    variant="outlineBrand"
-                    className="w-full"
-                  >
-                    Buat campaign vendor
-                    <IconArrowRight className="h-4 w-4" />
-                  </ButtonLink>
-                </div>
-              </Card>
+            <div className="mx-auto mt-10 max-w-3xl rounded-3xl bg-surface-muted p-4 sm:p-6 lg:p-8">
+              <Accordion items={faq} />
             </div>
           </div>
         </section>

@@ -528,12 +528,14 @@ tautan `#campaign` harus langsung melihat barangnya.
 |  6. APA KATA MEREKA — hanya ditampilkan kalau ada testimoni nyata di database.                |
 |   Kalau belum ada, seksi ini TIDAK dirender (jangan diisi kutipan karangan).                  |
 +-----------------------------------------------------------------------------------------------+
-|  7. MULAI HARI INI — dua kartu ajakan (creator / pemilik usaha), 4 poin + tombol               |
+|  7. FAQ — akordeon di dalam panel abu, di atas pita gradien brand-100 -> putih, id="faq"       |
+|   Judul + satu kalimat penjelas rata tengah, lalu panel rounded-3xl berlatar --surface-muted.  |
+|   Tiap item: kartu putih rounded-lg shadow, judul SemiBold, ikon chevron berputar 90 derajat.  |
+|   Empat item per halaman, sisanya lewat sepasang tombol panah bulat + penanda "1 / 2".         |
+|   Arah gradiennya ke BAWAH: seksi ini menyambung katalog yang berlatar biru pucat, dan ujung   |
+|   atas yang memutih akan memotong bidang biru itu dengan garis terang.                         |
 +-----------------------------------------------------------------------------------------------+
-|  8. FAQ — akordeon di atas pita gradien sky-200 -> putih, id="faq"                             |
-|   Tiap item: kartu putih rounded-lg shadow, judul SemiBold, ikon chevron berputar 90 derajat   |
-+-----------------------------------------------------------------------------------------------+
-|  9. Kartu akun demo                                                                          |
+|  8. Kartu akun demo                                                                          |
 +-----------------------------------------------------------------------------------------------+
 |  FOOTER ARANG (--footer #2d2d2d), empat kolom: deskripsi + Kontem + Campaign + Sosial media    |
 +-----------------------------------------------------------------------------------------------+
@@ -998,10 +1000,18 @@ Panel ini tidak dirender kalau tidak ada campaign yang memenuhi syarat.
 
 ### 6.7 Akordeon FAQ & Footer
 
-**Akordeon FAQ** duduk di atas pita gradien vertikal `--brand-200 → putih`
-(`bg-gradient-to-t`), satu-satunya pita gradien di halaman — dan gradien ini
+**Akordeon FAQ** duduk di atas pita gradien vertikal `--brand-100 → putih`
+(`bg-gradient-to-b`), satu-satunya pita gradien di halaman — dan gradien ini
 dikecualikan dari larangan bagian 2.3 karena ia pemisah seksi, bukan latar
-kartu.
+kartu. Arahnya ke bawah dan ujung atasnya `--brand-100` supaya menyambung mulus
+dengan `--surface-sky` milik seksi katalog tepat di atasnya.
+
+Kartu-kartunya duduk di dalam satu panel `rounded-3xl bg-[--surface-muted]`,
+bukan langsung di atas pita gradien: permukaan netral itu yang memisahkan kartu
+putih dari bidang biru di belakangnya. **Satu jawaban terbuka pada satu waktu**,
+dan hanya **empat item ditampilkan sekaligus** — sisanya dicapai lewat sepasang
+tombol panah bulat di bawah panel (`bg-[--brand-100]` untuk mundur,
+`bg-[--brand-500]` untuk maju) dengan penanda halaman `1 / 2` di antaranya.
 
 ```tsx
 <div className="rounded-lg bg-white p-2 lg:p-3 shadow-[--shadow-card]">
@@ -1251,6 +1261,7 @@ Keputusan dari tinjauan tampilan pertama yang **masih berlaku**:
 | Pill eyebrow berlatar berisi satu kalimat penuh             | Label seksi datar: garis pendek + label kecil      | Kapsul besar berisi kalimat cepat terbaca sebagai template             |
 | Badge status 12px SemiBold + ikon garis                     | Badge 11px Medium + titik 6px                      | Badge sebesar teks isi membuat status berebut perhatian                |
 | Ikon emoji (🚀 👥 💰 📍 🛡️ 📈)                              | Ikon SVG garis 2px                                 | Emoji berbeda bentuk di tiap OS dan tidak bisa mengikuti token warna   |
+| Seksi "Mulai hari ini" (dua kartu ajakan creator / pemilik usaha) | **Dihapus, tempatnya diisi seksi FAQ**        | Keputusan pemilik produk: ajakan daftar sudah dipegang tombol nav dan hero, sedangkan pertanyaan escrow & payout justru belum terjawab di halaman depan |
 | Soft organic blob ber-_blur_                                | Konfeti vektor datar bertepi tajam                 | Blob gradien adalah penanda template generik                           |
 | Stacked avatar + rating ⭐️ 5.0                              | Dihapus                                            | Data karangan                                                          |
 | "2.500+ kreator telah bergabung"                            | Hitungan nyata dari database                       | Angka publik tidak boleh dikarang                                      |
@@ -1271,7 +1282,7 @@ katalog pada bagian 5.1, 6.1, dan 6.5–6.7 adalah hasil revisi terbaru dan
 | `src/app/illustrations.tsx`          | `WaveBand`                                                           | Perlu tambahan `DomeShape` untuk kubah statistik empat warna                                                       |
 | `public/illustrations/`              | Ilustrasi unDraw yang sudah diwarnai ulang                           | Sesuai                                                                                                             |
 | `src/components/ui/button.tsx`       | Tombol design system                                                 | Perlu prop `shape` (`pill` / `block`)                                                                              |
-| `src/components/ui/`                 | `catalog-card.tsx`, `fact-chip.tsx`, `slot-bar.tsx`, `count-up.tsx`  | Sudah ada dan sesuai bagian 6.5; `accordion.tsx` untuk FAQ belum ada                                               |
+| `src/components/ui/`                 | `catalog-card.tsx`, `fact-chip.tsx`, `slot-bar.tsx`, `count-up.tsx`, `accordion.tsx` | Sudah ada dan sesuai bagian 6.5 & 6.7                                               |
 | `src/app/page.tsx`                   | Halaman depan                                                        | Seksi katalog memakai `CatalogCard` (maksimal 8 kartu + tombol "Lihat semua"); footer masih perlu jadi arang       |
 | `src/app/creator/campaigns/page.tsx` | Browse campaign                                                      | Perlu memakai Kartu Katalog 6.5 dan toolbar 6.6                                                                    |
 | `src/components/layout/dashboard-chrome.tsx` | Menu samping + bilah atas seluruh dasbor                     | Sesuai bagian 6.8                                                                                                  |

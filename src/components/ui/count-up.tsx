@@ -41,7 +41,12 @@ export function CountUp({
 
         const mulai = performance.now();
         const langkah = (sekarang: number) => {
-          const t = Math.min(1, (sekarang - mulai) / durasi);
+          // Dijepit dari bawah juga: stempel waktu yang diterima rAF adalah
+          // saat frame-nya dimulai, dan itu bisa lebih awal daripada
+          // `performance.now()` yang dicatat sesaat sebelum frame dijadwalkan.
+          // Tanpa penjepit itu `t` sempat negatif dan kubahnya berkedip
+          // menampilkan angka minus.
+          const t = Math.min(1, Math.max(0, (sekarang - mulai) / durasi));
           // easeOutCubic: cepat di awal lalu melambat mendekati angka akhir,
           // supaya berhenti di angkanya terasa mendarat, bukan terpotong.
           setTampil(Math.round(value * (1 - Math.pow(1 - t, 3))));
