@@ -54,25 +54,26 @@ export function CampaignForm({
   const [category, setCategory] = useState<BusinessCategory>(defaultCategory);
   const [budgetPool, setBudgetPool] = useState(2_500_000);
   const [cpmRate, setCpmRate] = useState(cpmRekomendasi[defaultCategory] || 15_000);
-  const [maxCreators, setMaxCreators] = useState(8);
+  const [maxViewsPerCreator, setMaxViewsPerCreator] = useState(500_000);
 
   const template = templates.find((item) => item.category === category);
 
   // Proyeksi yang dilihat vendor sebelum menyetor dana.
+  // maxViewsPerCreator adalah plafon views per creator yang ikut hitungan CPM.
   const proyeksi = useMemo(() => {
-    const viewsMaks = cpmRate > 0 ? Math.floor((budgetPool / cpmRate) * 1000) : 0;
-    const feePlatform = Math.round((budgetPool * FEE_RATE) / 100);
+    const maxPenagihanPerCreator =
+      maxViewsPerCreator > 0
+        ? Math.floor((maxViewsPerCreator / 1000) * cpmRate)
+        : 0;
+    const feePlatformPerCreator = Math.round(
+      (maxPenagihanPerCreator * FEE_RATE) / 100,
+    );
     return {
-      viewsMaks,
-      perCreator: maxCreators > 0 ? Math.floor(viewsMaks / maxCreators) : 0,
-      feePlatform,
-      keCreator: budgetPool - feePlatform,
-      cpmEfektifCreator:
-        viewsMaks > 0
-          ? Math.round(((budgetPool - feePlatform) / viewsMaks) * 1000)
-          : 0,
+      maxPenagihanPerCreator,
+      feePlatformPerCreator,
+      payoutBersihPerCreator: maxPenagihanPerCreator - feePlatformPerCreator,
     };
-  }, [budgetPool, cpmRate, maxCreators]);
+  }, [budgetPool, cpmRate, maxViewsPerCreator]);
 
   return (
     <form action={formAction} className="grid gap-6 lg:grid-cols-3">
@@ -277,57 +278,60 @@ export function CampaignForm({
                 onChange={(event) => setCpmRate(Number(event.target.value))}
               />
             </Field>
-            <Field label="Maksimum creator">
+            <Field
+              label="Batas views dihitung per creator"
+              hint="Views di atas batas ini tidak masuk hitungan CPM. Mis: batas 400.000 → creator 1 juta views tetap dibayar untuk 400.000 views."
+            >
               <Input
-                name="maxCreators"
+                name="maxViewsPerCreator"
                 type="number"
-                min={1}
-                max={100}
+                min={1000}
+                step={50000}
                 required
-                value={maxCreators}
-                onChange={(event) => setMaxCreators(Number(event.target.value))}
+                value={maxViewsPerCreator}
+                onChange={(event) =>
+                  setMaxViewsPerCreator(Number(event.target.value))
+                }
               />
             </Field>
           </div>
         </Card>
 
         <Card className="bg-surface-muted">
-          <CardHeader title="Proyeksi" />
+          <CardHeader
+            title="Proyeksi per creator"
+            description="Dihitung dari batas views dan CPM yang kamu tetapkan."
+          />
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between gap-3">
-              <dt className="text-muted">Views maksimum</dt>
+              <dt className="text-muted">Views dihitung (maks)</dt>
               <dd className="tabular font-medium">
-                {formatCompact(proyeksi.viewsMaks)}
+                {formatCompact(maxViewsPerCreator)}
               </dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt className="text-muted">Rata-rata per creator</dt>
+              <dt className="text-muted">Payout kotor per creator</dt>
               <dd className="tabular font-medium">
-                {formatCompact(proyeksi.perCreator)}
+                {formatIDR(proyeksi.maxPenagihanPerCreator)}
               </dd>
             </div>
             <div className="flex justify-between gap-3 border-t border-line pt-3">
               <dt className="text-muted">Fee platform ({FEE_RATE}%)</dt>
               <dd className="tabular font-medium">
-                {formatIDR(proyeksi.feePlatform)}
+                {formatIDR(proyeksi.feePlatformPerCreator)}
               </dd>
             </div>
             <div className="flex justify-between gap-3">
-              <dt className="text-muted">Diterima creator</dt>
+              <dt className="text-muted">Diterima creator (maks)</dt>
               <dd className="tabular font-medium text-success">
-                {formatIDR(proyeksi.keCreator)}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted">CPM efektif creator</dt>
-              <dd className="tabular font-medium">
-                {formatIDR(proyeksi.cpmEfektifCreator)}
+                {formatIDR(proyeksi.payoutBersihPerCreator)}
               </dd>
             </div>
           </dl>
           <p className="mt-4 text-xs text-muted">
-            Kalau total tagihan CPM tidak sampai pool, sisa dana dikembalikan ke
-            kamu setelah campaign selesai.
+            Budget pool {formatIDR(budgetPool)} tetap jadi plafon keras — total
+            payout tidak akan melebihi angka ini. Sisa yang tidak terserap
+            dikembalikan setelah campaign selesai.
           </p>
         </Card>
 

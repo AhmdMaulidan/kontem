@@ -34,6 +34,7 @@ export {
   Menu as IconMenu,
   Megaphone as IconMegaphone,
   Plus as IconPlus,
+  Search as IconSearch,
   QrCode as IconQr,
   ShieldAlert as IconShieldAlert,
   Store as IconStore,

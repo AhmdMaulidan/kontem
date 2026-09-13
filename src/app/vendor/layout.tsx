@@ -7,7 +7,6 @@ const nav: NavItem[] = [
   { href: "/vendor/campaigns", label: "Semua Campaign", icon: "campaign" },
   { href: "/vendor/campaigns/new", label: "Buat Campaign", icon: "plus" },
   { href: "/vendor/submissions", label: "Review Submission", icon: "review" },
-  { href: "/vendor/notifications", label: "Notifikasi", icon: "notification" },
 ];
 
 export default async function VendorLayout({

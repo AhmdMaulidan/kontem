@@ -31,6 +31,11 @@ export function Field({
 const controlClass =
   "w-full rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-body transition-colors outline-none placeholder:text-muted/70 focus:border-brand-400 focus:ring-4 focus:ring-brand-100";
 
+// Select butuh pr lebih lebar supaya native browser arrow tidak menempel
+// ke border kanan — px-4 hanya 16px, sedangkan arrow browser butuh ~24px.
+const selectClass =
+  "w-full rounded-xl border border-line bg-surface pl-4 pr-10 py-2.5 text-sm text-body transition-colors outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100";
+
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input {...props} className={cn(controlClass, className)} />;
 }
@@ -40,7 +45,7 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
 }
 
 export function Select({ className, ...props }: ComponentProps<"select">) {
-  return <select {...props} className={cn(controlClass, className)} />;
+  return <select {...props} className={cn(selectClass, className)} />;
 }
 
 /** Pesan error hasil validasi server action. */
