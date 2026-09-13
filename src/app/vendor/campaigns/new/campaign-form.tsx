@@ -186,7 +186,7 @@ export function CampaignForm({
         <Card>
           <CardHeader
             title="Komplimen di lokasi"
-            description="Yang didapat creator saat berkunjung, ditukar dengan kode redeem."
+            description="Yang didapat creator saat berkunjung ke lokasi."
           />
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -211,7 +211,7 @@ export function CampaignForm({
               <Textarea
                 name="complimentTerms"
                 rows={2}
-                placeholder="Berlaku 1 orang, jam 15.00-18.00, tunjukkan kode ke kasir."
+                placeholder="Berlaku 1 orang, jam 15.00-18.00, tidak dapat digabung dengan promo lain."
               />
             </Field>
           </div>

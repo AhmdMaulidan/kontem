@@ -118,6 +118,7 @@ export default async function VendorDashboard() {
           <CardHeader
             title="Campaign kamu"
             description="Pantau serapan budget dan perolehan views tiap campaign."
+            action={<ButtonLink href="/vendor/campaigns" size="compact" variant="secondary">Lihat semua</ButtonLink>}
           />
 
           {campaigns.length === 0 ? (

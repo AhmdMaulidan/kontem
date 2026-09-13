@@ -130,53 +130,6 @@ export async function createCampaignAction(
   redirect(`/vendor/campaigns/${campaign.id}`);
 }
 
-/**
- * Vendor menandai kode redeem terpakai saat creator hadir di lokasi.
- * Ini yang menjadi bukti kunjungan sebelum konten boleh dikirim.
- */
-export async function redeemCodeAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const user = await requireRole("VENDOR");
-  const code = String(formData.get("code") ?? "").trim().toUpperCase();
-
-  if (!code) return { error: "Masukkan kode redeem." };
-
-  const redeemCode = await db.redeemCode.findUnique({
-    where: { code },
-    include: { campaign: true, participation: true },
-  });
-
-  if (!redeemCode) return { error: "Kode tidak ditemukan." };
-  if (redeemCode.campaign.vendorId !== user.id) {
-    return { error: "Kode ini bukan milik campaign kamu." };
-  }
-  if (redeemCode.status === "USED") {
-    return { error: "Kode ini sudah pernah dipakai." };
-  }
-  if (new Date() > redeemCode.expiresAt) {
-    await db.redeemCode.update({
-      where: { id: redeemCode.id },
-      data: { status: "EXPIRED" },
-    });
-    return { error: "Kode sudah kedaluwarsa." };
-  }
-
-  await db.$transaction([
-    db.redeemCode.update({
-      where: { id: redeemCode.id },
-      data: { status: "USED", redeemedAt: new Date(), redeemedBy: user.id },
-    }),
-    db.campaignParticipation.update({
-      where: { id: redeemCode.participationId },
-      data: { status: "VISITED" },
-    }),
-  ]);
-
-  revalidatePath(`/vendor/campaigns/${redeemCode.campaignId}`);
-  return { success: `Kode ${code} berhasil ditandai terpakai.` };
-}
 
 export async function reviewSubmissionAction(
   _prev: ActionState,

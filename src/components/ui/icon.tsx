@@ -33,6 +33,7 @@ export {
   MapPin as IconPin,
   Menu as IconMenu,
   Megaphone as IconMegaphone,
+  Plus as IconPlus,
   QrCode as IconQr,
   ShieldAlert as IconShieldAlert,
   Store as IconStore,
