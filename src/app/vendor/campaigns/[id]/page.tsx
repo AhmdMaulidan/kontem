@@ -46,7 +46,6 @@ export default async function VendorCampaignDetail({
         include: {
           creator: { include: { creatorProfile: true } },
           submission: true,
-          redeemCode: true,
         },
         orderBy: { joinedAt: "asc" },
       },

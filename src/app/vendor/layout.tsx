@@ -4,9 +4,9 @@ import { requireRole } from "@/lib/auth";
 
 const nav: NavItem[] = [
   { href: "/vendor", label: "Dashboard", icon: "dashboard" },
-  { href: "/vendor/campaigns/new", label: "Buat Campaign", icon: "campaign" },
+  { href: "/vendor/campaigns", label: "Semua Campaign", icon: "campaign" },
+  { href: "/vendor/campaigns/new", label: "Buat Campaign", icon: "plus" },
   { href: "/vendor/submissions", label: "Review Submission", icon: "review" },
-  { href: "/vendor/redeem", label: "Cek Kode Redeem", icon: "redeem" },
   { href: "/vendor/notifications", label: "Notifikasi", icon: "notification" },
 ];
 
