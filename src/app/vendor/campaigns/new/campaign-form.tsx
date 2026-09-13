@@ -73,7 +73,7 @@ export function CampaignForm({
       feePlatformPerCreator,
       payoutBersihPerCreator: maxPenagihanPerCreator - feePlatformPerCreator,
     };
-  }, [budgetPool, cpmRate, maxViewsPerCreator]);
+  }, [cpmRate, maxViewsPerCreator]);
 
   return (
     <form action={formAction} className="grid gap-6 lg:grid-cols-3">

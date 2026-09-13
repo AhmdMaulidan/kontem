@@ -98,14 +98,6 @@ export async function submitContentAction(
     return { error: "Platform ini tidak diizinkan di campaign tersebut." };
   }
 
-  // Bukti kunjungan: kode redeem harus sudah ditandai terpakai oleh vendor.
-  if (participation.redeemCode?.status !== "USED") {
-    return {
-      error:
-        "Kode redeem belum ditandai terpakai oleh vendor. Pastikan kamu sudah berkunjung dan kode diverifikasi di lokasi.",
-    };
-  }
-
   // Link yang sama tidak boleh dipakai ulang di campaign lain.
   const duplikat = await db.submission.findFirst({ where: { contentUrl } });
   if (duplikat) {
