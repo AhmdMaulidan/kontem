@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getCampaignPerformance } from "@/domain/campaign";
-import { formatCompact, formatDate, formatIDR } from "@/lib/format";
+import { formatCompact, formatDate, formatIDR, daysUntil } from "@/lib/format";
 import {
   Badge,
   ButtonLink,
@@ -19,6 +19,10 @@ import {
   Stat,
 } from "@/components/ui";
 import { campaignStatusLabel, campaignStatusTone } from "@/lib/labels";
+
+function hariSisa(endDate: Date) {
+  return Math.max(0, daysUntil(endDate));
+}
 
 export default async function VendorDashboard() {
   const user = await requireRole("VENDOR");
@@ -99,12 +103,6 @@ export default async function VendorDashboard() {
       ["ACTIVE", "PENDING_REVIEW", "ENDED", "SETTLING"].includes(c.status),
     )
     .reduce((sum, c) => sum + c.budgetPool, 0);
-
-  // Helper: sisa hari hingga endDate
-  function hariSisa(endDate: Date) {
-    const diff = endDate.getTime() - Date.now();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  }
 
   return (
     <div>

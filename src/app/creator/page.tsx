@@ -87,7 +87,6 @@ export default async function CreatorDashboard() {
       <PageHeader
         title={`Halo, ${user.name.split(" ")[0]}`}
         description={`Domisili ${user.creatorProfile?.city ?? "-"} · Trust score ${user.creatorProfile?.trustScore ?? 0}/100`}
-        action={<ButtonLink href="/creator/campaigns">Cari campaign</ButtonLink>}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

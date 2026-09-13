@@ -46,12 +46,12 @@ export function JoinForm({
 export function SubmitContentForm({
   campaignId,
   allowedPlatforms,
-  locked,
+  locked = false,
   lockedReason,
 }: {
   campaignId: string;
   allowedPlatforms: SocialPlatform[];
-  locked: boolean;
+  locked?: boolean;
   lockedReason?: string;
 }) {
   const [state, formAction] = useActionState<ActionState, FormData>(

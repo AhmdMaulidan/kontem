@@ -81,7 +81,7 @@ export default async function BrowseCampaignPage({
               </option>
             ))}
           </Select>
-          <Button type="submit" variant="secondary">
+          <Button type="submit" variant="primary">
             Filter
           </Button>
         </form>
