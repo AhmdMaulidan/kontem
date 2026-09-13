@@ -24,11 +24,6 @@ import { navIcons, type NavIconName } from "./nav-icons";
 
 export type NavItem = { href: string; label: string; icon: NavIconName };
 
-const roleTone: Record<Role, "sky" | "accent" | "info"> = {
-  CREATOR: "accent",
-  VENDOR: "sky",
-  ADMIN: "info",
-};
 
 type ChromeUser = {
   name: string;
@@ -114,7 +109,6 @@ export function DashboardChrome({
               <Link href="/" className="lg:hidden">
                 <Logo className="h-7" />
               </Link>
-              <Badge tone={roleTone[user.role]}>{roleLabel[user.role]}</Badge>
             </div>
 
             <div className="flex items-center gap-2">

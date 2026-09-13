@@ -12,63 +12,37 @@ import {
   PageHeader,
   ProgressBar,
 } from "@/components/ui";
-import {
-  campaignStatusLabel,
-  campaignStatusTone,
-  categoryLabel,
-} from "@/lib/labels";
+import { campaignStatusLabel, campaignStatusTone, categoryLabel } from "@/lib/labels";
 import type { CampaignStatus } from "@/generated/prisma/enums";
+import { CampaignFilters } from "./campaign-filters";
 
-// Filter yang ditampilkan di baris chip
-const STATUS_FILTERS: {
-  label: string;
-  value: string | null;
-  statuses: CampaignStatus[];
-}[] = [
-  {
-    label: "Semua",
-    value: null,
-    statuses: [],
-  },
-  {
-    label: "Berjalan",
-    value: "ACTIVE",
-    statuses: ["ACTIVE"],
-  },
-  {
-    label: "Menunggu Approval",
-    value: "PENDING_REVIEW",
-    statuses: ["PENDING_REVIEW"],
-  },
-  {
-    label: "Selesai",
-    value: "SETTLED",
-    statuses: ["ENDED", "SETTLING", "SETTLED"],
-  },
-  {
-    label: "Ditolak",
-    value: "REJECTED",
-    statuses: ["REJECTED"],
-  },
-];
+// Peta nilai dropdown → daftar CampaignStatus yang dicakup
+const STATUS_MAP: Record<string, CampaignStatus[]> = {
+  ACTIVE: ["ACTIVE"],
+  PENDING_REVIEW: ["PENDING_REVIEW"],
+  DRAFT: ["DRAFT"],
+  SETTLED: ["ENDED", "SETTLING", "SETTLED"],
+  REJECTED: ["REJECTED"],
+  CANCELLED: ["CANCELLED"],
+};
 
 export default async function VendorCampaignsPage(props: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string }>;
 }) {
   const user = await requireRole("VENDOR");
-  const { status: statusParam } = await props.searchParams;
+  const { q = "", status: statusParam = "" } = await props.searchParams;
 
-  // Tentukan filter status yang aktif berdasarkan URL param
-  const activeFilter =
-    STATUS_FILTERS.find((f) => f.value === statusParam) ?? STATUS_FILTERS[0];
+  const statusFilter = STATUS_MAP[statusParam] ?? [];
 
-  // Query campaign milik vendor ini, filter status jika ada
+  // Hitung total semua campaign (tanpa filter) untuk label di toolbar
+  const totalCount = await db.campaign.count({ where: { vendorId: user.id } });
+
+  // Query dengan filter q + status
   const campaigns = await db.campaign.findMany({
     where: {
       vendorId: user.id,
-      ...(activeFilter.statuses.length > 0
-        ? { status: { in: activeFilter.statuses } }
-        : {}),
+      ...(statusFilter.length > 0 ? { status: { in: statusFilter } } : {}),
+      ...(q ? { title: { contains: q, mode: "insensitive" } } : {}),
     },
     include: {
       _count: {
@@ -80,29 +54,32 @@ export default async function VendorCampaignsPage(props: {
     orderBy: { createdAt: "desc" },
   });
 
-  // Hitung total semua campaign (tanpa filter) untuk PageHeader
-  const totalCount = await db.campaign.count({
-    where: { vendorId: user.id },
-  });
-
-  // Ambil performance semua campaign sekaligus
+  // Performance diambil paralel untuk semua campaign yang tampil
   const performances = await Promise.all(
-    campaigns.map((campaign) => getCampaignPerformance(campaign.id)),
+    campaigns.map((c) => getCampaignPerformance(c.id)),
   );
 
   return (
     <div>
+      {/* Baris 1: judul + jumlah */}
       <PageHeader
         title="Semua campaign"
-        description={`${totalCount} campaign dibuat`}
-        action={
-          <ButtonLink href="/vendor/campaigns/new">
-            Buat campaign
-          </ButtonLink>
+        description={
+          campaigns.length === totalCount
+            ? `${totalCount} campaign`
+            : `${campaigns.length} dari ${totalCount} campaign`
         }
       />
 
-      {/* Peringatan jika vendor belum VERIFIED */}
+      {/* Baris 2: search + status kiri, button kanan */}
+      <div className="-mt-2 mb-6 flex items-center gap-2">
+        <CampaignFilters defaultQ={q} defaultStatus={statusParam} />
+        <div className="flex-1" />
+        <ButtonLink href="/vendor/campaigns/new" size="sm">
+          Buat campaign
+        </ButtonLink>
+      </div>
+
       {user.status !== "VERIFIED" ? (
         <div className="mb-6">
           <Callout tone="warning" title="Menunggu verifikasi admin">
@@ -113,52 +90,20 @@ export default async function VendorCampaignsPage(props: {
         </div>
       ) : null}
 
-      {/* Baris filter status */}
-      <div className="mb-6 flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((filter) => {
-          const isActive = filter.value === (activeFilter.value ?? null);
-          const href =
-            filter.value === null
-              ? "/vendor/campaigns"
-              : `/vendor/campaigns?status=${filter.value}`;
-
-          return (
-            <Link
-              key={filter.value ?? "all"}
-              href={href}
-              className={[
-                "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
-                isActive
-                  ? "border-brand-200 bg-brand-50 text-brand-700"
-                  : "border-line bg-surface text-muted hover:bg-surface-muted",
-              ].join(" ")}
-            >
-              {filter.label}
-            </Link>
-          );
-        })}
-      </div>
-
       {/* Grid campaign */}
       {campaigns.length === 0 ? (
         <EmptyState
           title={
-            activeFilter.value
-              ? `Tidak ada campaign "${activeFilter.label}"`
+            q || statusParam
+              ? "Tidak ada campaign yang cocok"
               : "Belum ada campaign"
           }
           description={
-            activeFilter.value
-              ? "Coba pilih filter lain untuk melihat campaign kamu."
+            q || statusParam
+              ? "Coba ubah kata kunci atau ganti filter status."
               : "Buat campaign pertama untuk mulai menjangkau creator lokal."
           }
-          action={
-            !activeFilter.value ? (
-              <ButtonLink href="/vendor/campaigns/new">
-                Buat campaign
-              </ButtonLink>
-            ) : undefined
-          }
+          action={undefined}
         />
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -179,10 +124,10 @@ export default async function VendorCampaignsPage(props: {
                   href={`/vendor/campaigns/${campaign.id}`}
                   className="block h-full"
                 >
-                  <Card className="flex h-full flex-col gap-4">
+                  <Card className="flex h-full flex-col gap-4 transition-shadow hover:shadow-float">
                     {/* Baris atas: nama + badge status */}
                     <div className="flex items-start justify-between gap-3">
-                      <span className="font-display font-semibold leading-snug hover:text-brand">
+                      <span className="font-display font-semibold leading-snug">
                         {campaign.title}
                       </span>
                       <Badge tone={campaignStatusTone[campaign.status]}>
@@ -190,7 +135,7 @@ export default async function VendorCampaignsPage(props: {
                       </Badge>
                     </div>
 
-                    {/* Baris kedua: meta info */}
+                    {/* Meta */}
                     <p className="text-sm text-muted">
                       {categoryLabel[campaign.category]}
                       {" · "}
@@ -198,8 +143,7 @@ export default async function VendorCampaignsPage(props: {
                       {" – "}
                       {formatDate(campaign.endDate)}
                       {" · "}
-                      {campaign._count.participations}/{campaign.maxCreators}{" "}
-                      creator
+                      {campaign._count.participations} creator
                     </p>
 
                     {/* Stats row */}
@@ -211,7 +155,7 @@ export default async function VendorCampaignsPage(props: {
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted">Budget terpakai</p>
+                        <p className="text-xs text-muted">Terpakai</p>
                         <p className="tabular font-medium">
                           {formatIDR(totalDistributed)}
                           <span className="text-xs text-muted">
@@ -226,7 +170,7 @@ export default async function VendorCampaignsPage(props: {
                       </div>
                     </div>
 
-                    {/* Progress bar serapan budget */}
+                    {/* Progress budget */}
                     <ProgressBar
                       value={totalDistributed}
                       max={campaign.budgetPool}
