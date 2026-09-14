@@ -6,6 +6,7 @@ const nav: NavItem[] = [
   { href: "/admin", label: "Ringkasan", icon: "dashboard" },
   { href: "/admin/vendors", label: "Verifikasi Vendor", icon: "vendor" },
   { href: "/admin/campaigns", label: "Approval Campaign", icon: "campaign" },
+  { href: "/admin/analyzer", label: "Agentic Analyze", icon: "campaign" },
   { href: "/admin/views", label: "Update Views", icon: "views" },
   { href: "/admin/disputes", label: "Sengketa", icon: "dispute" },
   { href: "/admin/fraud", label: "Fraud", icon: "fraud" },

@@ -310,6 +310,8 @@ model Campaign {
   submissions    Submission[]
   payouts        Payout[]
   escrow         EscrowTransaction[]
+  rules          CampaignRule[]
+  analyses       VideoAnalysis[] @relation("CampaignAnalyses")
 
   @@index([status, category])
   @@index([vendorId])
@@ -391,6 +393,7 @@ model Submission {
   disputes      Dispute[]
   fraudFlags    FraudFlag[]
   payout        Payout?
+  analyses      VideoAnalysis[] @relation("SubmissionAnalyses")
 
   @@index([campaignId, status])
   @@index([creatorId])
@@ -555,3 +558,93 @@ model AuditLog {
 
   @@index([entity, entityId])
 }
+
+// ---------------------------------------------------------------- agentic analyze
+
+// Aturan kepatuhan bersifat DINAMIS per campaign. Satu Campaign punya banyak
+// CampaignRule; tiap rule menunjuk ke satu detector (14 tipe tetap) + parameternya
+// sendiri. Report dibangkitkan HANYA dari rule yang aktif, sehingga campaign A
+// dan B tidak pernah berbagi struktur laporan.
+enum DetectorType {
+  FACE_DETECTION
+  VISUAL_DISCORD
+  TEXT_OVERLAY
+  URL_PRESENCE
+  TEXT_PRESENCE
+  HASHTAG_SEQUENCE
+  NUMERIC
+  NOT_CLICKBAIT
+  NOT_AI
+  EDITING_PRESENCE
+  TEXT_RELEVANCE
+  BOOL
+  DATE
+  HOOK_VALID
+}
+
+model CampaignRule {
+  id         String       @id @default(cuid())
+  campaignId String
+  campaign   Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  // Stable rule id unik dalam campaign, mis. "face_present".
+  ruleKey  String
+  label    String
+  type     DetectorType
+  enabled  Boolean      @default(true)
+  // Bobot terhadap skor 0-100. 0 = dievaluasi tapi tak dihitung skor.
+  weight   Float        @default(1)
+  // Parameter spesifik detector (threshold, list, pattern).
+  params   Json
+  rationale String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  analyses  VideoAnalysis[] @relation("RuleAnalysis")
+
+  @@unique([campaignId, ruleKey])
+  @@index([campaignId])
+}
+
+enum AnalysisStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// Hasil analisis satu video (milik sebuah Submission, atau URL lepas di admin).
+model VideoAnalysis {
+  id         String        @id @default(cuid())
+  campaignId String?
+  campaign   Campaign?     @relation("CampaignAnalyses", fields: [campaignId], references: [id], onDelete: SetNull)
+  submissionId String?
+  submission   Submission? @relation("SubmissionAnalyses", fields: [submissionId], references: [id], onDelete: Cascade)
+  // Rule yang menghasilkan analisis ini (snapshot-nya ada di ruleSnapshot).
+  ruleRefs   CampaignRule[] @relation("RuleAnalysis")
+
+  sourceUrl   String
+  platform    SocialPlatform?
+  caption     String?
+  // Snapshot rule yang dipakai saat analisis (biar laporan kekal walau rule diubah).
+  ruleSnapshot Json
+
+  status    AnalysisStatus @default(QUEUED)
+  // Skor kepatuhan 0-100 dari rule aktif yang lulus.
+  score     Float?
+  compliant Boolean?
+  // Transkrip hasil Whisper (id).
+  transcript String?
+  durationSec Float?
+  // Hasil per-rule: [{ ruleId, label, type, passed, value, detail, weight }]
+  results   Json
+  error     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([campaignId])
+  @@index([submissionId])
+}
+

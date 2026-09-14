@@ -32,13 +32,16 @@ export function Td({
   children,
   align,
   className,
+  colSpan,
 }: {
   children: ReactNode;
   align?: "right";
   className?: string;
+  colSpan?: number;
 }) {
   return (
     <td
+      colSpan={colSpan}
       className={cn(
         "border-b border-line px-3 py-3 align-middle",
         align === "right" ? "tabular text-right" : "",
