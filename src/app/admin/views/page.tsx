@@ -2,32 +2,111 @@ import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatCompact, formatDateTime } from "@/lib/format";
 import {
-  Badge,
   Callout,
-  Card,
-  CardHeader,
-  EmptyState,
+  DataTable,
   PageHeader,
+  PageSizeSelect,
+  Pagination,
+  TableCaptionRow,
+  TableEmptyRow,
+  TableToolbar,
+  Td,
+  Th,
+  paginationArgs,
+  resolvePageSize,
+  rowNumber,
 } from "@/components/ui";
-import { platformLabel, submissionStatusLabel, submissionStatusTone } from "@/lib/labels";
-import { ViewsForm } from "./views-form";
+import type {
+  CampaignStatus,
+  SocialPlatform,
+  SubmissionStatus,
+} from "@/generated/prisma/enums";
+import { platformLabel } from "@/lib/labels";
+import { ViewsRowCells } from "./views-form";
 
-export default async function AdminViewsPage() {
+const PAGE_SIZE = 15;
+const BASE = "/admin/views";
+
+export default async function AdminViewsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    campaign?: string;
+    platform?: string;
+    page?: string;
+    ukuran?: string;
+  }>;
+}) {
   await requireRole("ADMIN");
+  const params = await searchParams;
+  const page = Math.max(1, Number(params.page) || 1);
+  const pageSize = resolvePageSize(params.ukuran, PAGE_SIZE);
 
   // Hanya konten dari campaign yang masih dalam masa pelacakan yang perlu
   // diperbarui; campaign yang sudah settle memakai finalViews yang terkunci.
-  const submissions = await db.submission.findMany({
-    where: {
-      status: { in: ["APPROVED", "ADMIN_APPROVED", "PENDING_REVIEW"] },
-      campaign: { status: { in: ["ACTIVE", "ENDED", "SETTLING"] } },
+  const where = {
+    status: {
+      in: [
+        "APPROVED",
+        "ADMIN_APPROVED",
+        "PENDING_REVIEW",
+      ] as SubmissionStatus[],
     },
-    include: {
-      campaign: { select: { id: true, title: true } },
-      creator: { select: { name: true } },
+    campaign: {
+      is: {
+        status: { in: ["ACTIVE", "ENDED", "SETTLING"] as CampaignStatus[] },
+        ...(params.campaign ? { id: params.campaign } : {}),
+      },
     },
-    orderBy: [{ lastSyncedAt: "asc" }, { submittedAt: "asc" }],
-  });
+    ...(params.platform ? { platform: params.platform as SocialPlatform } : {}),
+    ...(params.q
+      ? {
+          OR: [
+            {
+              creator: {
+                is: {
+                  name: { contains: params.q, mode: "insensitive" as const },
+                },
+              },
+            },
+            {
+              campaign: {
+                is: {
+                  title: { contains: params.q, mode: "insensitive" as const },
+                },
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+
+  const [submissions, total, campaignAktif, terakhirSinkron] =
+    await Promise.all([
+      db.submission.findMany({
+        where,
+        include: {
+          campaign: { select: { id: true, title: true } },
+          creator: { select: { name: true } },
+        },
+        // Yang paling lama tidak disinkronkan naik ke atas: itulah angka yang
+        // paling mungkin sudah basi saat payout dihitung.
+        orderBy: [{ lastSyncedAt: "asc" }, { submittedAt: "asc" }],
+        ...paginationArgs(page, pageSize),
+      }),
+      db.submission.count({ where }),
+      db.campaign.findMany({
+        where: { status: { in: ["ACTIVE", "ENDED", "SETTLING"] } },
+        select: { id: true, title: true },
+        orderBy: { title: "asc" },
+      }),
+      db.submission.findFirst({
+        where: { lastSyncedAt: { not: null } },
+        orderBy: { lastSyncedAt: "desc" },
+        select: { lastSyncedAt: true },
+      }),
+    ]);
 
   return (
     <div>
@@ -39,67 +118,115 @@ export default async function AdminViewsPage() {
       <div className="mb-6">
         <Callout tone="info" title="Mode demo">
           Angka views diinput manual di halaman ini. Di produksi, pekerjaan ini
-          diambil alih job terjadwal yang menarik data dari API TikTok/Instagram —
-          antarmuka dan perhitungan di belakangnya tidak berubah. Penurunan angka
-          otomatis memunculkan flag fraud.
+          diambil alih job terjadwal yang menarik data dari API TikTok/Instagram
+          — antarmuka dan perhitungan di belakangnya tidak berubah.
         </Callout>
       </div>
 
-      <Card>
-        <CardHeader
-          title={`Submission dalam pelacakan (${submissions.length})`}
-          description="Diurutkan dari yang paling lama tidak disinkronkan."
-        />
-        {submissions.length === 0 ? (
-          <EmptyState title="Tidak ada konten yang perlu disinkronkan" />
-        ) : (
-          <ul className="space-y-4">
-            {submissions.map((submission) => (
-              <li key={submission.id} className="rounded-xl border border-line p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium">{submission.creator.name}</p>
-                    <p className="mt-0.5 text-sm text-muted">
-                      {submission.campaign.title} ·{" "}
-                      {platformLabel[submission.platform]}
-                    </p>
-                    <a
-                      href={submission.contentUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-1 block max-w-md truncate text-sm text-brand"
-                    >
-                      {submission.contentUrl}
-                    </a>
-                  </div>
-                  <div className="text-right">
-                    <Badge tone={submissionStatusTone[submission.status]}>
-                      {submissionStatusLabel[submission.status]}
-                    </Badge>
-                    <p className="tabular mt-1 text-sm font-medium">
-                      {formatCompact(submission.lastViews)} views
-                    </p>
-                    <p className="text-xs text-muted">
-                      {submission.lastSyncedAt
-                        ? `Sinkron ${formatDateTime(submission.lastSyncedAt)}`
-                        : "Belum pernah disinkronkan"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 border-t border-line pt-4">
-                  <ViewsForm
-                    submissionId={submission.id}
-                    currentViews={submission.lastViews}
-                    currentLikes={submission.lastLikes}
-                    currentComments={submission.lastComments}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      <DataTable
+        title="Update Views Submission"
+        summary={
+          terakhirSinkron?.lastSyncedAt
+            ? `Terakhir disinkronkan ${formatDateTime(terakhirSinkron.lastSyncedAt)}`
+            : "Belum pernah disinkronkan"
+        }
+        action={
+          <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
+        }
+        toolbar={
+          <TableToolbar
+            basePath={BASE}
+            params={params}
+            searchPlaceholder="Cari creator / campaign..."
+            filters={[
+              {
+                name: "campaign",
+                label: "Campaign",
+                options: [
+                  { value: "", label: "Semua campaign" },
+                  ...campaignAktif.map((campaign) => ({
+                    value: campaign.id,
+                    label: campaign.title,
+                  })),
+                ],
+              },
+              {
+                name: "platform",
+                label: "Platform",
+                options: [
+                  { value: "", label: "Semua platform" },
+                  ...Object.entries(platformLabel).map(([value, label]) => ({
+                    value,
+                    label,
+                  })),
+                ],
+              },
+            ]}
+          />
+        }
+        footer={
+          <Pagination
+            basePath={BASE}
+            params={params}
+            page={page}
+            pageSize={pageSize}
+            total={total}
+          />
+        }
+      >
+        <thead>
+          <tr>
+            <Th>No</Th>
+            <Th>Creator</Th>
+            <Th>Campaign</Th>
+            <Th>Platform</Th>
+            <Th align="right">Views Tercatat</Th>
+            <Th>Terakhir</Th>
+            <Th align="right">Aksi</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {submissions.length === 0 ? (
+            <TableEmptyRow
+              colSpan={7}
+              title="Tidak ada konten yang perlu disinkronkan"
+              description="Semua submission dalam pelacakan sudah diperbarui."
+            />
+          ) : (
+            submissions.map((submission, index) => (
+              <tr key={submission.id}>
+                <Td className="tabular text-muted">
+                  {rowNumber(index, page, pageSize)}
+                </Td>
+                <Td className="font-medium">{submission.creator.name}</Td>
+                <Td>{submission.campaign.title}</Td>
+                <Td>{platformLabel[submission.platform]}</Td>
+                <Td align="right">{formatCompact(submission.lastViews)}</Td>
+                <Td className="whitespace-nowrap text-xs text-muted">
+                  {submission.lastSyncedAt
+                    ? formatDateTime(submission.lastSyncedAt)
+                    : "Belum pernah"}
+                </Td>
+                <ViewsRowCells
+                  submissionId={submission.id}
+                  contentUrl={submission.contentUrl}
+                  currentViews={submission.lastViews}
+                  currentLikes={submission.lastLikes}
+                  currentComments={submission.lastComments}
+                />
+              </tr>
+            ))
+          )}
+        </tbody>
+        {submissions.length > 0 ? (
+          <tfoot>
+            <TableCaptionRow colSpan={7} tone="danger">
+              Views turun otomatis memunculkan fraud flag INFLATED_VIEWS saat
+              disimpan — views media sosial asli tidak pernah berkurang.
+            </TableCaptionRow>
+          </tfoot>
+        ) : null}
+      </DataTable>
     </div>
   );
 }
