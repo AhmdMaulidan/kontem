@@ -602,7 +602,11 @@ async function main() {
       templateId: wisataTemplate.id,
       briefAngle:
         "Perjalanan dari parkiran sampai air terjun, lengkap dengan tips perlengkapan.",
-      briefMustShow: ["Nama 'Coban Tirta'", "Spot foto utama", "Harga tiket Rp 15.000"],
+      briefMustShow: [
+        "Nama 'Coban Tirta'",
+        "Spot foto utama",
+        "Harga tiket Rp 15.000",
+      ],
       briefProhibited: ["Berenang di bawah air terjun (larangan keselamatan)"],
       minDurationSec: 30,
       allowedPlatforms: ["TIKTOK", "INSTAGRAM", "YOUTUBE"],
@@ -665,7 +669,8 @@ async function main() {
       category: "WISATA_ALAM" as const,
       description:
         "Butuh konten yang menunjukkan area camping dan proses reservasinya.",
-      briefAngle: "Dari parkiran sampai tenda berdiri, lalu sunset dari bibir pantai.",
+      briefAngle:
+        "Dari parkiran sampai tenda berdiri, lalu sunset dari bibir pantai.",
       briefMustShow: ["Nama 'Pantai Lestari'", "Tarif camping Rp 35.000"],
       briefProhibited: ["Menyalakan api unggun di luar area yang ditentukan"],
       budgetPool: 3_400_000,
@@ -682,7 +687,8 @@ async function main() {
       title: "Menu Baru Nusantara — Kopi Senja",
       category: "KULINER" as const,
       description: "Peluncuran tiga menu kopi rempah, butuh konten rasa jujur.",
-      briefAngle: "Cicip tiga menu rempah baru dan bandingkan karakter rasanya.",
+      briefAngle:
+        "Cicip tiga menu rempah baru dan bandingkan karakter rasanya.",
       briefMustShow: ["Tiga menu rempah baru", "Harga per gelas"],
       briefProhibited: ["Klaim khasiat kesehatan"],
       budgetPool: 1_500_000,
@@ -734,10 +740,14 @@ async function main() {
       vendorId: vendorAirTerjun.id,
       title: "Coban Tirta Sunrise — Batch Kedua",
       category: "WISATA_ALAM" as const,
-      description: "Konten trek pagi buta sampai matahari terbit di air terjun.",
-      briefAngle: "Perjalanan sebelum subuh, perlengkapan wajib, dan momen sunrise.",
+      description:
+        "Konten trek pagi buta sampai matahari terbit di air terjun.",
+      briefAngle:
+        "Perjalanan sebelum subuh, perlengkapan wajib, dan momen sunrise.",
       briefMustShow: ["Nama 'Coban Tirta'", "Jam buka gerbang 04.30"],
-      briefProhibited: ["Trekking sendirian tanpa pemandu (larangan keselamatan)"],
+      briefProhibited: [
+        "Trekking sendirian tanpa pemandu (larangan keselamatan)",
+      ],
       budgetPool: 2_800_000,
       cpmRate: 17_000,
       maxCreators: 9,
@@ -785,7 +795,10 @@ async function main() {
       category: "KULINER",
       description: "Campaign musiman untuk paket buka puasa berdua.",
       briefAngle: "Suasana buka puasa di rooftop dengan paket berdua.",
-      briefMustShow: ["Paket Buka Berdua Rp 89.000", "Suasana menjelang maghrib"],
+      briefMustShow: [
+        "Paket Buka Berdua Rp 89.000",
+        "Suasana menjelang maghrib",
+      ],
       briefProhibited: ["Konten yang menyinggung SARA"],
       minDurationSec: 20,
       allowedPlatforms: ["TIKTOK", "INSTAGRAM"],

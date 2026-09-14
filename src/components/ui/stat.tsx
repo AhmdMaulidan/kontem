@@ -47,8 +47,8 @@ export function Stat({
           </div>
         ) : null}
         <div className="min-w-0">
-          <p className="text-xs font-medium text-muted">{label}</p>
-          <p className="tabular mt-1 font-display text-2xl font-bold text-foreground">
+          <p className="truncate text-xs font-medium text-muted">{label}</p>
+          <p className="tabular mt-1 break-words font-display text-xl font-bold text-foreground sm:text-2xl">
             {value}
           </p>
           {hint ? (

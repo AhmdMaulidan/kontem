@@ -79,6 +79,56 @@ export async function reviewVendorAction(
   return { success: approved ? "Vendor diverifikasi." : "Vendor ditolak." };
 }
 
+// ---------------------------------------------------------------- creator
+
+export async function reviewCreatorAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireRole("ADMIN");
+  const creatorId = String(formData.get("creatorId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+
+  if (decision === "reject" && note.length < 10) {
+    return { error: "Alasan non-aktif wajib diisi minimal 10 karakter." };
+  }
+
+  const creator = await db.user.findUnique({
+    where: { id: creatorId },
+    include: { creatorProfile: true },
+  });
+  if (!creator?.creatorProfile) return { error: "Creator tidak ditemukan." };
+
+  // "decision" cuma dua nilai (approve/reject) karena skema statusnya belum
+  // punya nilai khusus non-aktif — REJECTED dipakai ganda untuk menolak
+  // pengajuan awal maupun menonaktifkan akun yang sudah pernah aktif.
+  const aktif = decision === "approve";
+
+  await db.$transaction([
+    db.user.update({
+      where: { id: creatorId },
+      data: { status: aktif ? "VERIFIED" : "REJECTED" },
+    }),
+    db.notification.create({
+      data: {
+        userId: creatorId,
+        type: "GENERAL",
+        title: aktif ? "Akun diaktifkan" : "Akun dinonaktifkan",
+        body: aktif
+          ? "Akunmu aktif. Kamu sudah bisa klaim campaign."
+          : `Akunmu dinonaktifkan: ${note}`,
+        link: "/creator",
+      },
+    }),
+  ]);
+
+  await logAction(admin.id, aktif ? "creator.activate" : "creator.deactivate", "CreatorProfile", creatorId, { catatan: note || null });
+
+  revalidatePath("/admin/creators");
+  return { success: aktif ? "Creator diaktifkan." : "Creator dinonaktifkan." };
+}
+
 // ---------------------------------------------------------------- campaign
 
 export async function reviewCampaignAction(
@@ -258,6 +308,136 @@ export async function updateViewsAction(
       ? "Views tersimpan, tapi penurunan angka otomatis ditandai untuk ditinjau."
       : "Views diperbarui.",
   };
+}
+
+// ---------------------------------------------------------------- submission
+
+/**
+ * Duplikat dari `reviewSubmissionAction` milik vendor (lihat
+ * `src/app/vendor/actions.ts`), tapi tanpa pengecekan `campaign.vendorId` —
+ * admin boleh menengahi submission vendor mana pun, bukan hanya miliknya
+ * sendiri. Nama aksi audit tetap `submission.approve`/`submission.reject`
+ * supaya jejaknya tercampur rapi dengan keputusan vendor di jejak audit yang
+ * sama (lihat peta `auditLabel` di `src/app/admin/page.tsx`).
+ */
+export async function reviewSubmissionAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireRole("ADMIN");
+  const submissionId = String(formData.get("submissionId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+
+  if (decision === "reject" && note.length < 10) {
+    return { error: "Alasan penolakan wajib diisi minimal 10 karakter." };
+  }
+
+  const submission = await db.submission.findUnique({
+    where: { id: submissionId },
+    include: { campaign: true },
+  });
+  if (!submission) return { error: "Submission tidak ditemukan." };
+  if (submission.status !== "PENDING_REVIEW") {
+    return { error: "Submission ini sudah direview." };
+  }
+
+  const approved = decision === "approve";
+
+  await db.$transaction(async (tx) => {
+    await tx.submission.update({
+      where: { id: submissionId },
+      data: {
+        status: approved ? "APPROVED" : "REJECTED",
+        reviewedById: admin.id,
+        reviewedAt: new Date(),
+        reviewNote: note || null,
+      },
+    });
+
+    await tx.campaignParticipation.update({
+      where: { id: submission.participationId },
+      data: { status: approved ? "COMPLETED" : "SUBMITTED" },
+    });
+
+    if (approved) {
+      // Trust score naik pelan-pelan, dibatasi 100.
+      await tx.creatorProfile.updateMany({
+        where: { userId: submission.creatorId },
+        data: { trustScore: { increment: 2 } },
+      });
+    }
+
+    await tx.notification.create({
+      data: {
+        userId: submission.creatorId,
+        type: approved ? "SUBMISSION_APPROVED" : "SUBMISSION_REJECTED",
+        title: approved ? "Konten disetujui" : "Konten ditolak",
+        body: approved
+          ? `Kontenmu untuk "${submission.campaign.title}" disetujui. Views mulai dihitung.`
+          : `Admin menolak kontenmu: ${note}`,
+        link: "/creator/submissions",
+      },
+    });
+  });
+
+  await logAction(
+    admin.id,
+    approved ? "submission.approve" : "submission.reject",
+    "Submission",
+    submissionId,
+    { catatan: note || null },
+  );
+
+  revalidatePath("/admin/submissions");
+  return {
+    success: approved ? "Submission disetujui." : "Submission ditolak.",
+  };
+}
+
+/** Duplikat dari `flagSubmissionAction` milik vendor — pelapornya admin sendiri. */
+export async function flagSubmissionAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireRole("ADMIN");
+  const submissionId = String(formData.get("submissionId") ?? "");
+  const type = String(formData.get("type") ?? "OTHER");
+  const detail = String(formData.get("detail") ?? "").trim();
+
+  if (detail.length < 10) {
+    return { error: "Jelaskan kecurigaanmu minimal 10 karakter." };
+  }
+
+  const submission = await db.submission.findUnique({
+    where: { id: submissionId },
+  });
+  if (!submission) return { error: "Submission tidak ditemukan." };
+
+  await db.fraudFlag.create({
+    data: {
+      submissionId,
+      flaggedUserId: submission.creatorId,
+      reportedById: admin.id,
+      type: type as
+        | "REUSED_CONTENT"
+        | "INFLATED_VIEWS"
+        | "DUPLICATE_ACCOUNT"
+        | "OFF_BRIEF"
+        | "FAKE_VISIT"
+        | "OTHER",
+      detail,
+      severity: 2,
+    },
+  });
+
+  await logAction(admin.id, "flag.create", "Submission", submissionId, {
+    jenis: type,
+  });
+
+  revalidatePath("/admin/submissions");
+  revalidatePath("/admin/fraud");
+  return { success: "Laporan dibuat, masuk antrean fraud." };
 }
 
 // ---------------------------------------------------------------- dispute

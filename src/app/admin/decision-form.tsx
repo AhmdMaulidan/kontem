@@ -2,7 +2,14 @@
 
 import { useActionState, useState } from "react";
 import { SubmitButton } from "@/components/ui";
-import { Button, Callout, Field, FormError, Textarea } from "@/components/ui";
+import {
+  Button,
+  Callout,
+  Field,
+  FormError,
+  Select,
+  Textarea,
+} from "@/components/ui";
 
 type ActionState = { error?: string; success?: string };
 type ServerAction = (
@@ -11,8 +18,12 @@ type ServerAction = (
 ) => Promise<ActionState>;
 
 /**
- * Pola keputusan admin yang dipakai berulang: setujui langsung, atau tolak
- * dengan alasan yang wajib diisi. Alasan selalu masuk audit trail.
+ * Pola keputusan admin yang dipakai berulang: setujui, atau tolak dengan
+ * alasan yang wajib diisi. Alasan selalu masuk audit trail.
+ *
+ * Keputusannya satu dropdown (bukan dua tombol terpisah), diikuti "Batal"
+ * di kiri dan "Simpan" di kanan — supaya bentuknya sama dengan form lain di
+ * dasbor, bukan alur dua langkah tersendiri.
  */
 export function DecisionForm({
   action,
@@ -38,7 +49,8 @@ export function DecisionForm({
   requireNoteOnApprove?: boolean;
 }) {
   const [state, formAction] = useActionState<ActionState, FormData>(action, {});
-  const [mode, setMode] = useState<"idle" | "reject">("idle");
+  const [decision, setDecision] = useState(approveValue);
+  const isReject = decision === rejectValue;
 
   if (state.success) {
     return <Callout tone="success">{state.success}</Callout>;
@@ -49,37 +61,39 @@ export function DecisionForm({
       <input type="hidden" name={hiddenField} value={hiddenValue} />
       <FormError message={state.error} />
 
-      {mode === "reject" ? (
-        <>
-          <Field label={noteLabel} hint={noteHint}>
-            <Textarea name="note" rows={3} required minLength={10} autoFocus />
-          </Field>
-          <div className="flex flex-wrap gap-2">
-            <SubmitButton name="decision" value={rejectValue} variant="danger">
-              Konfirmasi {rejectLabel.toLowerCase()}
-            </SubmitButton>
-            <Button type="button" variant="secondary" onClick={() => setMode("idle")}>
-              Batal
-            </Button>
-          </div>
-        </>
-      ) : (
-        <>
-          {requireNoteOnApprove ? (
-            <Field label="Catatan" hint="Ikut tersimpan di riwayat verifikasi.">
-              <Textarea name="note" rows={2} />
-            </Field>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            <SubmitButton name="decision" value={approveValue}>
-              {approveLabel}
-            </SubmitButton>
-            <Button type="button" variant="secondary" onClick={() => setMode("reject")}>
-              {rejectLabel}
-            </Button>
-          </div>
-        </>
-      )}
+      <Field label="Keputusan">
+        <Select
+          name="decision"
+          value={decision}
+          onChange={(event) => setDecision(event.target.value)}
+        >
+          <option value={approveValue}>{approveLabel}</option>
+          <option value={rejectValue}>{rejectLabel}</option>
+        </Select>
+      </Field>
+
+      {isReject ? (
+        <Field label={noteLabel} hint={noteHint}>
+          <Textarea name="note" rows={3} required minLength={10} />
+        </Field>
+      ) : requireNoteOnApprove ? (
+        <Field label="Catatan" hint="Ikut tersimpan di riwayat verifikasi.">
+          <Textarea name="note" rows={2} />
+        </Field>
+      ) : null}
+
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setDecision(approveValue)}
+        >
+          Batal
+        </Button>
+        <SubmitButton variant={isReject ? "danger" : "primary"}>
+          Simpan
+        </SubmitButton>
+      </div>
     </form>
   );
 }
@@ -92,6 +106,8 @@ export function SimpleActionForm({
   label,
   pendingLabel,
   variant = "primary",
+  size = "md",
+  icon,
 }: {
   action: ServerAction;
   hiddenField: string;
@@ -99,17 +115,25 @@ export function SimpleActionForm({
   label: string;
   pendingLabel?: string;
   variant?: "primary" | "secondary" | "danger";
+  size?: "sm" | "md" | "compact";
+  icon?: React.ReactNode;
 }) {
   const [state, formAction] = useActionState<ActionState, FormData>(action, {});
 
   return (
-    <form action={formAction} className="space-y-2">
+    <form action={formAction} className={icon ? "" : "space-y-2"}>
       <input type="hidden" name={hiddenField} value={hiddenValue} />
-      <FormError message={state.error} />
-      {state.success ? <Callout tone="success">{state.success}</Callout> : null}
+      {icon ? null : <FormError message={state.error} />}
+      {!icon && state.success ? <Callout tone="success">{state.success}</Callout> : null}
       {!state.success ? (
-        <SubmitButton variant={variant} pendingLabel={pendingLabel}>
-          {label}
+        <SubmitButton
+          variant={variant}
+          size={size}
+          pendingLabel={pendingLabel}
+          title={icon ? label : undefined}
+          className={icon ? "text-brand-600 hover:text-brand-700 transition-colors" : undefined}
+        >
+          {icon || label}
         </SubmitButton>
       ) : null}
     </form>

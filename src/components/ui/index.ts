@@ -38,4 +38,21 @@ export { Stat } from "./stat";
 export { ProgressBar } from "./progress";
 
 export { Table, Th, Td, DescriptionList } from "./table";
+// Pola tabel kerja admin: header judul + ringkasan antrean, kolom nomor
+// menerus lintas halaman, toolbar cari/filter, kaki pagination.
+export {
+  DataTable,
+  TableCaptionRow,
+  TableEmptyRow,
+  rowNumber,
+} from "./data-table";
+export { TableToolbar, Pagination, PageSizeSelect } from "./toolbar";
+export type { ToolbarFilter, ToolbarToggle, TableParams } from "./toolbar";
+export {
+  ENTRY_SIZE_OPTIONS,
+  resolvePageSize,
+  paginationArgs,
+} from "./pagination-utils";
+export { DetailDrawer, CopyButton } from "./detail-drawer";
+export { BarChart } from "./bar-chart";
 export { Field, Input, Textarea, Select, FormError } from "./form";
