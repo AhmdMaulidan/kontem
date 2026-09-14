@@ -18,16 +18,26 @@ export async function AppShell({
   user,
   nav,
   children,
+  notificationsMode = "page",
 }: {
   user: { id: string; name: string; role: Role; status: VerificationStatus };
   nav: NavItem[];
   children: ReactNode;
+  /** "dropdown" menampilkan isi notifikasi langsung dari lonceng, tanpa halaman tersendiri. */
+  notificationsMode?: "page" | "dropdown";
 }) {
-  const unread = await db.notification.count({
-    where: { userId: user.id, readAt: null },
-  });
-
   const basePath = nav[0].href.split("/").slice(0, 2).join("/");
+
+  const [unread, notifications] = await Promise.all([
+    db.notification.count({ where: { userId: user.id, readAt: null } }),
+    notificationsMode === "dropdown"
+      ? db.notification.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        })
+      : Promise.resolve(null),
+  ]);
 
   return (
     <DashboardChrome
@@ -35,6 +45,7 @@ export async function AppShell({
       nav={nav}
       basePath={basePath}
       unread={unread}
+      notifications={notifications}
     >
       {children}
     </DashboardChrome>
