@@ -1,4 +1,6 @@
 import {
+  AnalysisStatus,
+  AnalysisVerdict,
   BusinessCategory,
   CampaignStatus,
   DisputeStatus,
@@ -175,4 +177,28 @@ export const creatorAccountStatusTone: Record<VerificationStatus, BadgeTone> = {
   PENDING: "warning",
   VERIFIED: "success",
   REJECTED: "danger",
+};
+
+export const analysisVerdictLabel: Record<AnalysisVerdict, string> = {
+  diterima: "DITERIMA",
+  ditolak: "DITOLAK",
+  perlu_verifikasi: "PERLU VERIFIKASI",
+};
+
+export const analysisStatusLabel: Record<AnalysisStatus, string> = {
+  PROCESSING: "Menganalisis",
+  COMPLETED: "Selesai",
+  FAILED: "Gagal",
+};
+
+export const analysisVerdictTone: Record<AnalysisVerdict, BadgeTone> = {
+  diterima: "success",
+  ditolak: "danger",
+  perlu_verifikasi: "warning",
+};
+
+export const analysisStatusTone: Record<AnalysisStatus, BadgeTone> = {
+  PROCESSING: "info",
+  COMPLETED: "success",
+  FAILED: "neutral",
 };

@@ -134,6 +134,18 @@ enum NotificationType {
   GENERAL
 }
 
+enum AnalysisVerdict {
+  diterima
+  ditolak
+  perlu_verifikasi
+}
+
+enum AnalysisStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 // ---------------------------------------------------------------- user
 
 model User {
@@ -272,6 +284,7 @@ model Campaign {
   // --- brief konten
   templateId       String?
   briefTemplate    BriefTemplate? @relation(fields: [templateId], references: [id])
+  brief            String         @default("")
   briefAngle       String // angle wajib
   briefMustShow    String[] // hal yang harus ditonjolkan
   briefProhibited  String[] // larangan, mis. tidak boleh bandingkan kompetitor
@@ -309,6 +322,7 @@ model Campaign {
   submissions    Submission[]
   payouts        Payout[]
   escrow         EscrowTransaction[]
+  analyses       VideoAnalysis[]
 
   @@index([status, category])
   @@index([vendorId])
@@ -538,6 +552,27 @@ model Notification {
   createdAt DateTime  @default(now())
 
   @@index([userId, readAt])
+}
+
+model VideoAnalysis {
+  id               String            @id @default(cuid())
+  campaignId       String?
+  campaign         Campaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  sourceUrl        String
+  brief            String
+  interpretedRules Json
+  verdict          AnalysisVerdict?
+  status           AnalysisStatus    @default(PROCESSING)
+  alasan           Json
+  score            Float?
+  transcript       String?
+  durationSec      Int?
+  results          Json
+  humanDecision    AnalysisVerdict?
+  createdAt        DateTime          @default(now())
+
+  @@index([campaignId])
+  @@map("video_analyses")
 }
 
 model AuditLog {

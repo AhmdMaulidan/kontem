@@ -10,6 +10,7 @@ const nav: NavItem[] = [
   { href: "/admin/creators", label: "Verifikasi Creator", icon: "creator" },
   { href: "/admin/campaigns", label: "Approval Campaign", icon: "campaign" },
   { href: "/admin/submissions", label: "Review Submission", icon: "review" },
+  { href: "/admin/analyzer", label: "Automated Analyzer", icon: "shield" },
   { href: "/admin/views", label: "Update Views", icon: "views" },
   { href: "/admin/payouts", label: "Payout", icon: "payout" },
   { href: "/admin/disputes", label: "Sengketa", icon: "dispute" },

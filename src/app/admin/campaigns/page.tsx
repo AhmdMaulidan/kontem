@@ -34,6 +34,7 @@ import {
 } from "@/lib/labels";
 import { confirmDepositAction, reviewCampaignAction } from "../actions";
 import { DecisionForm, SimpleActionForm } from "../decision-form";
+import { BriefForm } from "./brief-form";
 
 const PAGE_SIZE = 10;
 const BASE = "/admin/campaigns";
@@ -382,6 +383,21 @@ export default async function AdminCampaignsPage({
                             .map((platform) => platformLabel[platform])
                             .join(", ")}
                         </p>
+                      </div>
+
+                      <div className="rounded-xl border border-line p-3 text-sm">
+                        <p className="font-medium">Brief Automated Analyzer</p>
+                        <p className="mt-1 text-xs text-muted">
+                          Aturan bebas-format untuk engine compliance. Satu
+                          aturan per baris; isi dulu supaya URL video bisa
+                          dianalisis di menu Automated Analyzer.
+                        </p>
+                        <div className="mt-3">
+                          <BriefForm
+                            campaignId={campaign.id}
+                            currentBrief={campaign.brief}
+                          />
+                        </div>
                       </div>
 
                       {performance ? (
