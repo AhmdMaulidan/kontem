@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getCampaignPerformance } from "@/domain/campaign";
-import { formatCompact, formatDate, formatIDR, daysUntil } from "@/lib/format";
+import { formatCompact, formatDate, formatIDR } from "@/lib/format";
 import {
   Badge,
   Callout,
@@ -24,7 +24,7 @@ import {
   submissionStatusLabel,
   submissionStatusTone,
 } from "@/lib/labels";
-import { JoinForm, SubmitContentForm } from "./forms";
+import { SubmitContentForm } from "./forms";
 
 export default async function CampaignDetailPage({
   params,
@@ -54,12 +54,6 @@ export default async function CampaignDetailPage({
 
   const performance = await getCampaignPerformance(id);
   const estimasiSaya = performance?.lines.find((l) => l.creatorId === user.id);
-
-  const terisi = campaign.participations.length;
-  const penuh = terisi >= campaign.maxCreators;
-  const sisaHari = daysUntil(campaign.endDate);
-  const bisaJoin =
-    campaign.status === "ACTIVE" && !penuh && !participation && sisaHari >= 0;
 
   return (
     <div>
@@ -151,7 +145,7 @@ export default async function CampaignDetailPage({
           </Card>
 
           <Card>
-            <CardHeader title="Lokasi & komplimen" />
+            <CardHeader title="Lokasi" />
             <DescriptionList
               items={[
                 {
@@ -175,14 +169,6 @@ export default async function CampaignDetailPage({
                   ) : (
                     "—"
                   ),
-                },
-                {
-                  label: "Komplimen",
-                  value: `${campaign.complimentType} (${formatIDR(campaign.complimentValue)})`,
-                },
-                {
-                  label: "Syarat komplimen",
-                  value: campaign.complimentTerms ?? "—",
                 },
               ]}
             />
@@ -239,15 +225,8 @@ export default async function CampaignDetailPage({
                   label: "Fee platform",
                   value: `${campaign.platformFeeRate}%`,
                 },
-                {
-                  label: "Slot",
-                  value: `${terisi} / ${campaign.maxCreators}`,
-                },
               ]}
             />
-            <div className="mt-3">
-              <ProgressBar value={terisi} max={campaign.maxCreators} />
-            </div>
 
             {estimasiSaya ? (
               <div className="mt-4 rounded-xl bg-brand-soft p-3">
@@ -270,24 +249,7 @@ export default async function CampaignDetailPage({
             ) : null}
           </Card>
 
-          {!participation ? (
-            <Card>
-              <CardHeader title="Ikut campaign ini" />
-              <JoinForm
-                campaignId={campaign.id}
-                disabled={!bisaJoin}
-                disabledReason={
-                  penuh
-                    ? "Slot sudah penuh."
-                    : campaign.status !== "ACTIVE"
-                      ? "Campaign belum/tidak aktif."
-                      : sisaHari < 0
-                        ? "Periode campaign sudah berakhir."
-                        : undefined
-                }
-              />
-            </Card>
-          ) : (
+          {participation ? (
             <Card>
               <CardHeader title="Kirim konten" />
               {participation.submission ? (
@@ -328,7 +290,7 @@ export default async function CampaignDetailPage({
                 />
               )}
             </Card>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

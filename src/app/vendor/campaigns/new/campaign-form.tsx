@@ -9,6 +9,7 @@ import {
   CardHeader,
   Field,
   FormError,
+  IconImage,
   Input,
   Select,
   Textarea,
@@ -55,6 +56,9 @@ export function CampaignForm({
   const [budgetPool, setBudgetPool] = useState(2_500_000);
   const [cpmRate, setCpmRate] = useState(cpmRekomendasi[defaultCategory] || 15_000);
   const [maxViewsPerCreator, setMaxViewsPerCreator] = useState(500_000);
+  // Pratinjau di sisi klien saja — belum ada penyimpanan file di server,
+  // jadi gambarnya tidak ikut tersimpan saat form disubmit.
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const template = templates.find((item) => item.category === category);
 
@@ -109,6 +113,35 @@ export function CampaignForm({
             </Field>
             <Field label="Deskripsi singkat" hint="Dilihat creator di halaman listing.">
               <Textarea name="description" rows={3} required minLength={20} />
+            </Field>
+            <Field
+              label="Foto campaign"
+              hint="Foto tempat yang akan dilihat creator di kartu katalog."
+            >
+              <div className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-md bg-brand-50">
+                {imagePreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- pratinjau lokal dari blob URL, bukan aset yang perlu dioptimasi next/image
+                  <img
+                    src={imagePreview}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <IconImage
+                    className="h-8 w-8 text-brand-200"
+                    strokeWidth={1.5}
+                  />
+                )}
+              </div>
+              <Input
+                type="file"
+                accept="image/*"
+                className="mt-3"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  setImagePreview(file ? URL.createObjectURL(file) : null);
+                }}
+              />
             </Field>
           </div>
         </Card>
@@ -184,39 +217,11 @@ export function CampaignForm({
           </div>
         </Card>
 
-        <Card>
-          <CardHeader
-            title="Komplimen di lokasi"
-            description="Yang didapat creator saat berkunjung ke lokasi."
-          />
-          <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Jenis komplimen">
-                <Input
-                  name="complimentType"
-                  required
-                  placeholder="Gratis 1 menu kopi + 1 snack"
-                />
-              </Field>
-              <Field label="Nilai (Rp)">
-                <Input
-                  name="complimentValue"
-                  type="number"
-                  min={0}
-                  required
-                  defaultValue={65000}
-                />
-              </Field>
-            </div>
-            <Field label="Syarat & ketentuan" hint="Opsional.">
-              <Textarea
-                name="complimentTerms"
-                rows={2}
-                placeholder="Berlaku 1 orang, jam 15.00-18.00, tidak dapat digabung dengan promo lain."
-              />
-            </Field>
-          </div>
-        </Card>
+        {/* Komplimen di lokasi dihapus dari form ini atas permintaan produk.
+            Field-nya masih wajib diisi di server action, jadi dikirim lewat
+            input tersembunyi supaya submit tidak gagal validasi. */}
+        <input type="hidden" name="complimentType" value="Tidak ada komplimen" />
+        <input type="hidden" name="complimentValue" value={0} />
 
         <Card>
           <CardHeader title="Periode campaign" />
@@ -316,12 +321,6 @@ export function CampaignForm({
               </dd>
             </div>
             <div className="flex justify-between gap-3 border-t border-line pt-3">
-              <dt className="text-muted">Fee platform ({FEE_RATE}%)</dt>
-              <dd className="tabular font-medium">
-                {formatIDR(proyeksi.feePlatformPerCreator)}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
               <dt className="text-muted">Diterima creator (maks)</dt>
               <dd className="tabular font-medium text-success">
                 {formatIDR(proyeksi.payoutBersihPerCreator)}

@@ -1,20 +1,17 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { formatDate, formatIDR, daysUntil } from "@/lib/format";
+import { formatDate, formatIDR } from "@/lib/format";
 import {
   Badge,
-  Button,
   Card,
   EmptyState,
   IconArrowRight,
-  Input,
   PageHeader,
-  ProgressBar,
-  Select,
 } from "@/components/ui";
 import { categoryLabel, categoryTone } from "@/lib/labels";
 import type { BusinessCategory } from "@/generated/prisma/enums";
+import { CampaignFilters } from "./campaign-filters";
 
 export default async function BrowseCampaignPage({
   searchParams,
@@ -63,28 +60,12 @@ export default async function BrowseCampaignPage({
       />
 
       <Card className="mb-6">
-        <form className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto]">
-          <Input name="q" placeholder="Cari nama campaign..." defaultValue={q} />
-          <Select name="kota" defaultValue={kota}>
-            <option value="">Semua kota</option>
-            {kotaTersedia.map((item) => (
-              <option key={item.city} value={item.city}>
-                {item.city}
-              </option>
-            ))}
-          </Select>
-          <Select name="kategori" defaultValue={kategori}>
-            <option value="">Semua kategori</option>
-            {Object.entries(categoryLabel).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-          <Button type="submit" variant="primary">
-            Filter
-          </Button>
-        </form>
+        <CampaignFilters
+          defaultQ={q}
+          defaultKota={kota}
+          defaultKategori={kategori}
+          kotaTersedia={kotaTersedia.map((item) => item.city)}
+        />
       </Card>
 
       {campaigns.length === 0 ? (
@@ -95,12 +76,9 @@ export default async function BrowseCampaignPage({
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {campaigns.map((campaign) => {
-            const terisi = campaign.participations.length;
-            const penuh = terisi >= campaign.maxCreators;
             const sudahIkut = campaign.participations.some(
               (p) => p.creatorId === user.id,
             );
-            const sisaHari = daysUntil(campaign.endDate);
 
             return (
               <Card key={campaign.id} hover>
@@ -140,25 +118,6 @@ export default async function BrowseCampaignPage({
                     </p>
                   </div>
                 </div>
-
-                <div className="mt-4">
-                  <div className="mb-1 flex justify-between text-xs text-muted">
-                    <span>
-                      Slot {terisi}/{campaign.maxCreators}
-                    </span>
-                    <span>{sisaHari >= 0 ? `sisa ${sisaHari} hari` : "berakhir"}</span>
-                  </div>
-                  <ProgressBar
-                    value={terisi}
-                    max={campaign.maxCreators}
-                    tone={penuh ? "warning" : "brand"}
-                  />
-                </div>
-
-                <p className="mt-4 rounded-xl bg-brand-soft px-3 py-2 text-sm text-brand">
-                  Komplimen: {campaign.complimentType} (
-                  {formatIDR(campaign.complimentValue)})
-                </p>
 
                 <div className="mt-4 flex items-center justify-between">
                   <span className="text-xs text-muted">

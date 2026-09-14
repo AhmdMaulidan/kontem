@@ -9,8 +9,8 @@ import {
   Callout,
   Card,
   EmptyState,
+  IconImage,
   PageHeader,
-  ProgressBar,
 } from "@/components/ui";
 import { campaignStatusLabel, campaignStatusTone, categoryLabel } from "@/lib/labels";
 import type { CampaignStatus } from "@/generated/prisma/enums";
@@ -125,6 +125,14 @@ export default async function VendorCampaignsPage(props: {
                   className="block h-full"
                 >
                   <Card className="flex h-full flex-col gap-4 transition-shadow hover:shadow-float">
+                    {/* Foto tempat. Belum ada campaign yang punya foto asli
+                        (unggahan belum tersambung ke penyimpanan), jadi
+                        selalu tampil bidang polos — lebih jujur daripada
+                        foto stok yang bukan milik outletnya. */}
+                    <div className="flex aspect-video w-full items-center justify-center rounded-md bg-brand-50">
+                      <IconImage className="h-8 w-8 text-brand-200" strokeWidth={1.5} />
+                    </div>
+
                     {/* Baris atas: nama + badge status */}
                     <div className="flex items-start justify-between gap-3">
                       <span className="font-display font-semibold leading-snug">
@@ -169,13 +177,6 @@ export default async function VendorCampaignsPage(props: {
                         <p className="tabular font-medium">{cpmEfektif}</p>
                       </div>
                     </div>
-
-                    {/* Progress budget */}
-                    <ProgressBar
-                      value={totalDistributed}
-                      max={campaign.budgetPool}
-                      tone={performance?.poolExhausted ? "warning" : "brand"}
-                    />
                   </Card>
                 </Link>
               </li>

@@ -5,7 +5,6 @@ import { formatCompact, formatDateTime } from "@/lib/format";
 import {
   Badge,
   ButtonLink,
-  Callout,
   Card,
   EmptyState,
   IconExternal,
@@ -15,7 +14,7 @@ import {
   Th,
 } from "@/components/ui";
 import { submissionStatusLabel, submissionStatusTone, platformLabel } from "@/lib/labels";
-import { AppealForm } from "./appeal-form";
+import { NoteCell } from "./note-cell";
 
 export default async function CreatorSubmissionsPage() {
   const user = await requireRole("CREATOR");
@@ -47,17 +46,19 @@ export default async function CreatorSubmissionsPage() {
           <Table>
             <thead>
               <tr>
+                <Th>No</Th>
                 <Th>Campaign</Th>
                 <Th>Konten</Th>
                 <Th>Dikirim</Th>
                 <Th align="right">Views</Th>
                 <Th>Status</Th>
-                <Th>Catatan / Banding</Th>
+                <Th>Catatan</Th>
               </tr>
             </thead>
             <tbody>
-              {submissions.map((submission) => (
+              {submissions.map((submission, index) => (
                 <tr key={submission.id}>
+                  <Td className="text-xs text-muted">{index + 1}</Td>
                   <Td>
                     <Link
                       href={`/creator/campaigns/${submission.campaignId}`}
@@ -95,46 +96,20 @@ export default async function CreatorSubmissionsPage() {
                       {submissionStatusLabel[submission.status]}
                     </Badge>
                   </Td>
-                  <Td className="max-w-xs">
-                    {submission.disputes.length > 0 ? (
-                      <Callout tone="warning" title="Banding diproses">
-                        {submission.disputes[0].reason}
-                      </Callout>
-                    ) : (
-                      <div className="space-y-2">
-                        {submission.reviewNote ? (
-                          <Callout
-                            tone={
-                              submission.status === "APPROVED" ||
-                              submission.status === "ADMIN_APPROVED"
-                                ? "success"
-                                : "danger"
-                            }
-                            title="Catatan reviewer"
-                          >
-                            {submission.reviewNote}
-                          </Callout>
-                        ) : null}
-
-                        {submission.status === "REJECTED" ? (
-                          <details className="text-xs">
-                            <summary className="cursor-pointer font-medium text-brand hover:underline">
-                              Ajukan banding ke admin
-                            </summary>
-                            <div className="mt-2 rounded-xl bg-surface-muted p-3">
-                              <p className="mb-2 text-[11px] text-muted">
-                                Jelaskan bagian konten yang sudah memenuhi brief.
-                              </p>
-                              <AppealForm submissionId={submission.id} />
-                            </div>
-                          </details>
-                        ) : null}
-
-                        {!submission.reviewNote && submission.status !== "REJECTED" ? (
-                          <span className="text-xs text-muted">—</span>
-                        ) : null}
-                      </div>
-                    )}
+                  <Td>
+                    <NoteCell
+                      submissionId={submission.id}
+                      campaignTitle={submission.campaign.title}
+                      disputeReason={submission.disputes[0]?.reason ?? null}
+                      reviewNote={submission.reviewNote}
+                      reviewNoteTone={
+                        submission.status === "APPROVED" ||
+                        submission.status === "ADMIN_APPROVED"
+                          ? "success"
+                          : "danger"
+                      }
+                      showAppealForm={submission.status === "REJECTED"}
+                    />
                   </Td>
                 </tr>
               ))}

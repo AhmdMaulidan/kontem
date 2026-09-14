@@ -9,6 +9,7 @@ import {
   Card,
   CardHeader,
   EmptyState,
+  IconArrowRight,
   IconBanknote,
   IconClock,
   IconTrend,
@@ -136,20 +137,12 @@ export default async function CreatorDashboard() {
             ) : (
               <ul className="divide-y divide-line">
                 {participations.map((p) => {
-                  const estimasiRow = estimasi.find(
-                    (e) => e.participation.id === p.id,
-                  );
                   const sisaHari = daysUntil(p.campaign.endDate);
                   return (
                     <li key={p.id} className="py-3 first:pt-0 last:pb-0">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
                         <div className="min-w-0">
-                          <Link
-                            href={`/creator/campaigns/${p.campaignId}`}
-                            className="font-medium hover:text-brand"
-                          >
-                            {p.campaign.title}
-                          </Link>
+                          <p className="font-medium">{p.campaign.title}</p>
                           <p className="mt-0.5 text-sm text-muted">
                             {p.campaign.vendor.vendorProfile?.businessName} ·{" "}
                             {p.campaign.vendor.vendorProfile?.city}
@@ -170,16 +163,15 @@ export default async function CreatorDashboard() {
                             ) : null}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="tabular text-sm font-medium">
-                            {formatCompact(p.submission?.lastViews ?? 0)} views
-                          </p>
-                          {estimasiRow && estimasiRow.netAmount > 0 ? (
-                            <p className="tabular mt-0.5 text-sm text-brand">
-                              ≈ {formatIDR(estimasiRow.netAmount)}
-                            </p>
-                          ) : null}
-                        </div>
+
+                        <ButtonLink
+                          href={`/creator/campaigns/${p.campaignId}`}
+                          variant="secondary"
+                          size="compact"
+                        >
+                          Lihat detail
+                          <IconArrowRight className="h-3.5 w-3.5" />
+                        </ButtonLink>
                       </div>
                     </li>
                   );

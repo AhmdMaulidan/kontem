@@ -15,7 +15,6 @@ import {
   IconMegaphone,
   IconTrend,
   PageHeader,
-  ProgressBar,
   Stat,
 } from "@/components/ui";
 import { campaignStatusLabel, campaignStatusTone } from "@/lib/labels";
@@ -154,10 +153,8 @@ export default async function VendorDashboard() {
       {menungguReview > 0 ? (
         <div className="mt-6">
           <Callout tone="warning">
-            Ada {menungguReview} submission menunggu keputusanmu.{" "}
-            <Link href="/vendor/submissions" className="font-medium underline">
-              Review sekarang
-            </Link>
+            Ada {menungguReview} submission menunggu keputusanmu. Buka
+            campaign terkait untuk melihat dan memutuskannya.
           </Callout>
         </div>
       ) : null}
@@ -222,7 +219,7 @@ export default async function VendorDashboard() {
                         </div>
                         {campaign._count.submissions > 0 ? (
                           <Link
-                            href="/vendor/submissions"
+                            href={`/vendor/campaigns/${campaign.id}`}
                             className="text-xs font-medium text-brand-600 hover:underline"
                           >
                             {campaign._count.submissions} submission →
@@ -259,16 +256,6 @@ export default async function VendorDashboard() {
                               : "—"}
                           </p>
                         </div>
-                      </div>
-
-                      <div className="mt-3">
-                        <ProgressBar
-                          value={terpakai}
-                          max={campaign.budgetPool}
-                          tone={
-                            performance?.poolExhausted ? "warning" : "brand"
-                          }
-                        />
                       </div>
                     </li>
                   );
@@ -354,12 +341,6 @@ export default async function VendorDashboard() {
                   {formatIDR(escrowByType.PAYOUT)}
                 </dd>
               </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted">Fee platform</dt>
-                <dd className="tabular font-medium text-muted">
-                  {formatIDR(escrowByType.PLATFORM_FEE)}
-                </dd>
-              </div>
               <div className="flex justify-between gap-3 border-t border-line pt-3">
                 <dt className="font-medium">Dikembalikan ke kamu</dt>
                 <dd className="tabular font-semibold text-success">
@@ -415,13 +396,6 @@ export default async function VendorDashboard() {
                 </dd>
               </div>
             </dl>
-            {menungguReview > 0 ? (
-              <div className="mt-4">
-                <ButtonLink href="/vendor/submissions" className="w-full">
-                  Review sekarang
-                </ButtonLink>
-              </div>
-            ) : null}
           </Card>
         </div>
       </div>
