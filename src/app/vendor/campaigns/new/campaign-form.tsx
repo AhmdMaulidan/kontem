@@ -31,7 +31,10 @@ export type TemplateOption = {
 };
 
 const PLATFORMS: SocialPlatform[] = ["TIKTOK", "INSTAGRAM", "YOUTUBE"];
-const FEE_RATE = 15;
+// Harus sama dengan `platformFeeRate` @default di schema.prisma — ini hanya
+// pratinjau estimasi di wizard; angka yang benar-benar dipakai saat settlement
+// adalah `platformFeeRate` milik campaign itu sendiri.
+const FEE_RATE = 3;
 
 function tanggalDefault(offsetHari: number) {
   const date = new Date(Date.now() + offsetHari * 24 * 60 * 60 * 1000);

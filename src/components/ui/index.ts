@@ -25,10 +25,9 @@ export { Card, CardHeader } from "./card";
 export { Logo } from "./logo";
 export { CountUp } from "./count-up";
 export { CatalogCard } from "./catalog-card";
-// Blok penyusun kartu katalog (design.md 6.3 & 6.5). Diekspor juga karena
-// keduanya dipakai ulang di luar kartu: chip pada baris fakta dan bilah slot.
+// Chip pada baris fakta kartu katalog (design.md 6.3 & 6.5). Diekspor karena
+// dipakai ulang di luar kartu juga.
 export { FactChip } from "./fact-chip";
-export { SlotBar } from "./slot-bar";
 export { PageHeader } from "./page-header";
 export { EmptyState } from "./empty-state";
 

@@ -4,7 +4,6 @@ import { formatIDR, formatIDRCompact } from "@/lib/format";
 import { Badge } from "./badge";
 import { FactChip } from "./fact-chip";
 import { IconGift, IconPin } from "./icon";
-import { SlotBar } from "./slot-bar";
 import type { BadgeTone } from "@/lib/labels";
 
 /**
@@ -27,8 +26,7 @@ export function CatalogCard({
   kategoriTone,
   budgetPool,
   cpmRate,
-  maxCreators,
-  slotTerpakai,
+  creatorBergabung,
   komplimen,
   sisaHari,
   foto,
@@ -42,20 +40,23 @@ export function CatalogCard({
   kategoriTone: BadgeTone;
   budgetPool: number;
   cpmRate: number;
-  maxCreators: number;
-  slotTerpakai: number;
+  /** Berapa kreator yang sudah bergabung. Tidak ada kuota yang membatasinya. */
+  creatorBergabung: number;
   komplimen: string;
   sisaHari: number;
   foto?: string | null;
   aksi?: string;
 }) {
-  const penuh = slotTerpakai >= maxCreators;
+  // Campaign yang sudah lewat tenggat tidak lagi menerima peserta. Dulu syarat
+  // ini juga mencakup kuota slot yang penuh; kuotanya sudah dihapus — siapa pun
+  // boleh ikut selama campaign masih berjalan.
+  const tutup = sisaHari <= 0;
 
   return (
     <article className="relative flex flex-col rounded-lg bg-surface p-2.5 shadow-catalog transition-shadow hover:shadow-catalog-hover">
       {/* Pita sorotan selalu berisi tarif CPM, bukan kata-kata promosi.
-          Dilepas kalau slotnya penuh (design.md 6.5 butir 7). */}
-      {penuh ? null : (
+          Dilepas kalau campaign sudah ditutup (design.md 6.5 butir 7). */}
+      {tutup ? null : (
         <div className="absolute top-0 left-0 z-10 rounded-tl-[5px] rounded-r-full bg-gradient-to-r from-accent to-accent-400 px-2.5 py-1 lg:py-1.5">
           <span className="block text-[10px] font-semibold text-foreground lg:text-xs">
             CPM {formatIDRCompact(cpmRate)}
@@ -104,7 +105,15 @@ export function CatalogCard({
               {formatIDR(budgetPool)}
             </p>
           </div>
-          <FactChip>{maxCreators} slot</FactChip>
+          {/* Dulu chip ini berisi kuota slot. Kuota sudah dihapus — siapa pun
+              boleh ikut — jadi yang ditampilkan sekarang berapa kreator yang
+              SUDAH bergabung: itu info yang masih benar sekaligus jadi tanda
+              campaign ini hidup. */}
+          <FactChip>
+            {creatorBergabung > 0
+              ? `${creatorBergabung} kreator`
+              : "Baru dibuka"}
+          </FactChip>
         </li>
         <li className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -130,11 +139,9 @@ export function CatalogCard({
       {/* mt-auto: tinggi kartu dalam satu baris grid tetap sama walau judul
           atau komplimennya berbeda panjang. */}
       <div className="mt-auto pt-3">
-        <SlotBar terpakai={slotTerpakai} total={maxCreators} closed={penuh} />
-
-        {penuh ? (
+        {tutup ? (
           <span className="mt-2.5 block w-full cursor-not-allowed rounded-lg bg-surface-muted py-2 text-center text-[13px] font-medium text-muted lg:text-sm">
-            Slot penuh
+            Campaign berakhir
           </span>
         ) : (
           <Link

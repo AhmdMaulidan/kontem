@@ -198,3 +198,110 @@ body {
 .dome {
   border-radius: 80% 80% 0.75rem 0.75rem / 45% 45% 0.75rem 0.75rem;
 }
+
+/* ---------------------------------------------------------------- roadmap
+   Animasi jalur "Cara kerjanya": garis menggambar dirinya sekali saat seksi
+   masuk layar, lalu marka putus-putihnya terus berjalan pelan.
+
+   Dijalankan lewat kelas `.roadmap-jalan` yang dipasang komponen saat seksinya
+   terlihat — bukan `animation-play-state`, supaya animasi benar-benar mulai
+   dari nol dan tidak berjalan diam-diam sebelum terlihat. */
+
+/* Badan jalur & kepala panah: digambar dari pangkal ke ujung.
+   Geraknya LINEAR, bukan ease: jeda kemunculan kubah dihitung sebagai porsi
+   panjang jalur, jadi garis yang melambat-mencepat akan mendahului kubahnya di
+   tengah animasi.
+   `pathLength="1"` membuat panjangnya selalu 1 satuan berapa pun bentuk
+   jalurnya, jadi satu nilai dash dipakai untuk ketiga alur.
+
+   `stroke-dasharray` WAJIB `1 2`, bukan `1`. Nilai berjumlah ganjil digandakan
+   sendiri oleh SVG, jadi `1` berarti pola "1 terlukis, 1 kosong" BERULANG
+   dengan periode 2. Pada `stroke-dashoffset: 1` pola itu tergeser tepat satu
+   periode sehingga tepi dash berikutnya jatuh PERSIS di ujung jalur — itulah
+   titik biru kedua di kubah terakhir yang terbaca seolah jalurnya punya dua
+   titik mulai. `1 2` memberi periode 3 dengan bagian kosong sepanjang 2:
+   pada offset 1 seluruh jalur (panjang 1) jatuh di bagian kosong, lalu tumbuh
+   HANYA dari pangkal sampai penuh saat offset mencapai 0. */
+.roadmap-gambar {
+  stroke-dasharray: 1 2;
+  stroke-dashoffset: 1;
+}
+.roadmap-jalan .roadmap-gambar {
+  animation: roadmap-gambar 1.5s linear forwards;
+}
+@keyframes roadmap-gambar {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Panah penutup menyusul tepat setelah garisnya sampai. Jedanya = DURASI PENUH
+   garis (1,5s): jalur berakhir di TEPI KIRI kubah terakhir dan panahnya berdiri
+   di koridor setelah itu, jadi garis baru tiba di pangkal panah pada detik
+   terakhir. Memulai panah lebih awal membuatnya melayang di depan garis yang
+   belum sampai. */
+.roadmap-panah {
+  opacity: 0;
+}
+.roadmap-jalan .roadmap-panah {
+  animation: roadmap-panah 0.35s ease-out 1.5s forwards;
+}
+@keyframes roadmap-panah {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Marka putus-putih: diam dulu selama garis menggambar, lalu berjalan terus.
+   52 = 22 + 30, satu putaran penuh pola dash-nya, jadi perulangannya mulus. */
+.roadmap-jalan .roadmap-marka {
+  animation: roadmap-marka 2.4s linear 1.5s infinite;
+}
+@keyframes roadmap-marka {
+  to {
+    stroke-dashoffset: -52;
+  }
+}
+
+/* Kubah langkah menyusul satu per satu, mengikuti garis yang menggambarinya.
+   Jedanya dipasang per langkah lewat `--tunda` di komponen. */
+.roadmap-kubah {
+  opacity: 0;
+}
+.roadmap-jalan .roadmap-kubah {
+  animation: roadmap-kubah 0.5s ease-out var(--tunda, 0s) forwards;
+}
+@keyframes roadmap-kubah {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Pengunjung yang menyetel prefers-reduced-motion langsung melihat hasil
+   akhirnya — aturan yang sama dengan angka hitung-naik pada kubah statistik
+   (design.md bagian 5.1). */
+@media (prefers-reduced-motion: reduce) {
+  .roadmap-gambar,
+  .roadmap-panah,
+  .roadmap-kubah {
+    animation: none !important;
+    opacity: 1;
+    /* `none` dipakai, bukan mengandalkan offset 0: jalurnya harus utuh tanpa
+       bergantung pada nilai dasharray yang bisa berubah. */
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+  .roadmap-jalan .roadmap-marka {
+    animation: none !important;
+  }
+}

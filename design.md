@@ -271,7 +271,7 @@ selama asetnya tidak didistribusikan ulang sebagai paket. Berkasnya ada di
   ilustrasi, atau menyalin aset milik situs lain yang berhak cipta. Palet dan
   tata letak boleh meniru referensi; asetnya tidak.
 
-**Gradien — dua tempat saja**
+**Gradien — empat tempat saja**
 
 Referensi memakai gradien dengan hemat dan selalu pada bidang yang memang
 "berbunyi". Di Kontem gradien **hanya** boleh muncul pada:
@@ -279,8 +279,14 @@ Referensi memakai gradien dengan hemat dan selalu pada bidang yang memang
 1. **Spanduk hitung mundur** di panel campaign menjelang tenggat
    (`--brand-600 → --brand-500 → --brand-300`, kiri ke kanan).
 2. **Pita sorotan** di pojok kartu katalog (`--accent-500 → --accent-400`).
+3. **Jalur roadmap** pada seksi "Cara kerjanya" (`--brand-400 → --brand-500 →
+   --brand-600`, kiri ke kanan). Di sini gradiennya memikul informasi, bukan
+   hiasan: jalur menua dari biru muda di langkah 1 ke biru pekat di langkah 9,
+   jadi arah perjalanannya terbaca dari warnanya saja.
+4. **Pita pemisah di bawah akordeon FAQ** (`--brand-100 → putih`, ke bawah) —
+   dirinci di bagian 6.7.
 
-Di luar dua itu, latar tetap datar. Gradien sebagai latar kartu biasa, banner
+Di luar keempatnya, latar tetap datar. Gradien sebagai latar kartu biasa, banner
 dasbor, atau tombol tetap dilarang.
 
 **Ikon**
@@ -393,7 +399,7 @@ Sebagai penjaga keadilan dan integritas ekosistem dua sisi (_Two-Sided Trust Pro
    - Antarmuka pengecekan data vendor baru (tinjau foto, tautan Google Maps, status PIC).
 2. **Escrow & Settlement Desk**:
    - Verifikasi deposit dana masuk dari vendor.
-   - _One-Click Settlement_: Mengunci angka views akhir saat periode kampanye berakhir, menghitung pembagian dana pool secara proporsional dengan metode _Largest Remainder_, memotong komisi platform (default 15%), dan mengeksekusi pencairan transfer ke kreator serta pengembalian sisa pool yang belum terserap ke vendor.
+   - _One-Click Settlement_: Mengunci angka views akhir saat periode kampanye berakhir, menghitung pembagian dana pool secara proporsional dengan metode _Largest Remainder_, memotong komisi platform (default 3%), dan mengeksekusi pencairan transfer ke kreator serta pengembalian sisa pool yang belum terserap ke vendor.
 3. **Dispute & Mediation Center**:
    - Panel khusus jika ada kreator yang mengajukan banding terhadap penolakan submission oleh vendor.
    - Admin melihat video, mencocokkan dengan brief, melihat alasan vendor, dan menetapkan keputusan final yang mengikat.
@@ -417,7 +423,7 @@ Dua prinsip utama:
 Kondisi A: Total Tagihan CPM < Budget Pool
 - Setiap kreator dibayar penuh sesuai formula CPM.
 - Sisa dana pool yang tidak terserap dikembalikan utuh (refund) ke vendor.
-- Platform fee (15%) dipotong hanya dari pembayaran riil yang diterima kreator.
+- Platform fee (3%) dipotong hanya dari pembayaran riil yang diterima kreator.
 
 Kondisi B: Total Tagihan CPM >= Budget Pool (Over-Cap)
 - Seluruh budget pool dibagi proporsional berdasarkan persentase kontribusi views:
@@ -427,12 +433,12 @@ Kondisi B: Total Tagihan CPM >= Budget Pool (Over-Cap)
 
 ### 4.2 Simulasi Payout
 
-| Kreator             | Valid Views | Porsi Views | Payout Kotor (Pool Rp 2.500.000) | Fee Kontem (15%) | Payout Bersih Kreator |
-| :------------------ | :---------- | :---------- | :------------------------------- | :--------------- | :-------------------- |
-| **@kuliner.malang** | 65.000      | 52,0%       | Rp 1.300.000                     | Rp 195.000       | **Rp 1.105.000**      |
-| **@foodiejatim**    | 35.000      | 28,0%       | Rp 700.000                       | Rp 105.000       | **Rp 595.000**        |
-| **@nongkrong.yuk**  | 25.000      | 20,0%       | Rp 500.000                       | Rp 75.000        | **Rp 425.000**        |
-| **TOTAL**           | **125.000** | **100%**    | **Rp 2.500.000**                 | **Rp 375.000**   | **Rp 2.125.000**      |
+| Kreator             | Valid Views | Porsi Views | Payout Kotor (Pool Rp 2.500.000) | Fee Kontem (3%) | Payout Bersih Kreator |
+| :------------------ | :---------- | :---------- | :------------------------------- | :-------------- | :-------------------- |
+| **@kuliner.malang** | 65.000      | 52,0%       | Rp 1.300.000                     | Rp 39.000       | **Rp 1.261.000**      |
+| **@foodiejatim**    | 35.000      | 28,0%       | Rp 700.000                       | Rp 21.000       | **Rp 679.000**        |
+| **@nongkrong.yuk**  | 25.000      | 20,0%       | Rp 500.000                       | Rp 15.000       | **Rp 485.000**        |
+| **TOTAL**           | **125.000** | **100%**    | **Rp 2.500.000**                 | **Rp 75.000**   | **Rp 2.425.000**      |
 
 ---
 
@@ -464,10 +470,9 @@ tautan `#campaign` harus langsung melihat barangnya.
 +-----------------------------------------------------------------------------------------------+
 |  2. ANGKA NYATA — "Gabung di Kontem sekarang!" (rata tengah + satu kalimat)                    |
 |     Seksi 2 dan 3 dibungkus SATU wadah berpita: pita gelombang panjang mengalir keluar dari    |
-|     balik pita awan, melewati deret kubah, lalu berakhir di seksi "Tayang di mana saja".       |
-|     Pita muncul mulai lg — di ponsel seksinya menumpuk jadi terlalu tinggi dan pitanya cuma    |
-|     terbaca sebagai coretan. TANPA figur yang berdiri di atasnya: keputusan pemilik produk,    |
-|     figur di pias kiri-kanan berebut perhatian dengan ilustrasi di atas kubah angka.           |
+|     balik pita awan, melewati deret kubah, lalu berakhir di seksi manfaat.                      |
+|     Pita muncul mulai xl — di bawah itu kolomnya lebih sempit dan kartu figur tidak punya      |
+|     ruang. Rincian bentuk & kartu figurnya di seksi 4b (Beragam manfaat).                      |
 |     Pita masuk dari TEPI KIRI layar, bukan dari balik pita awan: bidang bawah clouds.svg      |
 |     putih polos, jadi pita yang disembunyikan di baliknya selalu muncul terpotong garis lurus. |
 |     Pitanya SATU lapis — dua lapis dengan lebar berbeda terbaca sebagai warna dobel di pita    |
@@ -509,18 +514,126 @@ tautan `#campaign` harus langsung melihat barangnya.
 |  4. CARA KERJANYA — SEMBILAN LANGKAH BERURUTAN, id="cara-kerja"                               |
 |   Tiap langkah: ilustrasi menumpang LANGSUNG di atas KUBAH — tanpa lingkaran di belakangnya,   |
 |   biru --brand-600 berisi lingkaran putih bernomor + judul langkah sebaris. Penjelasan di      |
-|   bawah kubah. Di lg: DUA BARIS, 5 langkah di atas dan 4 di bawah. Dikerjakan dengan grid 10   |
-|   kolom, tiap langkah mengambil 2 kolom, dan langkah ke-6 digeser setengah petak               |
-|   (`lg:col-start-2`) supaya baris kedua tampil di tengah, bukan rata kiri dengan satu petak    |
-|   kosong menganga di kanan. Di bawah lg: 2 kolom (sm) lalu 1 kolom (ponsel).                   |
-|   Sembilan kubah sejajar dalam satu baris tidak dipakai — tiap kubah jadi selebar ~110px dan   |
-|   judulnya pecah.                                                                              |
+|   bawah kubah. Di lg: DUA BARIS, lima langkah di atas (1-5) dan empat di bawah (6-9), dibaca  |
+|   BOLAK-BALIK — baris 1 kiri->kanan, baris 2 kanan->kiri. Penempatannya di TATA_LANGKAH        |
+|   (`lg:col-start` + `lg:row-start` per langkah); langkah 6-9 sengaja dipasang terbalik supaya  |
+|   urutan tampilnya mengikuti jalur. Grid lima kolom, mulai dari tepi kiri TANPA petak kosong   |
+|   di depan; kolom pertama baris kedua yang kosong justru terpakai sebagai ruang jalur          |
+|   membelok turun dari langkah 5. `lg:pr-[6%]` menyediakan koridor busur di kanan.              |
+|   JUDUL SEKSI berdiri RATA TENGAH DI ATAS roadmap, berlaku di semua lebar: label "ROADMAP"     |
+|   ber-tracking lebar, "Alur Kerja Kontem" DM Sans Bold brand-700, satu kalimat penjelas        |
+|   (SATU BARIS), lalu garis pendek brand-300.                                                   |
+|   Di bawahnya SWITCH ALUR berbentuk pil putih berisi tiga tombol — Bisnis Flow / Creator /     |
+|   Vendor — yang aktif berlatar brand-600. Diklik, deret langkahnya berganti. Switch-nya        |
+|   Client Component tersendiri (`src/app/alur-switch.tsx`) supaya seksi lain tetap Server       |
+|   Component; `role="tablist"` dipakai agar pembaca layar mengumumkannya sebagai pemilih        |
+|   tampilan. TIAP ALUR PUNYA JALURNYA SENDIRI, tapi dengan ATURAN YANG SAMA supaya lengkungnya |
+|   seragam antar-tab: belok di x=955, dan peralihan antarbaris berupa DUA BUSUR SEPEREMPAT      |
+|   LINGKARAN (SVG `A`) berjari-jari sama 95px — dijepit setengah jarak antarbaris bila tidak    |
+|   muat — disambung ruas tegak. JANGAN memakai Bezier berpegangan pendek dengan titik belok     |
+|   berbeda per tab: itu yang dulu membuat lengkungnya menyiku dan tidak seragam.                |
+|   Koordinat kubahnya tetap diukur terpisah per susunan                                          |
+|   ANIMASI: garis MENGGAMBAR DIRINYA sekali (1,5 detik, gerak LINEAR) saat seksinya masuk       |
+|   layar, kubah menyusul PAS saat garis sampai di sana, panah penutup muncul terakhir, marka    |
+|   putus-putihnya berjalan terus. Jeda tiap kubah dihitung dari PORSI PANJANG JALUR di titik    |
+|   langkah itu (tabel `PORSI_JALUR` di `alur-switch.tsx`), bukan dibagi rata — baris pertama    |
+|   dan kedua dipisahkan tikungan balik yang panjang, jadi pembagian rata membuat kubah baris    |
+|   kedua tertinggal jauh. Geraknya wajib linear: garis ber-`ease` melambat-mencepat dan         |
+|   mendahului kubahnya di tengah animasi. Kalau bentuk jalur diubah, `PORSI_JALUR` WAJIB        |
+|   dihitung ulang. Marka                                                                        |
+|   putus-putihnya berjalan terus. Berjalan saat seksinya PERTAMA KALI terlihat                  |
+|   (IntersectionObserver di `AlurSwitch`, pengamatnya lalu dilepas — tidak mengulang saat       |
+|   digulir bolak-balik) DAN setiap kali PILIHAN ALUR diganti. Pengulangan itu dikendalikan      |
+|   penghitung `putaran` yang dipakai sebagai `key` pada kotak jalur: React memasang elemen      |
+|   baru sehingga animasi CSS mulai dari nol — memasang ulang kelas yang sama TIDAK memicunya.   |
+|   Penghitungnya dinaikkan di `onClick`, bukan lewat efek: setState di dalam efek memicu        |
+|   render berantai dan ditolak lint. `pathLength={1}` membuat satu nilai dash dipakai ketiga    |
+|   alur.                                                                                        |
+|   prefers-reduced-motion: semuanya langsung tampil utuh tanpa animasi (aturan yang sama        |
+|   dengan angka hitung-naik pada kubah statistik).                                              |
+|   (9 langkah 5+4, 8 langkah 5+3, 5 langkah satu baris) dan disimpan di tabel `JALUR` dalam     |
+|   `illustrations.tsx`, dipilih lewat prop `jumlah`. Jumlah langkah yang belum punya jalur      |
+|   tidak digambari apa pun, daripada memakai jalur alur lain yang pasti meleset dari kubahnya.  |
+|   Isi tiap tab adalah NASKAH DARI PEMILIK PRODUK, bukan hasil penyaringan otomatis, karena     |
+|   tiap peran melihat langkah yang berbeda. Alur creator sengaja TIDAK menyebut kode redeem     |
+|   walau modelnya ada di skema: keputusan pemilik produk, verifikasi kunjungan dilakukan        |
+|   manual oleh admin saat review submission.                                                    |
+|   Kubahnya SEMPIT DAN TEGAK (`lg:w-[86%]`, isi ditumpuk: nomor di atas judul rata tengah,      |
+|   `lg:pt-14`), bukan lebar-pipih — pada bidang yang melebar, lengkung `.dome` jadi landai dan  |
+|   kubahnya terbaca sebagai pita. Judul dipatok `lg:min-h-[2.6em]` dan tiap <li> `lg:h-full`    |
+|   supaya kubah yang judulnya dua baris tidak membuat barisnya bergelombang — jalur yang        |
+|   melintas di tengah kubah akan meleset pada kubah yang lebih tinggi daripada tetangganya.     |
+|   `RoadmapPath` menggambar JALUR TEBAL BERGRADIEN (brand-400 -> 500 -> 600, kiri ke kanan)     |
+|   selebar 26px berisi marka putus-putus putih + kepala panah, ditutup panah segitiga yang      |
+|   menunjuk KE KIRI setelah langkah 9 — arah baris kedua. `lg:pl-[4%]` menyediakan koridor      |
+|   bagi panah itu; tanpa ruang tersebut ia tertimbun kubah langkah 9 yang menempel tepi. Gradien ini pengecualian dari         |
+|   larangan bagian 2.3: arah perjalanan terbaca dari warnanya saja.                             |
+|   Ruas mendatarnya melintas TEPAT DI TENGAH KUBAH; karena SVG-nya digambar di belakang deret   |
+|   langkah, yang terlihat hanya ruas di sela antar-kubah — itu yang membuat garisnya terbaca    |
+|   MENYAMBUNG dari langkah 1 sampai 9.                                                          |
+|   Koordinatnya WAJIB diukur ulang di browser setiap kali ukuran kubah, jarak baris, atau isi   |
+|   grid berubah — semuanya menggeser posisi kubah. Yang sudah dicoba dan ditolak: merutekannya  |
+|   lewat sela antar-baris (jalurnya terbaca melayang jauh di bawah kubah, bukan menghubungkan); |
+|   setinggi pita penjelasan (menabrak huruf); satu Bezier tunggal dari ujung baris ke awal      |
+|   baris berikutnya (menyeberang diagonal menembus seluruh seksi); `preserveAspectRatio` selain |
+|   `none` (skala seragam membuat koordinat meleset dari kubahnya); melebarkan kotak SVG keluar  |
+|   wadah (terpotong tepi wadah di lg terkecil — koridornya ditaruh di dalam grid).              |
+|   Ilustrasi `lg:h-36` menumpang di atas kubah, mendominasi bidangnya.                          |
+|   Di bawah lg: 2 kolom (sm) lalu 1 kolom (ponsel), tanpa jalur.                                |
+|   Tiga baris pada grid empat kolom tidak dipakai — petak kosong di kiri atas menyisakan ruang  |
+|   menganga setelah judul dipindah ke tengah atas. Satu langkah per baris juga tidak: seksinya  |
+|   jadi ~5700px sehingga alurnya tidak terbaca sekali pandang.                                  |
 |   Urutannya: Vendor buat campaign -> Admin approve -> Creator join -> Creator datang ke        |
 |   lokasi -> Creator submit konten -> Vendor/admin review -> Sistem tracking views ->           |
 |   Campaign selesai & hitung proporsi -> Admin cairkan payout.                                  |
 |   Judul tiap langkah WAJIB menyebut pelakunya (vendor / admin / creator / sistem) — alurnya    |
 |   berpindah tangan beberapa kali dan langkah tanpa pelaku membuat pengunjung tidak tahu        |
 |   bagian mana yang jadi tanggung jawabnya.                                                     |
++-----------------------------------------------------------------------------------------------+
+|  4b. BERAGAM MANFAAT — enam manfaat dalam dua kolom di atas siluet peta Indonesia               |
+|   Label seksi "Kenapa Kontem", judul rata tengah, lalu daftar enam manfaat `sm:grid-cols-2`:   |
+|   kotak ikon `rounded-2xl` berlatar brand-50 + judul + satu kalimat. Ikonnya dioper lewat NAMA |
+|   (`IkonManfaat`), bukan komponen, dengan alasan yang sama seperti `nav-icons.tsx`.            |
+|   Latarnya `PetaLatar`: siluet kepulauan Indonesia ABU NETRAL (`--border` opasitas 85%), titik |
+|   penanda kota dan garis putus-putus `--muted` pucat. Abu, bukan biru, atas permintaan pemilik |
+|   produk: peta biru bersaing dengan kotak ikon brand-200 dan kartu figur berwarna di depannya. |
+|   Lebarnya dipatok `max-w-2xl` — seksinya `overflow-hidden`, jadi siluet yang lebih lebar dari |
+|   wadah terpotong di ujung barat dan timurnya. Garis pantainya DARI DATA SUNGGUHAN  |
+|   (Natural Earth ne_110m, domain publik), diproyeksikan equirectangular lalu disederhanakan    |
+|   Douglas-Peucker; titik kotanya dari koordinat lon/lat sebenarnya dengan rumus yang sama.     |
+|   Jangan menggambar ulang siluetnya dengan tangan — versi tangan sudah dicoba dan ditolak,     |
+|   bentuknya tidak terbaca sebagai Indonesia. Tetap `aria-hidden`: ini tekstur latar, bukan     |
+|   peta yang dimaksudkan dibaca sebagai informasi geografis. Peta dan ilustrasi penjuru hanya muncul mulai lg;  |
+|   pada satu kolom daftar manfaat menutupi hampir seluruhnya sehingga cuma jadi beban render.   |
+|   Tiap poin WAJIB bisa ditunjuk ke aturan yang benar-benar berlaku (escrow, tanpa minimum      |
+|   followers, tarif CPM, bukti kunjungan, penolakan beralasan, fee 3%) — jangan menambah klaim |
+|   yang tidak punya dasar di produk.                                                            |
+|   PITA GELOMBANG `PitaManfaat` tinggal di WADAH yang membungkus seksi angka + seksi manfaat,   |
+|   bukan di dalam seksi manfaat. Bentuknya dari rujukan: datang dari kanan atas di samping      |
+|   seksi angka, turun tegak di sisi kanan, menyapu di bawah daftar, naik ke puncak di kiri, lalu |
+|   keluar dari tepi kiri. Pita MENGITARI peta dan tidak pernah melintasinya. Stroke brand-100   |
+|   74px opasitas 70% (`non-scaling-stroke`), `overflow="visible"`, ujungnya ditarik jauh melewati kotak.    |
+|   Kotaknya selebar KOLOM KONTEN (`w-[1120px]` dipusatkan), bukan selebar layar, supaya kartu   |
+|   figur tetap sejajar dengan daftar berapa pun lebar layarnya. viewBox-nya dalam piksel kolom  |
+|   (1120 x tinggi wadah), jadi titiknya dibaca langsung dari tata letak.                        |
+|   Jalurnya DIRANCANG dari BUSUR LINGKARAN ASLI (perintah SVG `A`): kanan atas masuk mendatar  |
+|   lalu busur r=110 turun tegak; kanan bawah busur r=300; kiri dua busur r=220 dan r=120 yang   |
+|   bersambung LANGSUNG (tanpa ruas tegak di antaranya — ruas tegak itulah yang dulu membuat     |
+|   tanjakan patah) melewati puncak kartu merah lalu keluar tepi kiri. Ruang di bawah daftar     |
+|   `xl:pb-[165px]`; peta ditambatkan `xl:top-[187px]` supaya tidak ikut turun.                  |
+|   dan ditolak: jarak titik yang tak rata membuat lengkungnya bergelombang dan patah-patah.    |
+|   EMPAT KARTU FIGUR (80px) dan TIGA CHIP IKON tinggal di kotak yang sama dan BERDIRI DI GARIS: |
+|   posisinya dihitung dari kurva — x piksel, y persen tinggi wadah. Kalau `d` diubah, atau      |
+|   tinggi seksi angka/manfaat berubah, posisi kartu dan chip WAJIB dihitung ulang.              |
+|   Tiap kartu punya SATU CHIP IKON yang WARNANYA MENGIKUTI KARTUNYA (merah-melon, kuning-mango, |
+|   ungu-violet, biru-azure), disambung GARIS PUTUS-PUTUS abu (`GarisFigur`) yang keluar dari    |
+|   pusat kartu, menembus chip, lalu BERAKHIR DI TITIK LOKASI BERWARNA PADA PETA (Medan,         |
+|   Jayapura, Denpasar, Nusa Tenggara). Rutenya lewat CELAH antar-baris/kolom daftar dan ujungnya |
+|   dipilih yang tidak tertimpa teks — Makassar & Jakarta sengaja tidak dipakai. Token `--stat-*` di sini PENGECUALIAN    |
+|   dari aturan "hanya untuk kubah angka", atas permintaan pemilik produk: kartu figurnya sendiri |
+|   berwarna sama. Latar chip = token dicampur putih lewat color-mix (satu warna pekat), bukan   |
+|   warna transparan di atas `bg-surface` — dua kelas latar bertabrakan dan garis jadi tembus.   |
+|   Semuanya hanya mulai xl, begitu pula ruang sapuan di bawah daftar (`xl:pb-[170px]`).         |
 +-----------------------------------------------------------------------------------------------+
 |  5. CARA DANA DIJAGA — deretan lambang metode pembayaran + ilustrasi figur di atas             |
 |   bidang gelombang (WaveBand), satu paragraf penjelas escrow rata tengah                      |
@@ -864,8 +977,6 @@ yang menampilkan daftar campaign memakai komponen ini: halaman depan,
 |  Komplimen                            |
 |  Gratis 1 makanan + minuman           |
 |                                       |
-|  [######## Sisa 3 dari 12 slot ]      |  <- bilah stok, tulisan DI DALAM
-|                                       |
 |  (o) Lihat skema payout               |  <- tautan abu kecil -> modal
 |  [        Klaim Slot        ]         |  <- tombol blok rounded-lg
 +---------------------------------------+
@@ -911,16 +1022,6 @@ yang menampilkan daftar campaign memakai komponen ini: halaman depan,
     </li>
     {/* ...Tarif CPM, Komplimen */}
   </ul>
-
-  {/* Bilah slot: tulisan di dalam bilah, bukan di atasnya. */}
-  <div className="mt-4 h-4 overflow-hidden rounded-full bg-[--surface-muted]">
-    <div
-      className="flex h-4 items-center justify-center rounded-full
-                    bg-[--brand-500] text-[10px] font-bold text-white"
-      style={{ width: "75%" }}
-    >
-      Sisa 3 dari 12 slot
-    </div>
   </div>
 
   <button
@@ -942,18 +1043,15 @@ Ketentuan yang mengikat:
    marigold tidak terbaca — teksnya navy.
 2. **Maksimal tiga baris fakta.** Kalau sebuah campaign punya lebih banyak hal
    menarik, itu isi halaman detail, bukan kartu.
-3. **Tulisan bilah slot ada di dalam bilah.** Kalau bagian yang terisi kurang
-   dari 45%, tulisan dipindah ke tengah _track_ dengan warna `--foreground`,
-   supaya tidak terpotong. Ini penyesuaian yang wajib — pada referensi tulisan
-   memang terpotong saat stok tinggal sedikit.
-4. **Bilah menunjukkan slot terpakai, bukan sisa** — arah isian mengikuti arah
-   perjalanan campaign. Tulisannya tetap menyebut sisanya, karena itu yang
-   dibutuhkan creator.
+3. **Bilah slot DIHAPUS dari kartu** (keputusan pemilik produk). Kuota tetap
+   terbaca lewat chip `12 slot` pada baris Budget pool; ketersediaan slot yang
+   sebenarnya ada di halaman detail. Jumlah slot terpakai masih dipakai kartu,
+   tapi hanya untuk menentukan status penuh.
 5. **Tanpa garis tepi.** Yang memisahkan kartu dari latar biru pucat adalah
    `--shadow-catalog`.
 6. **Hover hanya mengubah bayangan**, tidak mengangkat kartu.
 7. Kalau slot habis atau campaign ditutup: tombol jadi _disabled_ bertulisan
-   `Slot penuh`, bilah menjadi `--muted`, dan pita sorotan dilepas.
+   `Slot penuh` dan pita sorotan dilepas.
 
 ### 6.6 Toolbar Katalog & Panel Tenggat
 
@@ -1186,7 +1284,7 @@ model Payout {
   campaignId  String
   creatorId   String
   grossAmount Int      // Pembagian proporsional kotor
-  feeAmount   Int      // Potongan fee platform (15%)
+  feeAmount   Int      // Potongan fee platform (3%)
   netAmount   Int      // Uang yang masuk rekening kreator
   status      String   // PENDING / PAID
   paidAt      DateTime?
@@ -1235,14 +1333,14 @@ ketentuan versi sebelumnya:
 | Versi sebelumnya                                           | Berlaku sekarang                                                                                                                        | Alasan                                                                                                                      |
 | :--------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------- |
 | Semua tombol `rounded-full`                                | Pil untuk ajakan hero & chip; **blok `rounded-lg`** untuk tombol di dalam kartu dan form                                                | Referensi membedakan keduanya; pil selebar kartu membuat aksi kartu terbaca sebagai ajakan halaman                          |
-| Kartu campaign tanpa spesifikasi tersendiri                | **Kartu Katalog bagian 6.5** — pita sorotan, tiga baris fakta berchip, bilah slot bertulisan di dalam, tautan skema payout, tombol blok | Ini komponen inti `#products` dan halaman yang paling sering dilihat creator                                                |
+| Kartu campaign tanpa spesifikasi tersendiri                | **Kartu Katalog bagian 6.5** — pita sorotan, tiga baris fakta berchip, tautan skema payout, tombol blok | Ini komponen inti `#products` dan halaman yang paling sering dilihat creator                                                |
 | Bayangan kartu katalog berpendar biru                      | **`--shadow-catalog` netral dua lapis**, lebih dalam daripada kartu dasbor                                                              | Keputusan pemilik produk: pendar biru di atas latar biru pucat membuat grid enam kartu terbaca seperti kolam biru           |
 | Empat kubah statistik semuanya `--brand-500`               | **Empat warna terang berputar**: azure `#38bdf8`, violet `#a78bfa`, mangga `#fbbf24`, semangka `#fb7185`, angka navy                     | Deret satu warna terbaca sebagai tabel, bukan sebagai deretan pencapaian; kuartetnya dibedakan dari referensi atas permintaan pemilik produk |
 | Ikon bulat kuning di atas kubah                            | **Ilustrasi unDraw menumpang langsung**, tinggi dipatok `h-28`/`h-36`                                                                   | Referensi tidak memakai lingkaran; tinggi tetap sudah cukup menyeragamkan rasio unDraw yang berbeda-beda                    |
 | Hero berisi panel putih `rounded-3xl` pembungkus ilustrasi | **Ilustrasi langsung di atas panel biru**                                                                                               | Panel putih memotong bidang biru jadi dua dan menghilangkan kesan langit penuh                                              |
 | Enam kartu fitur `rounded-2xl` di halaman depan            | **Seksi manfaat dihapus seluruhnya** dari halaman depan                                                                                 | Keputusan pemilik produk: isinya sudah terwakili dua jalur Vendor/Creator di "Cara kerjanya"                                |
 | Footer biru `--brand-600`                                  | **Footer arang `#2d2d2d`** empat kolom                                                                                                  | Biru sudah memegang hero dan seksi katalog                                                                                  |
-| Gradien dilarang seluruhnya                                | Diizinkan **tepat di tiga tempat**: spanduk hitung mundur, pita sorotan kartu, pita FAQ                                                 | Referensi memakai gradien hanya pada bidang yang memang "berbunyi"                                                          |
+| Gradien dilarang seluruhnya                                | Diizinkan **tepat di empat tempat**: spanduk hitung mundur, pita sorotan kartu, jalur roadmap, pita FAQ                                 | Referensi memakai gradien hanya pada bidang yang memang "berbunyi"                                                          |
 | Tidak ada seksi katalog berfilter                          | **Toolbar cari + select kategori**, grid `2/3/4` kolom, panel tenggat berhitung mundur                                                  | Ini struktur `#products` itu sendiri                                                                                        |
 | Tidak ada FAQ                                              | **Akordeon FAQ** di atas pita gradien                                                                                                   | Seksi tetap pada referensi, dan pertanyaan escrow memang paling sering muncul                                               |
 
@@ -1282,7 +1380,7 @@ katalog pada bagian 5.1, 6.1, dan 6.5–6.7 adalah hasil revisi terbaru dan
 | `src/app/illustrations.tsx`          | `WaveBand`                                                           | Perlu tambahan `DomeShape` untuk kubah statistik empat warna                                                       |
 | `public/illustrations/`              | Ilustrasi unDraw yang sudah diwarnai ulang                           | Sesuai                                                                                                             |
 | `src/components/ui/button.tsx`       | Tombol design system                                                 | Perlu prop `shape` (`pill` / `block`)                                                                              |
-| `src/components/ui/`                 | `catalog-card.tsx`, `fact-chip.tsx`, `slot-bar.tsx`, `count-up.tsx`, `accordion.tsx` | Sudah ada dan sesuai bagian 6.5 & 6.7                                               |
+| `src/components/ui/`                 | `catalog-card.tsx`, `fact-chip.tsx`, `count-up.tsx`, `accordion.tsx` | Sudah ada dan sesuai bagian 6.5 & 6.7                                               |
 | `src/app/page.tsx`                   | Halaman depan                                                        | Seksi katalog memakai `CatalogCard` (maksimal 8 kartu + tombol "Lihat semua"); footer masih perlu jadi arang       |
 | `src/app/creator/campaigns/page.tsx` | Browse campaign                                                      | Perlu memakai Kartu Katalog 6.5 dan toolbar 6.6                                                                    |
 | `src/components/layout/dashboard-chrome.tsx` | Menu samping + bilah atas seluruh dasbor                     | Sesuai bagian 6.8                                                                                                  |
