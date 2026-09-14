@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { logoutAction } from "@/app/_actions/session";
+import { markAllReadAction } from "@/app/_actions/notifications";
 import {
   Badge,
   Button,
+  EmptyState,
   IconBell,
   IconLogout,
   IconMenu,
@@ -14,6 +16,7 @@ import {
   Logo,
   cn,
 } from "@/components/ui";
+import { formatDateTime } from "@/lib/format";
 import {
   roleLabel,
   verificationStatusLabel,
@@ -24,10 +27,13 @@ import { navIcons, type NavIconName } from "./nav-icons";
 
 export type NavItem = { href: string; label: string; icon: NavIconName };
 
-const roleTone: Record<Role, "sky" | "accent" | "info"> = {
-  CREATOR: "accent",
-  VENDOR: "sky",
-  ADMIN: "info",
+export type NotificationItem = {
+  id: string;
+  title: string;
+  body: string;
+  link: string | null;
+  createdAt: Date;
+  readAt: Date | null;
 };
 
 type ChromeUser = {
@@ -49,22 +55,38 @@ export function DashboardChrome({
   nav,
   basePath,
   unread,
+  notifications,
   children,
 }: {
   user: ChromeUser;
   nav: NavItem[];
   basePath: string;
   unread: number;
+  /** Kalau diisi, lonceng membuka dropdown berisi daftar ini alih-alih menautkan ke halaman. */
+  notifications?: NotificationItem[] | null;
   children: ReactNode;
 }) {
   const pathname = usePathname();
   const [drawerTerbuka, setDrawerTerbuka] = useState(false);
+  const [notifTerbuka, setNotifTerbuka] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!notifTerbuka) return;
+    function onClickLuar(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifTerbuka(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickLuar);
+    return () => document.removeEventListener("mousedown", onClickLuar);
+  }, [notifTerbuka]);
 
   const inisial = user.name.charAt(0).toUpperCase();
   const halamanNotifikasi = `${basePath}/notifications`;
 
   return (
-    <div className="min-h-full lg:pl-64">
+    <div className="min-h-full bg-surface lg:pl-64">
       {/* ------------------------------------------------ menu samping */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-line bg-surface lg:flex">
         <SidebarContent
@@ -114,22 +136,108 @@ export function DashboardChrome({
               <Link href="/" className="lg:hidden">
                 <Logo className="h-7" />
               </Link>
-              <Badge tone={roleTone[user.role]}>{roleLabel[user.role]}</Badge>
             </div>
 
             <div className="flex items-center gap-2">
-              <Link
-                href={halamanNotifikasi}
-                className="relative rounded-full p-2 text-muted transition-colors hover:bg-brand-soft hover:text-brand-600"
-                aria-label="Notifikasi"
-              >
-                <IconBell className="h-[18px] w-[18px]" strokeWidth={2} />
-                {unread > 0 ? (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
-                    {unread}
-                  </span>
-                ) : null}
-              </Link>
+              {notifications ? (
+                <div className="relative" ref={notifRef}>
+                  <button
+                    type="button"
+                    onClick={() => setNotifTerbuka((v) => !v)}
+                    className="relative rounded-full p-2 text-muted transition-colors hover:bg-brand-soft hover:text-brand-600"
+                    aria-label="Notifikasi"
+                  >
+                    <IconBell className="h-[18px] w-[18px]" strokeWidth={2} />
+                    {unread > 0 ? (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
+                        {unread}
+                      </span>
+                    ) : null}
+                  </button>
+
+                  {notifTerbuka ? (
+                    <div className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[85vw] rounded-2xl border border-line bg-surface shadow-float">
+                      <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
+                        <p className="text-sm font-semibold text-foreground">
+                          Notifikasi
+                        </p>
+                        {unread > 0 ? (
+                          <form action={markAllReadAction}>
+                            <input type="hidden" name="path" value={pathname} />
+                            <button
+                              type="submit"
+                              className="text-xs font-medium text-brand-600 hover:text-brand-700"
+                            >
+                              Tandai semua dibaca
+                            </button>
+                          </form>
+                        ) : null}
+                      </div>
+
+                      <div className="max-h-96 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="p-4">
+                            <EmptyState title="Belum ada notifikasi" />
+                          </div>
+                        ) : (
+                          <ul className="divide-y divide-line">
+                            {notifications.map((n) => {
+                              const isi = (
+                                <div
+                                  className={cn(
+                                    "px-4 py-3",
+                                    n.readAt ? "" : "bg-brand-soft/40",
+                                  )}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="text-sm font-medium text-foreground">
+                                      {n.title}
+                                    </p>
+                                    <span className="whitespace-nowrap text-[11px] text-muted">
+                                      {formatDateTime(n.createdAt)}
+                                    </span>
+                                  </div>
+                                  <p className="mt-0.5 text-xs text-muted">
+                                    {n.body}
+                                  </p>
+                                </div>
+                              );
+                              return (
+                                <li key={n.id}>
+                                  {n.link ? (
+                                    <Link
+                                      href={n.link}
+                                      onClick={() => setNotifTerbuka(false)}
+                                      className="block hover:bg-surface-muted"
+                                    >
+                                      {isi}
+                                    </Link>
+                                  ) : (
+                                    isi
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <Link
+                  href={halamanNotifikasi}
+                  className="relative rounded-full p-2 text-muted transition-colors hover:bg-brand-soft hover:text-brand-600"
+                  aria-label="Notifikasi"
+                >
+                  <IconBell className="h-[18px] w-[18px]" strokeWidth={2} />
+                  {unread > 0 ? (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
+                      {unread}
+                    </span>
+                  ) : null}
+                </Link>
+              )}
 
               <div className="hidden items-center gap-2 rounded-full border border-line bg-surface py-1 pr-1 pl-3 sm:flex">
                 <span className="text-sm font-medium text-body">
@@ -160,7 +268,7 @@ export function DashboardChrome({
           </div>
         ) : null}
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 bg-surface">
           {children}
         </main>
       </div>

@@ -6,7 +6,6 @@ generator client {
   output   = "../src/generated/prisma"
 }
 
-// Prisma 7: connection string hidup di prisma.config.ts + driver adapter.
 datasource db {
   provider = "postgresql"
 }

@@ -68,6 +68,18 @@ export const verificationStatusLabel: Record<VerificationStatus, string> = {
   REJECTED: "Ditolak",
 };
 
+// Creator dilihat lewat kacamata aktif/non-aktif, bukan lulus/ditolak seperti
+// vendor — akun yang sama bisa dinonaktifkan lagi kapan pun setelah pernah
+// aktif, jadi "Ditolak" (kesan keputusan sekali jalan) tidak cocok di sini.
+// Nilai enum-nya tetap dipakai bersama VerificationStatus supaya tidak perlu
+// migrasi skema baru.
+export const creatorAccountStatusLabel: Record<VerificationStatus, string> = {
+  UNVERIFIED: "Belum dicek",
+  PENDING: "Menunggu verifikasi",
+  VERIFIED: "Aktif",
+  REJECTED: "Non-aktif",
+};
+
 export const disputeStatusLabel: Record<DisputeStatus, string> = {
   OPEN: "Terbuka",
   UNDER_REVIEW: "Sedang Ditinjau",
@@ -152,6 +164,13 @@ export const categoryTone: Record<BusinessCategory, BadgeTone> = {
 };
 
 export const verificationStatusTone: Record<VerificationStatus, BadgeTone> = {
+  UNVERIFIED: "neutral",
+  PENDING: "warning",
+  VERIFIED: "success",
+  REJECTED: "danger",
+};
+
+export const creatorAccountStatusTone: Record<VerificationStatus, BadgeTone> = {
   UNVERIFIED: "neutral",
   PENDING: "warning",
   VERIFIED: "success",

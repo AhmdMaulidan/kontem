@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -10,6 +11,7 @@ import {
   CardHeader,
   DescriptionList,
   IconCheck,
+  IconChevronLeft,
   IconX,
   PageHeader,
   ProgressBar,
@@ -47,7 +49,7 @@ export default async function CampaignDetailPage({
 
   const participation = await db.campaignParticipation.findUnique({
     where: { campaignId_creatorId: { campaignId: id, creatorId: user.id } },
-    include: { redeemCode: true, submission: true },
+    include: { submission: true },
   });
 
   const performance = await getCampaignPerformance(id);
@@ -61,6 +63,14 @@ export default async function CampaignDetailPage({
 
   return (
     <div>
+      <Link
+        href="/creator/campaigns"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-brand"
+      >
+        <IconChevronLeft className="h-4 w-4" />
+        Kembali ke daftar campaign
+      </Link>
+
       <PageHeader
         title={campaign.title}
         description={`${campaign.vendor.vendorProfile?.businessName} · ${campaign.vendor.vendorProfile?.city}`}
@@ -141,10 +151,7 @@ export default async function CampaignDetailPage({
           </Card>
 
           <Card>
-            <CardHeader
-              title="Lokasi & komplimen"
-              description="Tunjukkan kode redeem ke petugas di lokasi."
-            />
+            <CardHeader title="Lokasi & komplimen" />
             <DescriptionList
               items={[
                 {
@@ -281,87 +288,46 @@ export default async function CampaignDetailPage({
               />
             </Card>
           ) : (
-            <>
-              <Card>
-                <CardHeader title="Kode redeem kamu" />
-                {participation.redeemCode ? (
-                  <>
-                    <div className="rounded-2xl border border-dashed border-line-brand bg-brand-50 px-4 py-5 text-center">
-                      <p className="text-xs font-medium text-muted">
-                        Tunjukkan kode ini di lokasi
-                      </p>
-                      <p className="mt-2 font-mono text-2xl font-bold tracking-[0.18em] text-brand-700">
-                        {participation.redeemCode.code}
-                      </p>
-                      <div className="mt-3 flex justify-center">
-                        <Badge
-                          tone={
-                            participation.redeemCode.status === "USED"
-                              ? "sky"
-                              : "warning"
-                          }
-                          icon
-                        >
-                          {participation.redeemCode.status === "USED"
-                            ? "Kunjungan Terverifikasi"
-                            : "Menunggu Kunjungan"}
-                        </Badge>
-                      </div>
-                    </div>
-                    <p className="mt-2 text-xs text-muted">
-                      {participation.redeemCode.status === "USED"
-                        ? `Sudah dipakai pada ${formatDate(participation.redeemCode.redeemedAt!)}. Kunjungan kamu tercatat.`
-                        : "Tunjukkan kode ini ke petugas di lokasi untuk klaim komplimen. Kode harus ditandai terpakai sebelum kamu bisa mengirim konten."}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted">Kode belum tersedia.</p>
-                )}
-              </Card>
-
-              <Card>
-                <CardHeader title="Kirim konten" />
-                {participation.submission ? (
-                  <div className="space-y-3">
-                    <Badge
-                      tone={submissionStatusTone[participation.submission.status]}
+            <Card>
+              <CardHeader title="Kirim konten" />
+              {participation.submission ? (
+                <div className="space-y-3">
+                  <Badge
+                    tone={submissionStatusTone[participation.submission.status]}
+                  >
+                    {submissionStatusLabel[participation.submission.status]}
+                  </Badge>
+                  <a
+                    href={participation.submission.contentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block truncate text-sm text-brand"
+                  >
+                    {participation.submission.contentUrl}
+                  </a>
+                  <p className="tabular text-sm">
+                    {formatCompact(participation.submission.lastViews)} views
+                  </p>
+                  {participation.submission.reviewNote ? (
+                    <Callout
+                      tone={
+                        participation.submission.status === "APPROVED"
+                          ? "success"
+                          : "danger"
+                      }
+                      title="Catatan reviewer"
                     >
-                      {submissionStatusLabel[participation.submission.status]}
-                    </Badge>
-                    <a
-                      href={participation.submission.contentUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block truncate text-sm text-brand"
-                    >
-                      {participation.submission.contentUrl}
-                    </a>
-                    <p className="tabular text-sm">
-                      {formatCompact(participation.submission.lastViews)} views
-                    </p>
-                    {participation.submission.reviewNote ? (
-                      <Callout
-                        tone={
-                          participation.submission.status === "APPROVED"
-                            ? "success"
-                            : "danger"
-                        }
-                        title="Catatan reviewer"
-                      >
-                        {participation.submission.reviewNote}
-                      </Callout>
-                    ) : null}
-                  </div>
-                ) : (
-                  <SubmitContentForm
-                    campaignId={campaign.id}
-                    allowedPlatforms={campaign.allowedPlatforms}
-                    locked={participation.redeemCode?.status !== "USED"}
-                    lockedReason="Kunjungan belum terverifikasi. Datang ke lokasi dan minta petugas menandai kode redeem kamu terlebih dahulu."
-                  />
-                )}
-              </Card>
-            </>
+                      {participation.submission.reviewNote}
+                    </Callout>
+                  ) : null}
+                </div>
+              ) : (
+                <SubmitContentForm
+                  campaignId={campaign.id}
+                  allowedPlatforms={campaign.allowedPlatforms}
+                />
+              )}
+            </Card>
           )}
         </div>
       </div>

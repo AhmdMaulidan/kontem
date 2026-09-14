@@ -81,9 +81,12 @@ export async function requireUser() {
     include: { creatorProfile: true, vendorProfile: true },
   });
 
-  // User dihapus tapi cookie-nya masih ada.
+  // User dihapus tapi cookie-nya masih ada (mis. setelah re-seed database).
+  // Cookie tidak dihapus di sini karena requireUser dipanggil dari Server
+  // Component biasa — Next.js hanya mengizinkan mutasi cookie di Server
+  // Action/Route Handler. Cookie basi ini otomatis tertimpa saat user login
+  // ulang di halaman /login.
   if (!user) {
-    await destroySession();
     redirect("/login");
   }
 

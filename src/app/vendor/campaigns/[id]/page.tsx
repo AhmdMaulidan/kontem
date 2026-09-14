@@ -46,7 +46,6 @@ export default async function VendorCampaignDetail({
         include: {
           creator: { include: { creatorProfile: true } },
           submission: true,
-          redeemCode: true,
         },
         orderBy: { joinedAt: "asc" },
       },
@@ -105,7 +104,7 @@ export default async function VendorCampaignDetail({
         />
         <Stat
           label="Creator bergabung"
-          value={`${campaign.participations.length}/${campaign.maxCreators}`}
+          value={campaign.participations.length}
         />
         <Stat
           label="Menunggu review"
