@@ -282,7 +282,7 @@ model Campaign {
   // --- ekonomi campaign
   budgetPool      Int // total pool yang disetor vendor (rupiah)
   cpmRate         Int // rupiah per 1.000 views
-  platformFeeRate Int @default(15) // persen komisi platform
+  platformFeeRate Int @default(3) // persen komisi platform
   maxCreators     Int
 
   // --- komplimen yang disediakan vendor di lokasi

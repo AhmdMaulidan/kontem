@@ -11,7 +11,13 @@ import { cn } from "./utils";
  * dibalik warnanya secara otomatis.
  *
  * Tingginya diatur pemakai lewat `className` (`h-9`, `h-10`, …); lebarnya
- * ikut rasio 1414:514 bawaan berkasnya.
+ * ikut rasio 3,18:1 bawaan berkasnya.
+ *
+ * `viewBox` kedua berkas sengaja dirapatkan ke kotak tinta lalu disamakan
+ * rasionya. Aslinya logo biru berkanvas 4:3 dengan ~60% tingginya berupa
+ * ruang kosong, sedangkan logo putih 2,5:1 — pada `h-9` yang sama logo biru
+ * jadi tampak jauh lebih kecil. Karena keduanya kini serasio, keduanya bisa
+ * saling menggantikan tanpa mengubah tata letak di sekitarnya.
  */
 const SUMBER = {
   biru: "/illustrations/logo-biru.svg",
@@ -32,8 +38,8 @@ export function Logo({
     <Image
       src={SUMBER[variant]}
       alt="Kontem"
-      width={1414}
-      height={514}
+      width={1272}
+      height={400}
       priority={priority}
       className={cn("w-auto", className)}
     />
