@@ -1,194 +1,250 @@
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { formatCompact, formatDateTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import {
   Badge,
-  Card,
-  CardHeader,
-  EmptyState,
+  DataTable,
+  IconExternal,
   PageHeader,
-  cn,
+  PageSizeSelect,
+  Pagination,
+  TableEmptyRow,
+  TableToolbar,
+  Td,
+  Th,
+  paginationArgs,
+  resolvePageSize,
+  rowNumber,
 } from "@/components/ui";
-import { disputeStatusLabel, roleLabel } from "@/lib/labels";
-import { resolveDisputeAction } from "../actions";
-import { DecisionForm } from "../decision-form";
+import type { BadgeTone } from "@/lib/labels";
+import type { DisputeStatus } from "@/generated/prisma/enums";
+import { disputeStatusLabel } from "@/lib/labels";
 
-export default async function AdminDisputesPage() {
+const PAGE_SIZE = 10;
+const BASE = "/admin/disputes";
+
+const statusTone: Record<DisputeStatus, BadgeTone> = {
+  OPEN: "warning",
+  UNDER_REVIEW: "info",
+  RESOLVED_UPHELD: "danger",
+  RESOLVED_OVERTURNED: "success",
+  WITHDRAWN: "neutral",
+};
+
+const umurHari = (sejak: Date) =>
+  Math.max(
+    0,
+    Math.floor((Date.now() - sejak.getTime()) / (1000 * 60 * 60 * 24)),
+  );
+
+export default async function AdminDisputesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    status?: string;
+    campaign?: string;
+    urut?: string;
+    page?: string;
+    ukuran?: string;
+  }>;
+}) {
   await requireRole("ADMIN");
+  const params = await searchParams;
+  const page = Math.max(1, Number(params.page) || 1);
+  const pageSize = resolvePageSize(params.ukuran, PAGE_SIZE);
+  const status = params.status ?? "terbuka";
 
-  const [terbuka, selesai] = await Promise.all([
-    db.dispute.findMany({
-      where: { status: { in: ["OPEN", "UNDER_REVIEW"] } },
-      include: {
-        openedBy: true,
-        submission: {
-          include: {
-            campaign: { include: { vendor: { include: { vendorProfile: true } } } },
-            creator: { include: { creatorProfile: true } },
+  const statusFilter =
+    status === "terbuka"
+      ? { in: ["OPEN", "UNDER_REVIEW"] as DisputeStatus[] }
+      : status === "selesai"
+        ? {
+            in: ["RESOLVED_UPHELD", "RESOLVED_OVERTURNED"] as DisputeStatus[],
+          }
+        : undefined;
+
+  const submissionFilter = {
+    ...(params.campaign ? { campaignId: params.campaign } : {}),
+    ...(params.q
+      ? {
+          OR: [
+            {
+              creator: {
+                is: {
+                  name: { contains: params.q, mode: "insensitive" as const },
+                },
+              },
+            },
+            {
+              campaign: {
+                is: {
+                  title: { contains: params.q, mode: "insensitive" as const },
+                },
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+
+  const where = {
+    ...(statusFilter ? { status: statusFilter } : {}),
+    ...(Object.keys(submissionFilter).length > 0
+      ? { submission: { is: submissionFilter } }
+      : {}),
+  };
+
+  const [disputes, total, terbuka, dalamReview, campaignBersengketa] =
+    await Promise.all([
+      db.dispute.findMany({
+        where,
+        include: {
+          submission: {
+            include: {
+              campaign: {
+                include: { vendor: { include: { vendorProfile: true } } },
+              },
+              creator: { select: { name: true } },
+            },
           },
         },
-        messages: {
-          include: { sender: { select: { name: true, role: true } } },
-          orderBy: { createdAt: "asc" },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    }),
-    db.dispute.findMany({
-      where: { status: { in: ["RESOLVED_UPHELD", "RESOLVED_OVERTURNED"] } },
-      include: {
-        submission: { include: { campaign: true, creator: true } },
-        resolvedBy: { select: { name: true } },
-      },
-      orderBy: { resolvedAt: "desc" },
-      take: 10,
-    }),
-  ]);
+        // Yang terlama naik ke atas: sengketa menahan dana creator, jadi umur
+        // antrean lebih penting daripada urutan masuk terbaru.
+        orderBy: { createdAt: params.urut === "baru" ? "desc" : "asc" },
+        ...paginationArgs(page, pageSize),
+      }),
+      db.dispute.count({ where }),
+      db.dispute.count({ where: { status: "OPEN" } }),
+      db.dispute.count({ where: { status: "UNDER_REVIEW" } }),
+      db.campaign.findMany({
+        where: { submissions: { some: { disputes: { some: {} } } } },
+        select: { id: true, title: true },
+        orderBy: { title: "asc" },
+      }),
+    ]);
 
   return (
     <div>
       <PageHeader
         title="Resolusi sengketa"
-        description="Penengah saat creator menilai penolakan vendor tidak berdasar."
+        description="Penengah saat creator menilai penolakan vendor tidak berdasar. Dana untuk submission yang disengketakan tertahan sampai keputusan keluar."
       />
 
-      <Card className="mb-6">
-        <CardHeader
-          title={`Sengketa terbuka (${terbuka.length})`}
-          description="Dana untuk submission ini tertahan sampai keputusan keluar."
-        />
-        {terbuka.length === 0 ? (
-          <EmptyState title="Tidak ada sengketa terbuka" />
-        ) : (
-          <ul className="space-y-6">
-            {terbuka.map((dispute) => (
-              <li key={dispute.id} className="rounded-xl border border-line p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-medium">
-                      {dispute.submission.campaign.title}
-                    </h3>
-                    <p className="mt-0.5 text-sm text-muted">
-                      {dispute.submission.creator.name} (trust{" "}
-                      {dispute.submission.creator.creatorProfile?.trustScore}) vs{" "}
-                      {dispute.submission.campaign.vendor.vendorProfile?.businessName}
-                    </p>
-                  </div>
-                  <Badge tone="warning">{disputeStatusLabel[dispute.status]}</Badge>
-                </div>
-
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-xl bg-danger-soft p-3 text-sm">
-                    <p className="font-medium text-danger">Alasan penolakan vendor</p>
-                    <p className="mt-1 text-danger">
-                      {dispute.submission.reviewNote ?? "—"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-info-soft p-3 text-sm">
-                    <p className="font-medium text-info">Bantahan creator</p>
-                    <p className="mt-1 text-info">{dispute.reason}</p>
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-xl bg-surface-muted p-3 text-sm">
-                  <p className="font-medium">Bukti konten</p>
-                  <a
-                    href={dispute.submission.contentUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-1 block truncate text-brand"
+      <DataTable
+        title="Sengketa Submission"
+        summary={`${terbuka} terbuka · ${dalamReview} dalam review`}
+        action={
+          <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
+        }
+        toolbar={
+          <TableToolbar
+            basePath={BASE}
+            params={params}
+            searchPlaceholder="Cari creator / campaign..."
+            filters={[
+              {
+                name: "status",
+                label: "Status",
+                options: [
+                  { value: "terbuka", label: "Terbuka" },
+                  { value: "selesai", label: "Sudah diputus" },
+                  { value: "semua", label: "Semua status" },
+                ],
+              },
+              {
+                name: "campaign",
+                label: "Campaign",
+                options: [
+                  { value: "", label: "Semua campaign" },
+                  ...campaignBersengketa.map((campaign) => ({
+                    value: campaign.id,
+                    label: campaign.title,
+                  })),
+                ],
+              },
+              {
+                name: "urut",
+                label: "Urutkan",
+                options: [
+                  { value: "", label: "Terlama" },
+                  { value: "baru", label: "Terbaru" },
+                ],
+              },
+            ]}
+          />
+        }
+        footer={
+          <Pagination
+            basePath={BASE}
+            params={params}
+            page={page}
+            pageSize={pageSize}
+            total={total}
+          />
+        }
+      >
+        <thead>
+          <tr>
+            <Th>No</Th>
+            <Th>Creator</Th>
+            <Th>Campaign</Th>
+            <Th>Vendor</Th>
+            <Th>Alasan Tolak Vendor</Th>
+            <Th>Dibuka</Th>
+            <Th align="right">Umur</Th>
+            <Th>Status</Th>
+            <Th>Aksi</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {disputes.length === 0 ? (
+            <TableEmptyRow
+              colSpan={9}
+              title="Tidak ada sengketa terbuka"
+              description="Sengketa muncul ketika creator mengajukan banding atas penolakan vendor."
+            />
+          ) : (
+            disputes.map((dispute, index) => (
+              <tr key={dispute.id}>
+                <Td className="tabular text-muted">
+                  {rowNumber(index, page, pageSize)}
+                </Td>
+                <Td className="font-medium">
+                  {dispute.submission.creator.name}
+                </Td>
+                <Td>{dispute.submission.campaign.title}</Td>
+                <Td>
+                  {dispute.submission.campaign.vendor.vendorProfile
+                    ?.businessName ?? "—"}
+                </Td>
+                <Td className="max-w-[16rem] truncate text-muted">
+                  {dispute.submission.reviewNote ?? "—"}
+                </Td>
+                <Td className="whitespace-nowrap text-muted">
+                  {formatDate(dispute.createdAt)}
+                </Td>
+                <Td align="right">{umurHari(dispute.createdAt)} hari</Td>
+                <Td>
+                  <Badge tone={statusTone[dispute.status]} icon>
+                    {disputeStatusLabel[dispute.status]}
+                  </Badge>
+                </Td>
+                <Td>
+                  <Link
+                    href={`/admin/disputes/${dispute.id}`}
+                    title="Lihat detail dan putuskan"
+                    className="text-brand-600 transition-colors hover:text-brand-700"
                   >
-                    {dispute.submission.contentUrl}
-                  </a>
-                  <p className="mt-1 text-muted">
-                    {formatCompact(dispute.submission.lastViews)} views · brief wajib:{" "}
-                    {dispute.submission.campaign.briefMustShow.join(", ")}
-                  </p>
-                </div>
-
-                <div className="mt-4">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
-                    Riwayat percakapan
-                  </p>
-                  <ul className="space-y-2">
-                    {dispute.messages.map((message) => (
-                      <li
-                        key={message.id}
-                        className={cn(
-                          "rounded-xl px-3 py-2 text-sm",
-                          message.sender.role === "ADMIN"
-                            ? "bg-brand-soft"
-                            : "bg-surface-muted",
-                        )}
-                      >
-                        <p className="text-xs text-muted">
-                          {message.sender.name} · {roleLabel[message.sender.role]} ·{" "}
-                          {formatDateTime(message.createdAt)}
-                        </p>
-                        <p className="mt-0.5">{message.body}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="mt-4 border-t border-line pt-4">
-                  <DecisionForm
-                    action={resolveDisputeAction}
-                    hiddenField="disputeId"
-                    hiddenValue={dispute.id}
-                    approveValue="overturn"
-                    rejectValue="uphold"
-                    approveLabel="Menangkan creator"
-                    rejectLabel="Kuatkan penolakan vendor"
-                    noteLabel="Dasar keputusan"
-                    noteHint="Dikirim ke kedua pihak dan tercatat permanen."
-                    requireNoteOnApprove
-                  />
-                  <p className="mt-2 text-xs text-muted">
-                    Menangkan creator = submission kembali dihitung untuk payout.
-                    Kuatkan penolakan = submission keluar dari perhitungan dan trust
-                    score creator turun.
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      <Card>
-        <CardHeader title="Riwayat keputusan" />
-        {selesai.length === 0 ? (
-          <EmptyState title="Belum ada sengketa yang diputus" />
-        ) : (
-          <ul className="divide-y divide-line">
-            {selesai.map((dispute) => (
-              <li
-                key={dispute.id}
-                className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium">{dispute.submission.campaign.title}</p>
-                  <p className="text-sm text-muted">
-                    {dispute.submission.creator.name} · diputus{" "}
-                    {dispute.resolvedBy?.name ?? "—"}
-                  </p>
-                  <p className="mt-1 max-w-xl text-sm text-muted">
-                    {dispute.resolution}
-                  </p>
-                </div>
-                <Badge
-                  tone={
-                    dispute.status === "RESOLVED_OVERTURNED" ? "success" : "danger"
-                  }
-                >
-                  {disputeStatusLabel[dispute.status]}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+                    <IconExternal className="h-4 w-4" strokeWidth={2} />
+                  </Link>
+                </Td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </DataTable>
     </div>
   );
 }
