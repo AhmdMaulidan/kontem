@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { formatCompact, formatDate, formatIDR } from "@/lib/format";
 import {
   BarChart,
+  ButtonLink,
   Card,
   CardHeader,
   DataTable,
@@ -28,7 +29,6 @@ import {
   rowNumber,
 } from "@/components/ui";
 import { categoryLabel } from "@/lib/labels";
-import { NotWiredButton } from "../not-wired";
 import { PeriodePicker } from "../periode-picker";
 
 const PERIODE: Record<string, { label: string; hari: number }> = {
@@ -226,7 +226,14 @@ export default async function AdminAnalyticsPage({
         action={
           <div className="flex items-center gap-3">
             <PeriodePicker value={key} basePath="/admin/analytics" />
-            <NotWiredButton label="Export CSV" variant="secondary" icon={<IconDownload className="h-4 w-4" strokeWidth={2} />} iconOnly />
+            <ButtonLink
+              href="/api/admin/export?type=analytics"
+              variant="secondary"
+              size="sm"
+              title="Export CSV"
+            >
+              <IconDownload className="h-4 w-4" strokeWidth={2} />
+            </ButtonLink>
           </div>
         }
       />

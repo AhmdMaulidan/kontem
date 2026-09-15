@@ -273,3 +273,119 @@ export async function flagSubmissionAction(
   revalidatePath(`/vendor/campaigns/${submission.campaignId}`);
   return { success: "Laporan terkirim. Admin akan meninjau." };
 }
+
+const redeemSchema = z.object({
+  code: z
+    .string()
+    .min(1, "Kode redeem wajib diisi.")
+    .transform((val) => val.trim().toUpperCase()),
+});
+
+/**
+ * Verifikasi kode redeem yang ditunjukkan creator di lokasi fisik vendor.
+ * Menandai kode terpakai, mengubah status partisipasi jadi VISITED,
+ * dan mengizinkan creator mengirim konten.
+ */
+export async function verifyRedeemCodeAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireRole("VENDOR");
+  const parsed = redeemSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const { code } = parsed.data;
+
+  const redeemRecord = await db.redeemCode.findUnique({
+    where: { code },
+    include: {
+      campaign: {
+        select: {
+          id: true,
+          title: true,
+          vendorId: true,
+          complimentType: true,
+          complimentValue: true,
+        },
+      },
+      participation: {
+        include: {
+          creator: { select: { id: true, name: true } },
+        },
+      },
+    },
+  });
+
+  if (!redeemRecord) {
+    return { error: "Kode redeem tidak valid atau tidak ditemukan." };
+  }
+
+  if (redeemRecord.campaign.vendorId !== user.id) {
+    return { error: "Kode redeem ini bukan untuk campaign milik usahamu." };
+  }
+
+  if (redeemRecord.status === "USED") {
+    const waktu = redeemRecord.redeemedAt
+      ? new Intl.DateTimeFormat("id-ID", {
+          day: "numeric",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(redeemRecord.redeemedAt)
+      : "sebelumnya";
+    return {
+      error: `Kode ini sudah pernah ditukarkan pada ${waktu}.`,
+    };
+  }
+
+  if (redeemRecord.status === "EXPIRED" || new Date() > redeemRecord.expiresAt) {
+    return { error: "Kode redeem ini sudah kedaluwarsa." };
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.redeemCode.update({
+      where: { id: redeemRecord.id },
+      data: {
+        status: "USED",
+        redeemedAt: new Date(),
+        redeemedBy: user.id,
+      },
+    });
+
+    await tx.campaignParticipation.update({
+      where: { id: redeemRecord.participationId },
+      data: { status: "VISITED" },
+    });
+
+    await tx.notification.create({
+      data: {
+        userId: redeemRecord.participation.creatorId,
+        type: "GENERAL",
+        title: "Kunjungan terkonfirmasi",
+        body: `Kode redeem untuk "${redeemRecord.campaign.title}" telah diverifikasi vendor. Kamu sekarang bisa mengirim konten.`,
+        link: `/creator/campaigns/${redeemRecord.campaignId}`,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: "redeem.verify",
+        entity: "RedeemCode",
+        entityId: redeemRecord.id,
+        metadata: {
+          campaignId: redeemRecord.campaignId,
+          creatorId: redeemRecord.participation.creatorId,
+          code: redeemRecord.code,
+        },
+      },
+    });
+  });
+
+  revalidatePath("/vendor");
+  revalidatePath("/vendor/redeem");
+  revalidatePath(`/vendor/campaigns/${redeemRecord.campaignId}`);
+  return {
+    success: `Kode ${code} valid! Kehadiran kreator ${redeemRecord.participation.creator.name} terkonfirmasi. Berikan komplimen: ${redeemRecord.campaign.complimentType}.`,
+  };
+}

@@ -98,6 +98,14 @@ export async function submitContentAction(
     return { error: "Platform ini tidak diizinkan di campaign tersebut." };
   }
 
+  // Guardrail kepercayaan: konten hanya boleh dikirim setelah kehadiran terkonfirmasi di lokasi.
+  if (participation.status !== "VISITED" && participation.redeemCode?.status !== "USED") {
+    return {
+      error:
+        "Kamu harus datang ke lokasi vendor dan menukarkan kode redeem terlebih dahulu sebelum bisa mengirim konten.",
+    };
+  }
+
   // Link yang sama tidak boleh dipakai ulang di campaign lain.
   const duplikat = await db.submission.findFirst({ where: { contentUrl } });
   if (duplikat) {

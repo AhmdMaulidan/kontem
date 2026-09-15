@@ -18,9 +18,8 @@ import {
 } from "@/components/ui";
 import type { PayoutStatus } from "@/generated/prisma/enums";
 import { payoutStatusLabel, payoutStatusTone } from "@/lib/labels";
-import { releasePayoutsAction } from "../../actions";
+import { releasePayoutsAction, releaseSinglePayoutAction } from "../../actions";
 import { SimpleActionForm } from "../../decision-form";
-import { NotWiredLink } from "../../not-wired";
 
 const BASE = "/admin/payouts/pratinjau";
 
@@ -256,8 +255,12 @@ export default async function AdminPayoutsPratinjauPage({
                               <IconAlert className="h-4 w-4" strokeWidth={2} />
                             </a>
                           ) : payout.status === "PENDING" ? (
-                            <NotWiredLink
+                            <SimpleActionForm
+                              action={releaseSinglePayoutAction}
+                              hiddenField="payoutId"
+                              hiddenValue={payout.id}
                               label="Cairkan ke rekening"
+                              pendingLabel="Mencairkan..."
                               icon={
                                 <IconBanknote
                                   className="h-4 w-4"

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { formatDateTime, formatIDR } from "@/lib/format";
 import {
   Badge,
+  ButtonLink,
   DataTable,
   DetailDrawer,
   IconBank,
@@ -27,7 +28,6 @@ import type { BadgeTone } from "@/lib/labels";
 import type { EscrowStatus, EscrowType } from "@/generated/prisma/enums";
 import { confirmDepositAction } from "../actions";
 import { SimpleActionForm } from "../decision-form";
-import { NotWiredButton } from "../not-wired";
 
 const PAGE_SIZE = 15;
 const BASE = "/admin/escrow";
@@ -214,12 +214,14 @@ export default async function AdminEscrowPage({
               },
             ]}
             action={
-              <NotWiredButton
-                label="Export CSV"
+              <ButtonLink
+                href="/api/admin/export?type=escrow"
                 variant="secondary"
-                icon={<IconDownload className="h-4 w-4" strokeWidth={2} />}
-                iconOnly
-              />
+                size="sm"
+                title="Export CSV"
+              >
+                <IconDownload className="h-4 w-4" strokeWidth={2} />
+              </ButtonLink>
             }
           />
         }

@@ -770,3 +770,211 @@ export async function releasePayoutsAction(
   revalidatePath("/admin/payouts");
   return { success: `${payouts.length} payout dicairkan, total ${total.toLocaleString("id-ID")} rupiah.` };
 }
+
+/** Cairkan satu baris payout creator tertentu secara individual. */
+export async function releaseSinglePayoutAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireRole("ADMIN");
+  const payoutId = String(formData.get("payoutId") ?? "");
+
+  const payout = await db.payout.findUnique({
+    where: { id: payoutId },
+    include: {
+      campaign: true,
+      submission: {
+        include: {
+          fraudFlags: { where: { status: { in: ["OPEN", "REVIEWING"] } } },
+        },
+      },
+      creator: true,
+    },
+  });
+
+  if (!payout) return { error: "Payout tidak ditemukan." };
+  if (payout.status !== "PENDING") return { error: "Status payout bukan PENDING." };
+  if ((payout.submission?.fraudFlags.length ?? 0) > 0) {
+    return {
+      error:
+        "Payout ini ditahan karena memiliki flag fraud yang belum diselesaikan.",
+    };
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.payout.update({
+      where: { id: payout.id },
+      data: { status: "PAID", paidAt: new Date() },
+    });
+
+    await tx.escrowTransaction.create({
+      data: {
+        campaignId: payout.campaignId,
+        type: "PAYOUT",
+        amount: payout.netAmount,
+        status: "COMPLETED",
+        reference: `MANUAL-PAYOUT-${Date.now()}`,
+        completedAt: new Date(),
+      },
+    });
+
+    const masihTertahan = await tx.payout.count({
+      where: {
+        campaignId: payout.campaignId,
+        status: { in: ["PENDING", "HELD", "PROCESSING"] },
+      },
+    });
+    if (masihTertahan === 0) {
+      await tx.campaign.update({
+        where: { id: payout.campaignId },
+        data: { status: "SETTLED" },
+      });
+    }
+
+    await tx.notification.create({
+      data: {
+        userId: payout.creatorId,
+        type: "PAYOUT_RELEASED",
+        title: "Payout cair",
+        body: `${payout.netAmount.toLocaleString("id-ID")} rupiah sudah ditransfer ke rekening terdaftar.`,
+        link: "/creator/earnings",
+      },
+    });
+  });
+
+  await logAction(admin.id, "payout.release.single", "Payout", payout.id, {
+    creatorId: payout.creatorId,
+    jumlah: payout.netAmount,
+  });
+
+  revalidatePath("/admin/payouts");
+  revalidatePath("/admin/payouts/pratinjau");
+  return {
+    success: `Payout ${payout.creator.name} sebesar ${payout.netAmount.toLocaleString("id-ID")} rupiah dicairkan.`,
+  };
+}
+
+/** Tahan payout creator yang bersangkutan tanpa langsung menutup flag fraud. */
+export async function holdPayoutAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireRole("ADMIN");
+  const flagId = String(formData.get("flagId") ?? "");
+
+  const flag = await db.fraudFlag.findUnique({
+    where: { id: flagId },
+  });
+
+  if (!flag) return { error: "Laporan fraud tidak ditemukan." };
+  if (!flag.flaggedUserId) return { error: "User tidak ditemukan pada laporan ini." };
+
+  const count = await db.payout.updateMany({
+    where: { creatorId: flag.flaggedUserId, status: "PENDING" },
+    data: {
+      status: "HELD",
+      note: "Ditahan oleh admin untuk penyelidikan indikasi kecurangan.",
+    },
+  });
+
+  await logAction(admin.id, "fraud.payout.hold", "FraudFlag", flagId, {
+    flaggedUserId: flag.flaggedUserId,
+    jumlahTertahan: count.count,
+  });
+
+  revalidatePath("/admin/fraud");
+  revalidatePath("/admin/payouts");
+  return {
+    success: `${count.count} payout berhasil ditahan untuk penyelidikan fraud.`,
+  };
+}
+
+// ---------------------------------------------------------------- brief template
+
+const briefTemplateSchema = z.object({
+  name: z.string().min(3, "Nama template minimal 3 karakter."),
+  category: z.enum([
+    "KULINER",
+    "WISATA_ALAM",
+    "WISATA_BUATAN",
+    "AKOMODASI",
+    "LAINNYA",
+  ]),
+  angles: z.string().optional(),
+  mustShow: z.string().optional(),
+  prohibited: z.string().optional(),
+  minDurationSec: z.coerce.number().int().min(5).default(30),
+  isActive: z.coerce.boolean().default(true),
+});
+
+export async function createBriefTemplateAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireRole("ADMIN");
+  const raw = Object.fromEntries(formData.entries());
+  const parsed = briefTemplateSchema.safeParse({
+    ...raw,
+    isActive: formData.get("status") !== "arsip",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const data = parsed.data;
+  const toArr = (val?: string) =>
+    (val ?? "")
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+  const template = await db.briefTemplate.create({
+    data: {
+      category: data.category,
+      name: data.name,
+      fields: {
+        angleSaran: toArr(data.angles),
+        wajibTampil: toArr(data.mustShow),
+        larangan: toArr(data.prohibited),
+        durasiMinimalDetik: data.minDurationSec,
+      },
+      isActive: data.isActive,
+    },
+  });
+
+  await logAction(admin.id, "template.create", "BriefTemplate", template.id, {
+    nama: template.name,
+    kategori: template.category,
+  });
+
+  revalidatePath("/admin/templates");
+  return { success: `Template "${template.name}" berhasil dibuat.` };
+}
+
+export async function toggleBriefTemplateAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireRole("ADMIN");
+  const templateId = String(formData.get("templateId") ?? "");
+
+  const template = await db.briefTemplate.findUnique({
+    where: { id: templateId },
+  });
+  if (!template) return { error: "Template tidak ditemukan." };
+
+  const updated = await db.briefTemplate.update({
+    where: { id: templateId },
+    data: { isActive: !template.isActive },
+  });
+
+  await logAction(
+    admin.id,
+    updated.isActive ? "template.activate" : "template.archive",
+    "BriefTemplate",
+    templateId,
+  );
+
+  revalidatePath("/admin/templates");
+  return {
+    success: `Template "${template.name}" ${updated.isActive ? "diaktifkan" : "diarsipkan"}.`,
+  };
+}

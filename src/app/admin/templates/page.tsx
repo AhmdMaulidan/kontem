@@ -6,7 +6,6 @@ import {
   Callout,
   DataTable,
   IconArchive,
-  IconEdit,
   IconRestore,
   PageHeader,
   PageSizeSelect,
@@ -21,7 +20,8 @@ import {
 } from "@/components/ui";
 import type { BusinessCategory } from "@/generated/prisma/enums";
 import { categoryLabel } from "@/lib/labels";
-import { NotWiredLink } from "../not-wired";
+import { toggleBriefTemplateAction } from "../actions";
+import { SimpleActionForm } from "../decision-form";
 import { TemplateForm } from "./template-form";
 
 const PAGE_SIZE = 10;
@@ -192,12 +192,16 @@ export default async function AdminTemplatesPage({
                 </Td>
                 <Td>
                   <div className="flex items-center gap-3">
-                    <NotWiredLink
-                      label="Edit"
-                      icon={<IconEdit className="h-4 w-4" strokeWidth={2} />}
-                    />
-                    <NotWiredLink
-                      label={template.isActive ? "Arsip" : "Aktifkan"}
+                    <SimpleActionForm
+                      action={toggleBriefTemplateAction}
+                      hiddenField="templateId"
+                      hiddenValue={template.id}
+                      label={template.isActive ? "Arsipkan" : "Aktifkan"}
+                      pendingLabel={
+                        template.isActive
+                          ? "Mengarsipkan..."
+                          : "Mengaktifkan..."
+                      }
                       icon={
                         template.isActive ? (
                           <IconArchive className="h-4 w-4" strokeWidth={2} />

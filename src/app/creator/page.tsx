@@ -158,6 +158,11 @@ export default async function CreatorDashboard() {
                             <Badge tone={participationStatusTone[p.status]}>
                               {participationStatusLabel[p.status]}
                             </Badge>
+                            {p.status === "JOINED" && p.redeemCode ? (
+                              <span className="rounded-md border border-line bg-surface-muted px-2 py-0.5 font-mono text-xs font-semibold text-foreground">
+                                Kode: {p.redeemCode.code}
+                              </span>
+                            ) : null}
                             {p.submission ? (
                               <Badge tone={submissionStatusTone[p.submission.status]}>
                                 {submissionStatusLabel[p.submission.status]}

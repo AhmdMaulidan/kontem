@@ -3,12 +3,13 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getCampaignPerformance } from "@/domain/campaign";
-import { formatCompact, formatDate, formatIDR, daysUntil } from "@/lib/format";
+import { formatCompact, formatDate, formatDateTime, formatIDR, daysUntil } from "@/lib/format";
 import {
   Badge,
   Callout,
   Card,
   CardHeader,
+  CopyButton,
   DescriptionList,
   IconCheck,
   IconChevronLeft,
@@ -49,7 +50,7 @@ export default async function CampaignDetailPage({
 
   const participation = await db.campaignParticipation.findUnique({
     where: { campaignId_creatorId: { campaignId: id, creatorId: user.id } },
-    include: { submission: true },
+    include: { submission: true, redeemCode: true },
   });
 
   const performance = await getCampaignPerformance(id);
@@ -288,46 +289,92 @@ export default async function CampaignDetailPage({
               />
             </Card>
           ) : (
-            <Card>
-              <CardHeader title="Kirim konten" />
-              {participation.submission ? (
-                <div className="space-y-3">
-                  <Badge
-                    tone={submissionStatusTone[participation.submission.status]}
-                  >
-                    {submissionStatusLabel[participation.submission.status]}
-                  </Badge>
-                  <a
-                    href={participation.submission.contentUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block truncate text-sm text-brand"
-                  >
-                    {participation.submission.contentUrl}
-                  </a>
-                  <p className="tabular text-sm">
-                    {formatCompact(participation.submission.lastViews)} views
-                  </p>
-                  {participation.submission.reviewNote ? (
-                    <Callout
-                      tone={
-                        participation.submission.status === "APPROVED"
-                          ? "success"
-                          : "danger"
-                      }
-                      title="Catatan reviewer"
+            <div className="space-y-6">
+              {participation.redeemCode ? (
+                <Card>
+                  <CardHeader
+                    title="Kode Kunjungan / Redeem"
+                    description="Tunjukkan kode ini kepada kasir/staf vendor saat berkunjung ke lokasi untuk mendapatkan komplimen."
+                  />
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between rounded-2xl border border-line bg-surface-muted p-4">
+                      <div>
+                        <p className="text-xs text-muted">Kode Unik Kamu</p>
+                        <p className="font-mono text-xl font-bold tracking-wider text-foreground">
+                          {participation.redeemCode.code}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CopyButton value={participation.redeemCode.code} />
+                        <Badge
+                          tone={
+                            participation.redeemCode.status === "USED"
+                              ? "success"
+                              : "warning"
+                          }
+                        >
+                          {participation.redeemCode.status === "USED"
+                            ? "Sudah Ditukar"
+                            : "Belum Ditukar"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted">
+                      {participation.redeemCode.status === "USED"
+                        ? `Kehadiran terkonfirmasi pada ${formatDateTime(participation.redeemCode.redeemedAt ?? new Date())}. Kamu sudah bisa mengirim tautan konten.`
+                        : `Berlaku hingga ${formatDate(participation.redeemCode.expiresAt)}. Kunjungi lokasi sebelum periode berakhir.`}
+                    </p>
+                  </div>
+                </Card>
+              ) : null}
+
+              <Card>
+                <CardHeader title="Kirim konten" />
+                {participation.submission ? (
+                  <div className="space-y-3">
+                    <Badge
+                      tone={submissionStatusTone[participation.submission.status]}
                     >
-                      {participation.submission.reviewNote}
-                    </Callout>
-                  ) : null}
-                </div>
-              ) : (
-                <SubmitContentForm
-                  campaignId={campaign.id}
-                  allowedPlatforms={campaign.allowedPlatforms}
-                />
-              )}
-            </Card>
+                      {submissionStatusLabel[participation.submission.status]}
+                    </Badge>
+                    <a
+                      href={participation.submission.contentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block truncate text-sm text-brand"
+                    >
+                      {participation.submission.contentUrl}
+                    </a>
+                    <p className="tabular text-sm">
+                      {formatCompact(participation.submission.lastViews)} views
+                    </p>
+                    {participation.submission.reviewNote ? (
+                      <Callout
+                        tone={
+                          participation.submission.status === "APPROVED"
+                            ? "success"
+                            : "danger"
+                        }
+                        title="Catatan reviewer"
+                      >
+                        {participation.submission.reviewNote}
+                      </Callout>
+                    ) : null}
+                  </div>
+                ) : (
+                  <SubmitContentForm
+                    campaignId={campaign.id}
+                    allowedPlatforms={campaign.allowedPlatforms}
+                    locked={
+                      participation.status !== "VISITED" &&
+                      participation.redeemCode?.status !== "USED"
+                    }
+                    lockedReason="Kunjungi tempat usaha vendor dan tukarkan kode redeem di atas terlebih dahulu. Formulir pengiriman konten akan aktif otomatis setelah vendor memverifikasi kodemu."
+                  />
+                )}
+              </Card>
+            </div>
           )}
         </div>
       </div>

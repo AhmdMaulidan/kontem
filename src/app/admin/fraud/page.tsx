@@ -23,9 +23,8 @@ import {
 import type { BadgeTone } from "@/lib/labels";
 import type { FraudFlagStatus, FraudFlagType } from "@/generated/prisma/enums";
 import { fraudFlagLabel } from "@/lib/labels";
-import { resolveFlagAction } from "../actions";
-import { DecisionForm } from "../decision-form";
-import { NotWiredButton } from "../not-wired";
+import { holdPayoutAction, resolveFlagAction } from "../actions";
+import { DecisionForm, SimpleActionForm } from "../decision-form";
 
 const PAGE_SIZE = 10;
 const BASE = "/admin/fraud";
@@ -340,8 +339,12 @@ export default async function AdminFraudPage({
                             noteHint="Trust score creator turun 15 poin dan payout yang belum cair ditahan."
                             requireNoteOnApprove
                           />
-                          <NotWiredButton
+                          <SimpleActionForm
+                            action={holdPayoutAction}
+                            hiddenField="flagId"
+                            hiddenValue={flag.id}
                             label="Tahan payout tanpa memutus"
+                            pendingLabel="Menahan payout..."
                             variant="secondary"
                           />
                         </div>

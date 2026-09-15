@@ -5,6 +5,7 @@ import { getCampaignPerformance } from "@/domain/campaign";
 import { formatCompact, formatDate, formatIDR } from "@/lib/format";
 import {
   Badge,
+  ButtonLink,
   DataTable,
   IconBank,
   IconBanknote,
@@ -25,7 +26,6 @@ import {
 } from "@/components/ui";
 import { settleCampaignAction } from "../actions";
 import { SimpleActionForm } from "../decision-form";
-import { NotWiredButton } from "../not-wired";
 
 const BASE = "/admin/payouts";
 const PAGE_SIZE = 10;
@@ -172,7 +172,16 @@ export default async function AdminPayoutsPage({
               ],
             },
           ]}
-          action={<NotWiredButton label="Export CSV" variant="secondary" icon={<IconDownload className="h-4 w-4" strokeWidth={2} />} iconOnly />}
+          action={
+            <ButtonLink
+              href="/api/admin/export?type=payouts"
+              variant="secondary"
+              size="sm"
+              title="Export CSV"
+            >
+              <IconDownload className="h-4 w-4" strokeWidth={2} />
+            </ButtonLink>
+          }
         />
       </div>
 
