@@ -22,6 +22,7 @@ import type {
   SubmissionStatus,
 } from "@/generated/prisma/enums";
 import { platformLabel } from "@/lib/labels";
+import { isWithinCooldown } from "@/domain/views";
 import { ViewsRowCells } from "./views-form";
 
 const PAGE_SIZE = 15;
@@ -203,9 +204,18 @@ export default async function AdminViewsPage({
                 <Td>{platformLabel[submission.platform]}</Td>
                 <Td align="right">{formatCompact(submission.lastViews)}</Td>
                 <Td className="whitespace-nowrap text-xs text-muted">
-                  {submission.lastSyncedAt
-                    ? formatDateTime(submission.lastSyncedAt)
-                    : "Belum pernah"}
+                  {submission.lastSyncedAt ? (
+                    <div className="flex items-center gap-1.5">
+                      <span>{formatDateTime(submission.lastSyncedAt)}</span>
+                      {isWithinCooldown(submission.lastSyncedAt) ? (
+                        <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                          Cooldown
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    "Belum pernah"
+                  )}
                 </Td>
                 <ViewsRowCells
                   submissionId={submission.id}
@@ -213,6 +223,7 @@ export default async function AdminViewsPage({
                   currentViews={submission.lastViews}
                   currentLikes={submission.lastLikes}
                   currentComments={submission.lastComments}
+                  lastSyncedAt={submission.lastSyncedAt}
                 />
               </tr>
             ))

@@ -6,6 +6,12 @@ import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { COUNTABLE_STATUSES } from "@/domain/campaign";
 import { calculatePayouts } from "@/domain/payout";
+import {
+  validateViewUpdateThrottle,
+  MAX_VIEW_UPDATES_PER_MINUTE,
+} from "@/domain/views";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { fetchVideoMetrics } from "@/lib/video-metrics";
 
 export type ActionState = { error?: string; success?: string };
 
@@ -257,11 +263,14 @@ const viewsSchema = z.object({
   views: z.coerce.number().int().min(0, "Views tidak boleh negatif."),
   likes: z.coerce.number().int().min(0).optional(),
   comments: z.coerce.number().int().min(0).optional(),
+  isCorrection: z.coerce.boolean().optional(),
 });
 
 /**
- * Pembaruan views manual. Di produksi tugas ini diambil alih job terjadwal
- * yang menarik data dari API platform; di versi demo admin yang mengisi.
+ * Pembaruan views manual dengan Rate Limiting dan Throttling:
+ * 1. Rate Limiting: Maksimal 20 kali update per menit per admin.
+ * 2. Throttling: Jeda minimal 5 menit per konten untuk mencegah spam snapshot dan fluktuasi palsu.
+ * 3. Mode Koreksi (isCorrection): Bypass jeda throttling jika admin bermaksud merevisi typo angka.
  */
 export async function updateViewsAction(
   _prev: ActionState,
@@ -271,12 +280,34 @@ export async function updateViewsAction(
   const parsed = viewsSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const { submissionId, views, likes, comments } = parsed.data;
+  const { submissionId, views, likes, comments, isCorrection } = parsed.data;
+
+  // 1. Rate Limiting per Admin (Maks 20 update per menit)
+  const rateLimit = checkRateLimit(
+    `admin:${admin.id}:views_update`,
+    MAX_VIEW_UPDATES_PER_MINUTE,
+    60_000,
+  );
+  if (!rateLimit.allowed) {
+    const retrySec = Math.ceil(rateLimit.retryAfterMs / 1000);
+    return {
+      error: `Batas frekuensi pembaruan tercapai (maksimal ${MAX_VIEW_UPDATES_PER_MINUTE} aksi/menit). Harap tunggu ${retrySec} detik sebelum memperbarui views lagi.`,
+    };
+  }
 
   const submission = await db.submission.findUnique({
     where: { id: submissionId },
   });
   if (!submission) return { error: "Submission tidak ditemukan." };
+
+  // 2. Throttling per Submission (Jeda minimal 5 menit)
+  const throttle = validateViewUpdateThrottle(
+    submission.lastSyncedAt,
+    Boolean(isCorrection),
+  );
+  if (!throttle.allowed) {
+    return { error: throttle.message };
+  }
 
   // Views di platform sosial tidak pernah turun; penurunan berarti angka
   // sebelumnya di-inflate atau salah input, jadi ditandai untuk ditinjau.
@@ -317,13 +348,115 @@ export async function updateViewsAction(
   await logAction(admin.id, "submission.views.update", "Submission", submissionId, {
     dari: submission.lastViews,
     ke: views,
+    koreksi: isCorrection ? true : null,
   });
 
   revalidatePath("/admin/views");
   return {
     success: mencurigakan
       ? "Views tersimpan, tapi penurunan angka otomatis ditandai untuk ditinjau."
-      : "Views diperbarui.",
+      : isCorrection
+        ? "Koreksi views berhasil disimpan."
+        : "Views diperbarui.",
+  };
+}
+
+/**
+ * Tarik views otomatis menggunakan extractor ringan HTTP (Opsi 1: Tanpa Chromium/Puppeteer).
+ * Mengambil angka views, likes, dan comments riil langsung dari TikTok dan
+ * menyimpannya ke database dengan jejak source: "API".
+ */
+export async function syncSingleSubmissionViewsAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireRole("ADMIN");
+  const submissionId = String(formData.get("submissionId") ?? "");
+  const isCorrection = formData.get("isCorrection") === "true";
+
+  // 1. Rate Limiting per Admin
+  const rateLimit = checkRateLimit(
+    `admin:${admin.id}:views_sync_api`,
+    MAX_VIEW_UPDATES_PER_MINUTE,
+    60_000,
+  );
+  if (!rateLimit.allowed) {
+    const retrySec = Math.ceil(rateLimit.retryAfterMs / 1000);
+    return {
+      error: `Batas frekuensi sinkronisasi tercapai (maksimal ${MAX_VIEW_UPDATES_PER_MINUTE} aksi/menit). Harap tunggu ${retrySec} detik.`,
+    };
+  }
+
+  const submission = await db.submission.findUnique({
+    where: { id: submissionId },
+  });
+  if (!submission) return { error: "Submission tidak ditemukan." };
+
+  // 2. Throttling per Submission (jeda minimal 5 menit)
+  const throttle = validateViewUpdateThrottle(submission.lastSyncedAt, isCorrection);
+  if (!throttle.allowed) {
+    return { error: throttle.message };
+  }
+
+  // 3. Fetch metrik via HTTP extractor ringan (Opsi 1)
+  let metrics;
+  try {
+    metrics = await fetchVideoMetrics(submission.platform, submission.contentUrl);
+  } catch (err) {
+    return {
+      error: `Gagal menarik metrik otomatis: ${err instanceof Error ? err.message : "Kesalahan jaringan"}`,
+    };
+  }
+
+  const mencurigakan = metrics.views < submission.lastViews;
+
+  // 4. Update database secara atomik
+  await db.$transaction(async (tx) => {
+    await tx.submission.update({
+      where: { id: submissionId },
+      data: {
+        lastViews: metrics.views,
+        lastLikes: metrics.likes,
+        lastComments: metrics.comments,
+        lastSyncedAt: new Date(),
+      },
+    });
+
+    await tx.viewSnapshot.create({
+      data: {
+        submissionId,
+        views: metrics.views,
+        likes: metrics.likes,
+        comments: metrics.comments,
+        source: "API",
+      },
+    });
+
+    if (mencurigakan) {
+      await tx.fraudFlag.create({
+        data: {
+          submissionId,
+          flaggedUserId: submission.creatorId,
+          type: "INFLATED_VIEWS",
+          severity: 2,
+          detail: `Views otomatis dari API (${metrics.views}) lebih rendah dari views tercatat sebelumnya (${submission.lastViews}).`,
+        },
+      });
+    }
+  });
+
+  await logAction(admin.id, "submission.views.sync_api", "Submission", submissionId, {
+    dari: submission.lastViews,
+    ke: metrics.views,
+    platform: submission.platform,
+    source: "HTTP_LIGHTWEIGHT",
+  });
+
+  revalidatePath("/admin/views");
+  return {
+    success: mencurigakan
+      ? `Views (${metrics.views.toLocaleString("id-ID")}) ditarik, tetapi ada penurunan angka sehingga otomatis ditandai untuk ditinjau.`
+      : `Views berhasil ditarik otomatis: ${metrics.views.toLocaleString("id-ID")} views, ${metrics.likes.toLocaleString("id-ID")} likes.`,
   };
 }
 
