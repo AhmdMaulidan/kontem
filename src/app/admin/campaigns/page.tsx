@@ -412,17 +412,40 @@ export default async function AdminCampaignsPage({
                       <div className="space-y-3 border-t border-line pt-4">
                         {!depositLunas ? (
                           <>
-                            <Callout tone="warning">
-                              Escrow: belum ada deposit{" "}
-                              {formatIDR(campaign.budgetPool)} tercatat.
-                              Campaign yang disetujui tetap belum tampil di
-                              listing creator sampai dananya masuk.
+                            <Callout
+                              tone={
+                                deposit?.note &&
+                                !deposit.note.toLowerCase().includes("menunggu pembayaran")
+                                  ? "info"
+                                  : "warning"
+                              }
+                              title={
+                                deposit?.note &&
+                                !deposit.note.toLowerCase().includes("menunggu pembayaran")
+                                  ? "Konfirmasi Transfer Vendor Diterima"
+                                  : "Deposit Escrow Belum Lunas"
+                              }
+                            >
+                              {deposit?.note &&
+                              !deposit.note.toLowerCase().includes("menunggu pembayaran") ? (
+                                <div className="space-y-1 text-xs">
+                                  <p>
+                                    <strong className="text-foreground">Info transfer vendor: </strong>
+                                    {deposit.note}
+                                  </p>
+                                  <p className="text-muted">
+                                    Nominal pool: {formatIDR(campaign.budgetPool)}. Cocokkan dengan mutasi rekening BCA sebelum konfirmasi lunas.
+                                  </p>
+                                </div>
+                              ) : (
+                                `Escrow: belum ada deposit ${formatIDR(campaign.budgetPool)} tercatat. Campaign yang disetujui tetap belum tampil di listing creator sampai dananya masuk.`
+                              )}
                             </Callout>
                             <SimpleActionForm
                               action={confirmDepositAction}
                               hiddenField="campaignId"
                               hiddenValue={campaign.id}
-                              label="Konfirmasi deposit"
+                              label="Konfirmasi deposit diterima"
                               variant="secondary"
                             />
                           </>

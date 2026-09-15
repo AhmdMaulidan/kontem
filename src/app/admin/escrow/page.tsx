@@ -280,15 +280,59 @@ export default async function AdminEscrowPage({
                 </Td>
                 <Td>
                   {trx.type === "DEPOSIT" && trx.status === "PENDING" ? (
-                    <SimpleActionForm
-                      action={confirmDepositAction}
-                      hiddenField="campaignId"
-                      hiddenValue={trx.campaignId}
-                      label="Konfirmasi"
-                      variant="secondary"
-                      size="compact"
-                      icon={<IconBank className="h-4 w-4" strokeWidth={2} />}
-                    />
+                    <div className="flex items-center gap-2">
+                      <SimpleActionForm
+                        action={confirmDepositAction}
+                        hiddenField="campaignId"
+                        hiddenValue={trx.campaignId}
+                        label="Konfirmasi"
+                        variant="secondary"
+                        size="compact"
+                        icon={<IconBank className="h-4 w-4" strokeWidth={2} />}
+                      />
+                      <DetailDrawer
+                        label="Detail"
+                        title={`${jenisLabel[trx.type]} — ${formatIDR(trx.amount)}`}
+                        subtitle={`${trx.campaign.title} · ${formatDateTime(trx.createdAt)}`}
+                        icon={<IconShieldCheck className="h-4 w-4" strokeWidth={2} />}
+                      >
+                        <dl className="space-y-3 text-sm">
+                          <div>
+                            <dt className="text-xs font-medium text-muted">
+                              Vendor
+                            </dt>
+                            <dd className="mt-0.5">
+                              {trx.campaign.vendor.vendorProfile?.businessName ??
+                                "—"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-medium text-muted">
+                              Status
+                            </dt>
+                            <dd className="mt-0.5">
+                              {statusLabel[trx.status]}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-medium text-muted">
+                              Info Transfer / Catatan
+                            </dt>
+                            <dd className="mt-0.5 font-medium text-foreground">
+                              {trx.note ?? "Belum ada konfirmasi transfer dari vendor."}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-medium text-muted">
+                              Referensi
+                            </dt>
+                            <dd className="tabular mt-0.5">
+                              {trx.reference ?? "—"}
+                            </dd>
+                          </div>
+                        </dl>
+                      </DetailDrawer>
+                    </div>
                   ) : (
                     <DetailDrawer
                       label="Lihat detail"

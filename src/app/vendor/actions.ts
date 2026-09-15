@@ -389,3 +389,97 @@ export async function verifyRedeemCodeAction(
     success: `Kode ${code} valid! Kehadiran kreator ${redeemRecord.participation.creator.name} terkonfirmasi. Berikan komplimen: ${redeemRecord.campaign.complimentType}.`,
   };
 }
+
+const transferProofSchema = z.object({
+  campaignId: z.string().min(1, "Campaign ID wajib diisi."),
+  senderBank: z.string().min(2, "Nama bank pengirim wajib diisi (mis. BCA, Mandiri)."),
+  senderName: z.string().min(2, "Nama pemilik rekening pengirim wajib diisi."),
+  notes: z.string().optional(),
+});
+
+/**
+ * Konfirmasi manual transfer deposit budget pool oleh vendor.
+ * Menyimpan rincian rekening pengirim ke catatan EscrowTransaction dan
+ * mengirimkan notifikasi ke seluruh admin untuk pengecekan mutasi bank.
+ */
+export async function confirmVendorTransferAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireRole("VENDOR");
+  const raw = Object.fromEntries(formData.entries());
+  const parsed = transferProofSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const { campaignId, senderBank, senderName, notes } = parsed.data;
+
+  const campaign = await db.campaign.findUnique({
+    where: { id: campaignId },
+    include: {
+      escrow: { where: { type: "DEPOSIT" } },
+    },
+  });
+
+  if (!campaign || campaign.vendorId !== user.id) {
+    return { error: "Campaign tidak ditemukan atau bukan milik Anda." };
+  }
+
+  const deposit = campaign.escrow[0];
+  if (!deposit) {
+    return { error: "Catatan transaksi deposit tidak ditemukan." };
+  }
+  if (deposit.status === "COMPLETED") {
+    return { error: "Deposit untuk campaign ini sudah lunas terverifikasi." };
+  }
+
+  const noteText = `Transfer via ${senderBank} a.n. ${senderName}${notes ? ` · Catatan: ${notes}` : ""}`;
+
+  await db.$transaction(async (tx) => {
+    await tx.escrowTransaction.update({
+      where: { id: deposit.id },
+      data: {
+        note: noteText,
+        reference: `TF-${senderBank.toUpperCase().slice(0, 4)}-${Date.now().toString().slice(-6)}`,
+      },
+    });
+
+    const admins = await tx.user.findMany({
+      where: { role: "ADMIN" },
+      select: { id: true },
+    });
+
+    if (admins.length > 0) {
+      await tx.notification.createMany({
+        data: admins.map((adm) => ({
+          userId: adm.id,
+          type: "GENERAL",
+          title: "Konfirmasi transfer vendor",
+          body: `Vendor mengonfirmasi transfer deposit untuk campaign "${campaign.title}" (${noteText}). Segera periksa mutasi bank.`,
+          link: "/admin/escrow",
+        })),
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: "escrow.deposit.submit_proof",
+        entity: "Campaign",
+        entityId: campaignId,
+        metadata: { senderBank, senderName, notes: notes || null },
+      },
+    });
+  });
+
+  revalidatePath(`/vendor/campaigns/${campaignId}`);
+  revalidatePath("/admin/campaigns");
+  revalidatePath("/admin/escrow");
+
+  return {
+    success:
+      "Konfirmasi transfer berhasil dikirim. Admin akan segera memverifikasi mutasi bank dan mengaktifkan campaign Anda.",
+  };
+}
+

@@ -31,6 +31,8 @@ import {
   submissionStatusTone,
 } from "@/lib/labels";
 
+import { ManualDepositCard } from "./manual-deposit-card";
+
 export default async function VendorCampaignDetail({
   params,
 }: {
@@ -56,6 +58,7 @@ export default async function VendorCampaignDetail({
 
   if (!campaign || campaign.vendorId !== user.id) notFound();
 
+  const deposit = campaign.escrow.find((trx) => trx.type === "DEPOSIT") ?? null;
   const performance = await getCampaignPerformance(id);
   const terpakai = performance?.totalDistributed ?? 0;
   const menungguReview = campaign.participations.filter(
@@ -75,11 +78,17 @@ export default async function VendorCampaignDetail({
       />
 
       {campaign.status === "PENDING_REVIEW" ? (
-        <div className="mb-6">
-          <Callout tone="warning" title="Menunggu approval admin">
+        <div className="mb-6 space-y-4">
+          <Callout tone="warning" title="Menunggu approval admin & pelunasan escrow">
             Campaign akan live setelah admin menyetujui dan deposit budget pool
-            dikonfirmasi lunas.
+            diverifikasi lunas di escrow. Silakan lakukan transfer dana di bawah ini.
           </Callout>
+
+          <ManualDepositCard
+            campaignId={campaign.id}
+            budgetPool={campaign.budgetPool}
+            deposit={deposit}
+          />
         </div>
       ) : null}
 

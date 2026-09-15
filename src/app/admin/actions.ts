@@ -211,26 +211,43 @@ export async function confirmDepositAction(
 
   const deposit = await db.escrowTransaction.findFirst({
     where: { campaignId, type: "DEPOSIT" },
+    include: { campaign: true },
   });
   if (!deposit) return { error: "Transaksi deposit tidak ditemukan." };
   if (deposit.status === "COMPLETED") return { error: "Deposit sudah lunas." };
 
-  await db.escrowTransaction.update({
-    where: { id: deposit.id },
-    data: {
-      status: "COMPLETED",
-      completedAt: new Date(),
-      reference: `MANUAL-${Date.now()}`,
-      note: "Dikonfirmasi manual oleh admin.",
-    },
-  });
+  await db.$transaction([
+    db.escrowTransaction.update({
+      where: { id: deposit.id },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(),
+        reference: deposit.reference || `MANUAL-${Date.now()}`,
+        note: deposit.note
+          ? `${deposit.note} · Diverifikasi oleh Admin (${admin.name})`
+          : `Dikonfirmasi manual oleh admin (${admin.name}) setelah cek mutasi bank.`,
+      },
+    }),
+    db.notification.create({
+      data: {
+        userId: deposit.campaign.vendorId,
+        type: "GENERAL",
+        title: "Deposit escrow diterima",
+        body: `Deposit budget pool sebesar ${deposit.amount.toLocaleString("id-ID")} rupiah untuk "${deposit.campaign.title}" telah diverifikasi dan dikunci aman di escrow.`,
+        link: `/vendor/campaigns/${campaignId}`,
+      },
+    }),
+  ]);
 
   await logAction(admin.id, "escrow.deposit.confirm", "Campaign", campaignId, {
     jumlah: deposit.amount,
+    referensi: deposit.reference || null,
   });
 
   revalidatePath("/admin/campaigns");
-  return { success: "Deposit ditandai lunas." };
+  revalidatePath("/admin/escrow");
+  revalidatePath(`/vendor/campaigns/${campaignId}`);
+  return { success: "Deposit ditandai lunas dan dana dikunci di escrow." };
 }
 
 // ---------------------------------------------------------------- views
