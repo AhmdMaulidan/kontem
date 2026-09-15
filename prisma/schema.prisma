@@ -210,6 +210,11 @@ model VendorProfile {
   picName  String
   picPhone String
 
+  // Rekening Bank Pengembalian Dana (Refund Escrow)
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
+
   // Verifikasi manual admin: cek Google Maps, telepon konfirmasi, foto lokasi.
   verifiedAt       DateTime?
   verifiedById     String?
@@ -279,10 +284,11 @@ model Campaign {
   allowedPlatforms SocialPlatform[]
 
   // --- ekonomi campaign
-  budgetPool      Int // total pool yang disetor vendor (rupiah)
-  cpmRate         Int // rupiah per 1.000 views
-  platformFeeRate Int @default(3) // persen komisi platform
-  maxCreators     Int
+  budgetPool         Int // total pool yang disetor vendor (rupiah)
+  cpmRate            Int // rupiah per 1.000 views
+  platformFeeRate    Int @default(3) // persen komisi platform
+  maxCreators        Int
+  maxViewsPerCreator Int? // batas views maksimal per creator yang dibayar
 
   // --- komplimen yang disediakan vendor di lokasi
   complimentType  String // mis. "Gratis 1 menu utama"

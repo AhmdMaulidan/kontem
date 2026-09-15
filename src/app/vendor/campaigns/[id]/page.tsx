@@ -32,6 +32,7 @@ import {
 } from "@/lib/labels";
 
 import { ManualDepositCard } from "./manual-deposit-card";
+import { RefundCard } from "./refund-card";
 
 export default async function VendorCampaignDetail({
   params,
@@ -53,12 +54,15 @@ export default async function VendorCampaignDetail({
       },
       escrow: { orderBy: { createdAt: "asc" } },
       payouts: { include: { creator: true } },
+      vendor: { include: { vendorProfile: true } },
     },
   });
 
   if (!campaign || campaign.vendorId !== user.id) notFound();
 
   const deposit = campaign.escrow.find((trx) => trx.type === "DEPOSIT") ?? null;
+  const refundTrx = campaign.escrow.find((trx) => trx.type === "REFUND") ?? null;
+  const vendorBank = campaign.vendor.vendorProfile;
   const performance = await getCampaignPerformance(id);
   const terpakai = performance?.totalDistributed ?? 0;
   const menungguReview = campaign.participations.filter(
@@ -97,6 +101,16 @@ export default async function VendorCampaignDetail({
           <Callout tone="danger" title="Campaign ditolak admin">
             {campaign.rejectionReason}
           </Callout>
+        </div>
+      ) : null}
+
+      {refundTrx ? (
+        <div className="mb-6">
+          <RefundCard
+            campaignId={campaign.id}
+            refundTrx={refundTrx}
+            vendorBank={vendorBank}
+          />
         </div>
       ) : null}
 

@@ -330,6 +330,22 @@ export default async function AdminVendorsPage({
                               campaign
                             </dd>
                           </div>
+                          <div>
+                            <dt className="text-xs font-medium text-muted">
+                              Rekening Bank (Refund)
+                            </dt>
+                            <dd className="mt-0.5">
+                              {profil?.bankName ? (
+                                <span>
+                                  {profil.bankName}{" "}
+                                  <span className="tabular">{profil.bankAccountNumber}</span>{" "}
+                                  a.n. {profil.bankAccountName ?? "—"}
+                                </span>
+                              ) : (
+                                <span className="text-muted">Belum diatur</span>
+                              )}
+                            </dd>
+                          </div>
                         </dl>
 
                         {menungguDiperiksa ? (

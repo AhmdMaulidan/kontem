@@ -26,7 +26,7 @@ import {
 } from "@/components/ui";
 import type { BadgeTone } from "@/lib/labels";
 import type { EscrowStatus, EscrowType } from "@/generated/prisma/enums";
-import { confirmDepositAction } from "../actions";
+import { confirmDepositAction, confirmRefundAction } from "../actions";
 import { SimpleActionForm } from "../decision-form";
 
 const PAGE_SIZE = 15;
@@ -333,6 +333,74 @@ export default async function AdminEscrowPage({
                         </dl>
                       </DetailDrawer>
                     </div>
+                  ) : trx.type === "REFUND" && trx.status === "PENDING" ? (
+                    <div className="flex items-center gap-2">
+                      <SimpleActionForm
+                        action={confirmRefundAction}
+                        hiddenField="transactionId"
+                        hiddenValue={trx.id}
+                        label="Konfirmasi Refund"
+                        variant="secondary"
+                        size="compact"
+                        icon={<IconWallet className="h-4 w-4" strokeWidth={2} />}
+                      />
+                      <DetailDrawer
+                        label="Detail"
+                        title={`${jenisLabel[trx.type]} — ${formatIDR(trx.amount)}`}
+                        subtitle={`${trx.campaign.title} · ${formatDateTime(trx.createdAt)}`}
+                        icon={<IconShieldCheck className="h-4 w-4" strokeWidth={2} />}
+                      >
+                        <dl className="space-y-3 text-sm">
+                          <div>
+                            <dt className="text-xs font-medium text-muted">
+                              Vendor
+                            </dt>
+                            <dd className="mt-0.5">
+                              {trx.campaign.vendor.vendorProfile?.businessName ??
+                                "—"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-medium text-muted">
+                              Rekening Tujuan Refund
+                            </dt>
+                            <dd className="mt-0.5 font-medium text-foreground">
+                              {trx.campaign.vendor.vendorProfile?.bankName &&
+                              trx.campaign.vendor.vendorProfile?.bankAccountNumber ? (
+                                <span>
+                                  {trx.campaign.vendor.vendorProfile.bankName}{" "}
+                                  <span className="tabular">
+                                    {trx.campaign.vendor.vendorProfile.bankAccountNumber}
+                                  </span>{" "}
+                                  a.n.{" "}
+                                  {trx.campaign.vendor.vendorProfile.bankAccountName ?? "—"}
+                                </span>
+                              ) : (
+                                <span className="text-amber-500 font-normal">
+                                  Vendor belum mengatur rekening bank di profil.
+                                </span>
+                              )}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-medium text-muted">
+                              Status
+                            </dt>
+                            <dd className="mt-0.5">
+                              {statusLabel[trx.status]}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-medium text-muted">
+                              Catatan
+                            </dt>
+                            <dd className="mt-0.5 text-muted">
+                              {trx.note ?? "—"}
+                            </dd>
+                          </div>
+                        </dl>
+                      </DetailDrawer>
+                    </div>
                   ) : (
                     <DetailDrawer
                       label="Lihat detail"
@@ -350,6 +418,27 @@ export default async function AdminEscrowPage({
                               "—"}
                           </dd>
                         </div>
+                        {trx.type === "REFUND" && (
+                          <div>
+                            <dt className="text-xs font-medium text-muted">
+                              Rekening Tujuan Refund
+                            </dt>
+                            <dd className="mt-0.5 font-medium text-foreground">
+                              {trx.campaign.vendor.vendorProfile?.bankName ? (
+                                <span>
+                                  {trx.campaign.vendor.vendorProfile.bankName}{" "}
+                                  <span className="tabular">
+                                    {trx.campaign.vendor.vendorProfile.bankAccountNumber}
+                                  </span>{" "}
+                                  a.n.{" "}
+                                  {trx.campaign.vendor.vendorProfile.bankAccountName ?? "—"}
+                                </span>
+                              ) : (
+                                "—"
+                              )}
+                            </dd>
+                          </div>
+                        )}
                         <div>
                           <dt className="text-xs font-medium text-muted">
                             Referensi

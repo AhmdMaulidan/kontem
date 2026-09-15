@@ -26,7 +26,6 @@ const campaignSchema = z.object({
   budgetPool: z.coerce.number().int().min(100_000, "Pool minimal Rp 100.000."),
   cpmRate: z.coerce.number().int().min(1_000, "CPM minimal Rp 1.000."),
   // maxCreators dihapus dari form; nilai disetel otomatis di server.
-  // TODO: tambah maxViewsPerCreator ke kolom Campaign setelah migrasi DB.
   maxViewsPerCreator: z.coerce.number().int().min(1000).optional(),
   complimentType: z.string().min(3, "Jelaskan komplimen yang disediakan."),
   complimentValue: z.coerce.number().int().min(0),
@@ -64,8 +63,6 @@ export async function createCampaignAction(
   const data = parsed.data;
   const startDate = new Date(data.startDate);
   const endDate = new Date(data.endDate);
-  // TODO: simpan maxViewsPerCreator ke DB setelah kolom Campaign.maxViewsPerCreator ditambahkan.
-  // Nilai sudah diterima dari form: data.maxViewsPerCreator
 
   if (endDate <= startDate) {
     return { error: "Tanggal selesai harus setelah tanggal mulai." };
@@ -113,6 +110,7 @@ export async function createCampaignAction(
       // maxCreators diisi 999 (tidak dibatasi) karena fitur kuota creator dihapus dari UI.
       // Kolom masih ada di DB schema dan wajib diisi.
       maxCreators: 999,
+      maxViewsPerCreator: data.maxViewsPerCreator ?? null,
       complimentType: data.complimentType,
       complimentValue: data.complimentValue,
       complimentTerms: data.complimentTerms || null,
@@ -483,3 +481,40 @@ export async function confirmVendorTransferAction(
   };
 }
 
+const vendorBankSchema = z.object({
+  bankName: z.string().min(2, "Nama bank wajib diisi."),
+  bankAccountNumber: z.string().min(4, "Nomor rekening wajib diisi minimal 4 digit."),
+  bankAccountName: z.string().min(2, "Nama pemilik rekening wajib diisi."),
+});
+
+/** Simpan atau perbarui rekening bank vendor untuk pengembalian sisa dana (escrow refund). */
+export async function updateVendorBankAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireRole("VENDOR");
+  const parsed = vendorBankSchema.safeParse({
+    bankName: String(formData.get("bankName") ?? "").trim(),
+    bankAccountNumber: String(formData.get("bankAccountNumber") ?? "").trim(),
+    bankAccountName: String(formData.get("bankAccountName") ?? "").trim(),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const { bankName, bankAccountNumber, bankAccountName } = parsed.data;
+
+  await db.vendorProfile.update({
+    where: { userId: user.id },
+    data: { bankName, bankAccountNumber, bankAccountName },
+  });
+
+  const campaignId = formData.get("campaignId");
+  if (campaignId && typeof campaignId === "string") {
+    revalidatePath(`/vendor/campaigns/${campaignId}`);
+  }
+  revalidatePath("/vendor");
+  revalidatePath("/vendor/campaigns");
+  return { success: "Informasi rekening bank refund berhasil disimpan." };
+}

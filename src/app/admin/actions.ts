@@ -256,6 +256,85 @@ export async function confirmDepositAction(
   return { success: "Deposit ditandai lunas dan dana dikunci di escrow." };
 }
 
+/** Tandai pengembalian sisa dana escrow (refund) ke rekening vendor sudah ditransfer. */
+export async function confirmRefundAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireRole("ADMIN");
+  const transactionId = String(formData.get("transactionId") ?? "");
+  const campaignId = String(formData.get("campaignId") ?? "");
+
+  const refundTrx = await db.escrowTransaction.findFirst({
+    where: transactionId
+      ? { id: transactionId, type: "REFUND" }
+      : { campaignId, type: "REFUND" },
+    include: {
+      campaign: {
+        include: {
+          vendor: {
+            include: { vendorProfile: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!refundTrx) {
+    return { error: "Transaksi refund tidak ditemukan." };
+  }
+
+  if (refundTrx.status === "COMPLETED") {
+    return { error: "Refund ini sudah diselesaikan sebelumnya." };
+  }
+
+  const vendorBank = refundTrx.campaign.vendor.vendorProfile;
+  const bankInfoText =
+    vendorBank?.bankName && vendorBank?.bankAccountNumber
+      ? `ke rekening ${vendorBank.bankName} ${vendorBank.bankAccountNumber} a.n. ${vendorBank.bankAccountName ?? "-"}`
+      : "ke rekening vendor";
+
+  const refCode = `REFUND-${Date.now().toString().slice(-8)}`;
+
+  await db.$transaction([
+    db.escrowTransaction.update({
+      where: { id: refundTrx.id },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(),
+        reference: refCode,
+        note: `Sisa pool dikembalikan ${bankInfoText}. Dikonfirmasi oleh admin (${admin.name}).`,
+      },
+    }),
+    db.notification.create({
+      data: {
+        userId: refundTrx.campaign.vendorId,
+        type: "GENERAL",
+        title: "Refund sisa budget dicairkan",
+        body: `Sisa budget pool campaign "${refundTrx.campaign.title}" sebesar ${refundTrx.amount.toLocaleString("id-ID")} rupiah telah ditransfer ${bankInfoText} (Ref: ${refCode}).`,
+        link: `/vendor/campaigns/${refundTrx.campaignId}`,
+      },
+    }),
+  ]);
+
+  await logAction(admin.id, "escrow.refund.confirm", "EscrowTransaction", refundTrx.id, {
+    campaignId: refundTrx.campaignId,
+    jumlah: refundTrx.amount,
+    referensi: refCode,
+  });
+
+  revalidatePath("/admin/escrow");
+  revalidatePath("/admin/campaigns");
+  revalidatePath(`/admin/campaigns/${refundTrx.campaignId}`);
+  revalidatePath(`/vendor/campaigns/${refundTrx.campaignId}`);
+  revalidatePath("/vendor");
+
+  return {
+    success: `Refund sebesar ${refundTrx.amount.toLocaleString("id-ID")} rupiah berhasil dikonfirmasi dan dicatat selesai.`,
+  };
+}
+
+
 // ---------------------------------------------------------------- views
 
 const viewsSchema = z.object({
