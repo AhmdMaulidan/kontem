@@ -63,6 +63,120 @@ export async function fetchTikTokMetrics(url: string): Promise<VideoMetrics> {
 }
 
 /**
+ * Mengekstrak 11 karakter ID video YouTube dari berbagai format tautan.
+ */
+export function extractYouTubeVideoId(url: string): string | null {
+  try {
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    const match = trimmed.match(
+      /(?:shorts\/|v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/i,
+    );
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Mengambil metrik YouTube Shorts via endpoint resmi Google oEmbed dan tag interactionCount HTML.
+ * Bekerja tanpa API key, hemat CPU & memori server.
+ */
+export async function fetchYouTubeMetrics(url: string): Promise<VideoMetrics> {
+  const videoId = extractYouTubeVideoId(url);
+  if (!videoId) {
+    throw new Error("URL YouTube Shorts tidak valid (ID video tidak ditemukan).");
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    // 1. Ambil metadata judul dan channel author dari endpoint oEmbed resmi Google/YouTube
+    const oembedEndpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+    const oembedResponse = await fetch(oembedEndpoint, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Kontem-Metrics-Fetcher/1.0",
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!oembedResponse.ok) {
+      if (oembedResponse.status === 404) {
+        throw new Error(
+          "Video YouTube Shorts tidak ditemukan, berstatus private, atau telah dihapus.",
+        );
+      }
+      throw new Error(
+        `Server YouTube oEmbed merespons dengan status ${oembedResponse.status}.`,
+      );
+    }
+
+    const oembedData = await oembedResponse.json();
+    const title = String(oembedData.title || "");
+
+    // Ekstrak handle author dari author_url (misal https://www.youtube.com/@jawed)
+    let author = "";
+    if (oembedData.author_url) {
+      const handleMatch = String(oembedData.author_url).match(/@([a-zA-Z0-9_.-]+)/);
+      if (handleMatch) {
+        author = handleMatch[1];
+      }
+    }
+    if (!author && oembedData.author_name) {
+      author = String(oembedData.author_name).trim();
+    }
+
+    // 2. Ambil views terkini dari tag publik interactionCount di halaman video
+    let views = 0;
+    try {
+      const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      const htmlResponse = await fetch(watchUrl, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+        cache: "no-store",
+      });
+
+      if (htmlResponse.ok) {
+        const html = await htmlResponse.text();
+        const metaMatch =
+          html.match(/<meta\s+itemprop="interactionCount"\s+content="(\d+)"/i) ||
+          html.match(/itemprop="interactionCount"\s+content="(\d+)"/i) ||
+          html.match(/"viewCount":\s*"(\d+)"/i);
+
+        if (metaMatch) {
+          views = Number(metaMatch[1]) || 0;
+        }
+      }
+    } catch {
+      // Jika HTML fetch gagal, views tetap 0 tanpa menggagalkan perolehan metadata author/title
+    }
+
+    return {
+      views,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      author,
+      title,
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Koneksi ke server YouTube timeout (melebihi 10 detik).");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
  * Router pengambil metrik berdasarkan platform media sosial.
  */
 export async function fetchVideoMetrics(
@@ -74,9 +188,7 @@ export async function fetchVideoMetrics(
       return fetchTikTokMetrics(url);
 
     case "YOUTUBE":
-      throw new Error(
-        "Penarikan otomatis YouTube belum dikonfigurasi (membutuhkan YOUTUBE_API_KEY).",
-      );
+      return fetchYouTubeMetrics(url);
 
     case "INSTAGRAM":
       throw new Error(
