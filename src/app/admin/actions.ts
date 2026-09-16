@@ -15,6 +15,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { fetchVideoMetrics } from "@/lib/video-metrics";
 import { runCampaignLifecycleSync } from "@/domain/lifecycle";
 import { verifyAuthorOwnership } from "@/domain/social-url";
+import { broadcastNewCampaignToNearbyCreators } from "@/domain/notification";
 
 export type ActionState = { error?: string; success?: string };
 
@@ -155,7 +156,10 @@ export async function reviewCampaignAction(
 
   const campaign = await db.campaign.findUnique({
     where: { id: campaignId },
-    include: { vendor: true, escrow: true },
+    include: {
+      vendor: { include: { vendorProfile: true } },
+      escrow: true,
+    },
   });
   if (!campaign) return { error: "Campaign tidak ditemukan." };
   if (campaign.status !== "PENDING_REVIEW") {
@@ -204,10 +208,35 @@ export async function reviewCampaignAction(
     }),
   ]);
 
-  await logAction(admin.id, approved ? "campaign.approve" : "campaign.reject", "Campaign", campaignId, { catatan: note || null });
+  let creatorsNotified = 0;
+  const vendorCity = campaign.vendor.vendorProfile?.city;
+  if (approved && vendorCity) {
+    const broadcast = await broadcastNewCampaignToNearbyCreators(db, {
+      campaignId: campaign.id,
+      campaignTitle: campaign.title,
+      businessName: campaign.vendor.vendorProfile?.businessName ?? campaign.vendor.name,
+      city: vendorCity,
+    });
+    creatorsNotified = broadcast.count;
+  }
+
+  await logAction(
+    admin.id,
+    approved ? "campaign.approve" : "campaign.reject",
+    "Campaign",
+    campaignId,
+    {
+      catatan: note || null,
+      ...(approved ? { kota: vendorCity ?? null, creatorsNotified } : {}),
+    },
+  );
 
   revalidatePath("/admin/campaigns");
-  return { success: approved ? "Campaign disetujui dan live." : "Campaign ditolak." };
+  return {
+    success: approved
+      ? `Campaign disetujui dan live.${creatorsNotified > 0 ? ` Notifikasi disiarkan ke ${creatorsNotified} creator di ${vendorCity}.` : ""}`
+      : "Campaign ditolak.",
+  };
 }
 
 /** Pemicu manual sinkronisasi siklus hidup kampanye oleh admin. */

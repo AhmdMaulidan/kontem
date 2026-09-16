@@ -12,8 +12,9 @@ import {
   IconExternal,
   IconX,
 } from "@/components/ui";
-import { disputeStatusLabel, platformLabel } from "@/lib/labels";
+import { disputeStatusLabel, platformLabel, type BadgeTone } from "@/lib/labels";
 import { VerdictForm } from "./verdict-form";
+import { DisputeChatForm } from "./chat-form";
 
 export default async function AdminDisputeDetailPage({
   params,
@@ -27,6 +28,12 @@ export default async function AdminDisputeDetailPage({
     where: { id },
     include: {
       openedBy: { select: { name: true } },
+      messages: {
+        include: {
+          sender: { select: { id: true, name: true, role: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
       submission: {
         include: {
           campaign: {
@@ -128,6 +135,57 @@ export default async function AdminDisputeDetailPage({
               <p className="mt-1 text-info">{dispute.reason}</p>
             </div>
           </div>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title={`Riwayat Chat & Mediasi (${dispute.messages.length})`}
+            description="Klarifikasi bukti dan tanggapan antara Creator, Vendor, dan Admin."
+          />
+          {dispute.messages.length === 0 ? (
+            <p className="text-sm text-muted">Belum ada pesan mediasi tambahan.</p>
+          ) : (
+            <div className="space-y-3">
+              {dispute.messages.map((msg) => {
+                const roleTone: BadgeTone =
+                  msg.sender.role === "ADMIN"
+                    ? "sky"
+                    : msg.sender.role === "VENDOR"
+                      ? "warning"
+                      : "info";
+
+                return (
+                  <div
+                    key={msg.id}
+                    className="rounded-xl border border-line bg-surface-muted/60 p-3.5 text-sm"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-foreground">
+                          {msg.sender.name}
+                        </span>
+                        <Badge tone={roleTone}>
+                          {msg.sender.role}
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-muted">
+                        {formatDateTime(msg.createdAt)}
+                      </span>
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-foreground/90">
+                      {msg.body}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!sudahDiputus ? (
+            <div className="mt-5 border-t border-line pt-4">
+              <DisputeChatForm disputeId={dispute.id} />
+            </div>
+          ) : null}
         </Card>
 
         <Card>
