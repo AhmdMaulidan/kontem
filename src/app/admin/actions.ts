@@ -12,6 +12,7 @@ import {
 } from "@/domain/views";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { fetchVideoMetrics } from "@/lib/video-metrics";
+import { runCampaignLifecycleSync } from "@/domain/lifecycle";
 
 export type ActionState = { error?: string; success?: string };
 
@@ -205,6 +206,38 @@ export async function reviewCampaignAction(
 
   revalidatePath("/admin/campaigns");
   return { success: approved ? "Campaign disetujui dan live." : "Campaign ditolak." };
+}
+
+/** Pemicu manual sinkronisasi siklus hidup kampanye oleh admin. */
+export async function triggerLifecycleCheckAction(): Promise<ActionState> {
+  const admin = await requireRole("ADMIN");
+
+  try {
+    const result = await runCampaignLifecycleSync(db);
+
+    await logAction(admin.id, "campaign.lifecycle.sync_manual", "System", "Lifecycle", {
+      campaignsEnded: result.campaignsEnded,
+      codesExpired: result.codesExpired,
+      participationsCancelled: result.participationsCancelled,
+      settleAlertsSent: result.settleAlertsSent,
+    });
+
+    revalidatePath("/admin/campaigns");
+    revalidatePath("/admin/payouts");
+    revalidatePath("/creator");
+    revalidatePath("/vendor");
+
+    return {
+      success: `Siklus diperiksa: ${result.campaignsEnded} campaign berakhir, ${result.codesExpired} kode kedaluwarsa, ${result.participationsCancelled} slot dibatalkan, ${result.settleAlertsSent} siap settle.`,
+    };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Gagal menjalankan sinkronisasi siklus hidup kampanye.",
+    };
+  }
 }
 
 /** Tandai deposit escrow vendor sudah diterima (di produksi: webhook payment gateway). */

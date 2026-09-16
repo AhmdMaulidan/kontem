@@ -32,7 +32,11 @@ import {
   categoryLabel,
   platformLabel,
 } from "@/lib/labels";
-import { confirmDepositAction, reviewCampaignAction } from "../actions";
+import {
+  confirmDepositAction,
+  reviewCampaignAction,
+  triggerLifecycleCheckAction,
+} from "../actions";
 import { DecisionForm, SimpleActionForm } from "../decision-form";
 
 const PAGE_SIZE = 10;
@@ -131,6 +135,17 @@ export default async function AdminCampaignsPage({
       <PageHeader
         title="Approval & monitoring campaign"
         description="Campaign hanya boleh live kalau vendor terverifikasi dan deposit pool sudah lunas."
+        action={
+          <SimpleActionForm
+            action={triggerLifecycleCheckAction}
+            hiddenField="action"
+            hiddenValue="sync"
+            label="Periksa Siklus Kampanye"
+            pendingLabel="Memeriksa siklus..."
+            variant="secondary"
+            size="sm"
+          />
+        }
       />
 
       <DataTable
