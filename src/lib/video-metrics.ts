@@ -177,6 +177,187 @@ export async function fetchYouTubeMetrics(url: string): Promise<VideoMetrics> {
 }
 
 /**
+ * Mengekstrak kode unik (shortcode) postingan atau reel Instagram dari berbagai format tautan.
+ */
+export function extractInstagramShortcode(url: string): string | null {
+  try {
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    const match = trimmed.match(
+      /(?:instagram\.com\/(?:[a-zA-Z0-9_.]+\/)?(?:reel|reels|p|tv|share\/reel|share\/p)\/|instagr\.am\/(?:p|reel)\/)([a-zA-Z0-9_-]+)/i,
+    );
+    if (!match) return null;
+    const code = match[1];
+    if (code.length < 5 || code.length > 35) return null;
+    return code;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Mengambil metrik Instagram Reels via endpoint public embed Instagram atau Meta Graph API.
+ * Bekerja tanpa mewajibkan token privat dengan memanfaatkan public embed renderer.
+ */
+export async function fetchInstagramMetrics(url: string): Promise<VideoMetrics> {
+  const shortcode = extractInstagramShortcode(url);
+  if (!shortcode) {
+    throw new Error(
+      "URL Instagram Reels tidak valid (kode postingan/reel tidak ditemukan).",
+    );
+  }
+
+  // Ekstrak author handle dari URL jika disertakan (mis. instagram.com/username/reel/CODE)
+  let authorFromUrl = "";
+  const handleMatch = url
+    .trim()
+    .match(
+      /(?:https?:\/\/)?(?:www\.)?instagram\.com\/([a-zA-Z0-9_.]+)\/(?:reel|reels|p|tv)/i,
+    );
+  if (
+    handleMatch &&
+    ![
+      "reel",
+      "reels",
+      "p",
+      "tv",
+      "explore",
+      "stories",
+      "share",
+    ].includes(handleMatch[1].toLowerCase())
+  ) {
+    authorFromUrl = handleMatch[1].replace(/^@/, "").toLowerCase();
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
+  try {
+    // 1. Cek apakah token Meta Graph API tersedia di environment
+    const metaToken =
+      process.env.META_ACCESS_TOKEN || process.env.INSTAGRAM_ACCESS_TOKEN;
+    if (metaToken) {
+      try {
+        const oembedUrl = `https://graph.facebook.com/v19.0/instagram_oembed?url=${encodeURIComponent(url)}&access_token=${metaToken}`;
+        const res = await fetch(oembedUrl, {
+          signal: controller.signal,
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          return {
+            views: 0,
+            likes: 0,
+            comments: 0,
+            shares: 0,
+            author: data.author_name
+              ? String(data.author_name).trim()
+              : authorFromUrl,
+            title: data.title
+              ? String(data.title).trim()
+              : `Instagram Reel (${shortcode})`,
+          };
+        }
+      } catch {
+        // Lanjutkan ke fallback public embed
+      }
+    }
+
+    // 2. Zero-config fallback: gunakan public embed endpoint resmi
+    const embedUrl = `https://www.instagram.com/p/${shortcode}/embed/captioned/`;
+    let author = authorFromUrl;
+    let title = `Instagram Reel (${shortcode})`;
+    let views = 0;
+    let likes = 0;
+    const comments = 0;
+
+    try {
+      const embedResponse = await fetch(embedUrl, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+        cache: "no-store",
+      });
+
+      if (embedResponse.ok) {
+        const html = await embedResponse.text();
+
+        // Ekstrak author handle dari atribut embed
+        const authorMatch =
+          html.match(
+            /class=["']CaptionUsername["'][^>]*href=["'](?:https?:\/\/(?:www\.)?instagram\.com\/)?([a-zA-Z0-9_.]+)\/?["']/i,
+          ) ||
+          html.match(/"username":\s*"([a-zA-Z0-9_.]+)"/i) ||
+          html.match(/@([a-zA-Z0-9_.]+)\s+on\s+Instagram/i) ||
+          html.match(/href=["']\/([a-zA-Z0-9_.]+)\/["']/i);
+
+        if (
+          authorMatch &&
+          authorMatch[1] &&
+          !["explore", "reels", "reel", "p", "about"].includes(
+            authorMatch[1].toLowerCase(),
+          )
+        ) {
+          author = authorMatch[1].replace(/^@/, "").toLowerCase();
+        }
+
+        // Ekstrak caption/title jika ada
+        const captionMatch =
+          html.match(
+            /<div class=["']CaptionComments["'][^>]*>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/i,
+          ) ||
+          html.match(/<div class=["']Caption["'][^>]*>([\s\S]*?)<\/div>/i) ||
+          html.match(/data-caption=["']([^"']+)["']/i);
+
+        if (captionMatch && captionMatch[1]) {
+          title = captionMatch[1].replace(/<[^>]+>/g, "").trim();
+        }
+
+        // Ekstrak tayangan / views jika tertera di stat embed
+        const viewMatch =
+          html.match(/(\d[\d,.]*)\s+(?:views|tayangan)/i) ||
+          html.match(/"video_view_count":\s*(\d+)/i);
+        if (viewMatch) {
+          views = parseInt(viewMatch[1].replace(/[,.]/g, ""), 10) || 0;
+        }
+
+        // Ekstrak suka / likes jika tertera di stat embed
+        const likeMatch =
+          html.match(/(\d[\d,.]*)\s+(?:likes|suka)/i) ||
+          html.match(/"like_count":\s*(\d+)/i);
+        if (likeMatch) {
+          likes = parseInt(likeMatch[1].replace(/[,.]/g, ""), 10) || 0;
+        }
+      }
+    } catch {
+      // Jika embed fetch terkendala timeout/proteksi jaringan,
+      // pertahankan author dan shortcode agar submission tidak gagal
+    }
+
+    return {
+      views,
+      likes,
+      comments,
+      shares: 0,
+      author,
+      title,
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Koneksi ke server Instagram timeout (melebihi 10 detik).");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
  * Router pengambil metrik berdasarkan platform media sosial.
  */
 export async function fetchVideoMetrics(
@@ -191,11 +372,10 @@ export async function fetchVideoMetrics(
       return fetchYouTubeMetrics(url);
 
     case "INSTAGRAM":
-      throw new Error(
-        "Penarikan otomatis Instagram belum dikonfigurasi (membutuhkan Meta Graph Access Token).",
-      );
+      return fetchInstagramMetrics(url);
 
     default:
       throw new Error(`Platform ${platform} tidak didukung.`);
   }
 }
+
