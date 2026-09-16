@@ -4,6 +4,7 @@ import type {
   RedeemCodeStatus,
 } from "@/generated/prisma/enums";
 import type { PrismaClient } from "@/generated/prisma/client";
+import { notifyParticipantsCampaignEndingSoon } from "./notification";
 
 export interface CampaignTransitionEval {
   shouldEnd: boolean;
@@ -100,11 +101,62 @@ export function evaluateTrackingPeriodFinished(
   };
 }
 
+export interface CampaignEndingSoonEval {
+  isEndingSoon: boolean;
+  hoursLeft: number;
+  reason?: string;
+}
+
+/**
+ * Evaluasi apakah campaign ACTIVE berada dalam rentang ambang batas segera berakhir (misal <= 48 jam sebelum endDate).
+ */
+export function evaluateCampaignEndingSoon(
+  campaign: { status: CampaignStatus; endDate: Date | string },
+  now: Date = new Date(),
+  thresholdHours: number = 48,
+): CampaignEndingSoonEval {
+  if (campaign.status !== "ACTIVE") {
+    return {
+      isEndingSoon: false,
+      hoursLeft: 0,
+      reason: "Status campaign bukan ACTIVE",
+    };
+  }
+
+  const end = new Date(campaign.endDate);
+  const diffMs = end.getTime() - now.getTime();
+
+  if (diffMs <= 0) {
+    return {
+      isEndingSoon: false,
+      hoursLeft: 0,
+      reason: "Periode campaign telah berakhir",
+    };
+  }
+
+  const hoursLeft = Math.ceil(diffMs / (1000 * 60 * 60));
+
+  if (hoursLeft <= thresholdHours) {
+    return {
+      isEndingSoon: true,
+      hoursLeft,
+      reason: `Campaign segera berakhir dalam ${hoursLeft} jam`,
+    };
+  }
+
+  return {
+    isEndingSoon: false,
+    hoursLeft,
+    reason: `Campaign masih berlangsung (${hoursLeft} jam tersisa)`,
+  };
+}
+
 export interface LifecycleSyncResult {
   campaignsEnded: number;
   codesExpired: number;
   participationsCancelled: number;
   settleAlertsSent: number;
+  endingSoonAlertsSent: number;
   timestamp: string;
 }
 
@@ -123,6 +175,7 @@ export async function runCampaignLifecycleSync(
   let codesExpired = 0;
   let participationsCancelled = 0;
   let settleAlertsSent = 0;
+  let endingSoonAlertsSent = 0;
 
   // 1. Ambil seluruh campaign ACTIVE yang telah melewati endDate
   const activeCampaigns = await db.campaign.findMany({
@@ -317,11 +370,39 @@ export async function runCampaignLifecycleSync(
     }
   }
 
+  // 4. Ambil campaign ACTIVE yang akan berakhir dalam 48 jam ke depan (H-2 / H-1)
+  const thresholdEndingSoon = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+  const endingSoonCampaigns = await db.campaign.findMany({
+    where: {
+      status: "ACTIVE",
+      endDate: { gt: now, lte: thresholdEndingSoon },
+    },
+    select: {
+      id: true,
+      title: true,
+      endDate: true,
+      status: true,
+    },
+  });
+
+  for (const c of endingSoonCampaigns) {
+    const evalResult = evaluateCampaignEndingSoon(c, now, 48);
+    if (evalResult.isEndingSoon) {
+      const alertRes = await notifyParticipantsCampaignEndingSoon(db, {
+        campaignId: c.id,
+        campaignTitle: c.title,
+        hoursLeft: evalResult.hoursLeft,
+      });
+      endingSoonAlertsSent += alertRes.count;
+    }
+  }
+
   return {
     campaignsEnded,
     codesExpired,
     participationsCancelled,
     settleAlertsSent,
+    endingSoonAlertsSent,
     timestamp: now.toISOString(),
   };
 }

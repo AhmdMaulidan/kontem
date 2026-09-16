@@ -4,6 +4,8 @@ import {
   buildNearbyCampaignNotification,
   filterCreatorsForCity,
   broadcastNewCampaignToNearbyCreators,
+  buildCampaignEndingSoonNotification,
+  notifyParticipantsCampaignEndingSoon,
   type CreatorTarget,
 } from "./notification";
 
@@ -121,3 +123,76 @@ test("notification: broadcastNewCampaignToNearbyCreators aman saat tidak ada kre
   assert.deepEqual(res.notifiedUserIds, []);
   assert.equal(createManyCalled, false);
 });
+
+test("notification: buildCampaignEndingSoonNotification membentuk payload yang valid", () => {
+  const payload = buildCampaignEndingSoonNotification({
+    campaignId: "c789",
+    campaignTitle: "Promo Kopi Susu",
+    hoursLeft: 24,
+  });
+
+  assert.equal(payload.type, "CAMPAIGN_ENDING_SOON");
+  assert.equal(payload.title, 'Campaign "Promo Kopi Susu" segera berakhir!');
+  assert.match(payload.body, /Tersisa 24 jam lagi/);
+  assert.match(payload.body, /Promo Kopi Susu/);
+  assert.equal(payload.link, "/creator/campaigns/c789");
+});
+
+test("notification: notifyParticipantsCampaignEndingSoon mengirim notifikasi ke kreator yang belum submit dan mencegah duplikasi", async () => {
+  type NotificationRecord = {
+    userId: string;
+    type: string;
+    title: string;
+    body: string;
+    link: string;
+  };
+  const createdRecords: NotificationRecord[] = [];
+
+  const mockPrisma = {
+    campaignParticipation: {
+      findMany: async (args: {
+        where: {
+          campaignId: string;
+          status: { in: string[] };
+          submission: null;
+        };
+      }) => {
+        assert.equal(args.where.campaignId, "camp-urgent");
+        return [
+          { creatorId: "creator-a" },
+          { creatorId: "creator-b" },
+          { creatorId: "creator-c" },
+        ];
+      },
+    },
+    notification: {
+      findMany: async (args: {
+        where: { userId: { in: string[] }; type: string; link: string };
+      }) => {
+        assert.equal(args.where.type, "CAMPAIGN_ENDING_SOON");
+        assert.equal(args.where.link, "/creator/campaigns/camp-urgent");
+        // creator-b sudah pernah dinotifikasi sebelumnya
+        return [{ userId: "creator-b" }];
+      },
+      createMany: async (args: { data: NotificationRecord[] }) => {
+        createdRecords.push(...args.data);
+        return { count: args.data.length };
+      },
+    },
+  };
+
+  const res = await notifyParticipantsCampaignEndingSoon(mockPrisma, {
+    campaignId: "camp-urgent",
+    campaignTitle: "Promo Weekend Seru",
+    hoursLeft: 18,
+  });
+
+  assert.equal(res.count, 2);
+  assert.deepEqual(res.notifiedUserIds, ["creator-a", "creator-c"]);
+  assert.equal(createdRecords.length, 2);
+  assert.equal(createdRecords[0].userId, "creator-a");
+  assert.equal(createdRecords[0].type, "CAMPAIGN_ENDING_SOON");
+  assert.match(createdRecords[0].body, /Tersisa 18 jam lagi/);
+  assert.equal(createdRecords[1].userId, "creator-c");
+});
+

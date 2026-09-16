@@ -103,3 +103,101 @@ export async function broadcastNewCampaignToNearbyCreators(
     notifiedUserIds,
   };
 }
+
+export interface CampaignEndingSoonNotificationParams {
+  campaignId: string;
+  campaignTitle: string;
+  hoursLeft: number;
+}
+
+/**
+ * Membentuk payload notifikasi standar untuk kampanye aktif yang segera berakhir (H-2 / H-1).
+ */
+export function buildCampaignEndingSoonNotification(
+  params: CampaignEndingSoonNotificationParams,
+): NotificationPayload {
+  const title = `Campaign "${params.campaignTitle}" segera berakhir!`;
+  const body = `Tersisa ${params.hoursLeft} jam lagi untuk menyelesaikan kunjungan dan mengunggah kontenmu untuk "${params.campaignTitle}". Jangan lewatkan reward pool-mu!`;
+  const link = `/creator/campaigns/${params.campaignId}`;
+
+  return {
+    type: "CAMPAIGN_ENDING_SOON",
+    title,
+    body,
+    link,
+  };
+}
+
+/**
+ * Mengirimkan notifikasi peringatan kampanye mau berakhir kepada para kreator terdaftar
+ * yang belum mengunggah konten (status JOINED atau VISITED tanpa submission).
+ * Menghindari duplikasi notifikasi untuk kreator yang sama pada kampanye tersebut.
+ */
+export async function notifyParticipantsCampaignEndingSoon(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  prismaClient: any,
+  params: CampaignEndingSoonNotificationParams,
+): Promise<{ count: number; notifiedUserIds: string[] }> {
+  const { campaignId, campaignTitle, hoursLeft } = params;
+
+  // 1. Ambil partisipasi yang belum submit konten
+  const pendingParticipants = await prismaClient.campaignParticipation.findMany({
+    where: {
+      campaignId,
+      status: { in: ["JOINED", "VISITED"] },
+      submission: null,
+    },
+    select: { creatorId: true },
+  });
+
+  if (!pendingParticipants || pendingParticipants.length === 0) {
+    return { count: 0, notifiedUserIds: [] };
+  }
+
+  const creatorIds = pendingParticipants.map(
+    (p: { creatorId: string }) => p.creatorId,
+  );
+
+  // 2. Filter kreator yang sudah menerima notifikasi CAMPAIGN_ENDING_SOON untuk campaign ini
+  const existingNotifications = await prismaClient.notification.findMany({
+    where: {
+      userId: { in: creatorIds },
+      type: "CAMPAIGN_ENDING_SOON",
+      link: `/creator/campaigns/${campaignId}`,
+    },
+    select: { userId: true },
+  });
+
+  const alreadyNotifiedSet = new Set(
+    existingNotifications.map((n: { userId: string }) => n.userId),
+  );
+  const targetUserIds = creatorIds.filter(
+    (userId: string) => !alreadyNotifiedSet.has(userId),
+  );
+
+  if (targetUserIds.length === 0) {
+    return { count: 0, notifiedUserIds: [] };
+  }
+
+  const payload = buildCampaignEndingSoonNotification({
+    campaignId,
+    campaignTitle,
+    hoursLeft,
+  });
+
+  await prismaClient.notification.createMany({
+    data: targetUserIds.map((userId: string) => ({
+      userId,
+      type: payload.type,
+      title: payload.title,
+      body: payload.body,
+      link: payload.link,
+    })),
+  });
+
+  return {
+    count: targetUserIds.length,
+    notifiedUserIds: targetUserIds,
+  };
+}
+
