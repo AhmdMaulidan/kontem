@@ -122,7 +122,12 @@ export default async function BrowseCampaignPage({
                       {campaign.vendor.vendorProfile?.city}
                     </p>
                   </div>
-                  {sudahIkut ? <Badge tone="success">Sudah ikut</Badge> : null}
+                  <div className="flex flex-col items-end gap-1.5">
+                    {sudahIkut ? <Badge tone="success">Sudah ikut</Badge> : null}
+                    {sisaHari <= 2 && sisaHari >= 0 ? (
+                      <Badge tone="warning">Segera berakhir</Badge>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">

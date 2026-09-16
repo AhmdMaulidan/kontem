@@ -81,11 +81,24 @@ export default async function CampaignDetailPage({
         title={campaign.title}
         description={`${campaign.vendor.vendorProfile?.businessName} · ${campaign.vendor.vendorProfile?.city}`}
         action={
-          <Badge tone={campaignStatusTone[campaign.status]}>
-            {campaignStatusLabel[campaign.status]}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {sisaHari <= 2 && sisaHari >= 0 ? (
+              <Badge tone="warning">Segera Berakhir</Badge>
+            ) : null}
+            <Badge tone={campaignStatusTone[campaign.status]}>
+              {campaignStatusLabel[campaign.status]}
+            </Badge>
+          </div>
         }
       />
+
+      {sisaHari <= 2 && sisaHari >= 0 && participation && !participation.submission ? (
+        <div className="mb-6">
+          <Callout tone="warning" title="Campaign Segera Berakhir!">
+            Periode campaign ini tersisa {sisaHari === 0 ? "kurang dari 24 jam" : `${sisaHari} hari lagi`}. Segera lakukan kunjungan dan unggah tautan kontenmu sebelum periode ditutup agar tidak kehilangan slot reward!
+          </Callout>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
