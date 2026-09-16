@@ -297,6 +297,19 @@ export function CampaignForm({
                 }
               />
             </Field>
+            <Field
+              label="Kuota creator (maksimal peserta)"
+              hint="Jumlah slot creator yang dapat bergabung dan mengklaim komplimen di lokasi (1–100 creator)."
+            >
+              <Input
+                name="maxCreators"
+                type="number"
+                min={1}
+                max={100}
+                required
+                defaultValue={10}
+              />
+            </Field>
           </div>
         </Card>
 

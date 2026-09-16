@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { calculateCampaignSettlementSummary } from "./campaign";
+import {
+  calculateCampaignSettlementSummary,
+  validateCampaignQuota,
+} from "./campaign";
 
 test("settlement summary: menghitung total reach, serapan budget, dan refund normal", () => {
   const summary = calculateCampaignSettlementSummary({
@@ -180,4 +183,31 @@ test("settlement summary: memilih Top 3 Creator Performers dan breakdown platfor
   const tiktok = summary.platforms.find((p) => p.platform === "TIKTOK");
   assert.equal(tiktok?.submissionsCount, 2);
   assert.equal(tiktok?.totalViews, 200_000);
+});
+
+test("campaign quota: validateCampaignQuota menerima nilai 1 sampai 100", () => {
+  assert.equal(validateCampaignQuota(1).isValid, true);
+  assert.equal(validateCampaignQuota(10).isValid, true);
+  assert.equal(validateCampaignQuota(50).isValid, true);
+  assert.equal(validateCampaignQuota(100).isValid, true);
+});
+
+test("campaign quota: validateCampaignQuota menolak kuota kurang dari 1 atau lebih dari 100", () => {
+  const nol = validateCampaignQuota(0);
+  assert.equal(nol.isValid, false);
+  assert.match(nol.error!, /minimal 1/i);
+
+  const negatif = validateCampaignQuota(-5);
+  assert.equal(negatif.isValid, false);
+  assert.match(negatif.error!, /minimal 1/i);
+
+  const lebih = validateCampaignQuota(101);
+  assert.equal(lebih.isValid, false);
+  assert.match(lebih.error!, /maksimal 100/i);
+});
+
+test("campaign quota: validateCampaignQuota menolak angka non-integer (desimal)", () => {
+  const desimal = validateCampaignQuota(10.5);
+  assert.equal(desimal.isValid, false);
+  assert.match(desimal.error!, /bilangan bulat/i);
 });

@@ -25,7 +25,12 @@ const campaignSchema = z.object({
   platforms: z.string().min(1, "Pilih minimal satu platform."),
   budgetPool: z.coerce.number().int().min(100_000, "Pool minimal Rp 100.000."),
   cpmRate: z.coerce.number().int().min(1_000, "CPM minimal Rp 1.000."),
-  // maxCreators dihapus dari form; nilai disetel otomatis di server.
+  maxCreators: z.coerce
+    .number()
+    .int("Kuota creator harus bilangan bulat.")
+    .min(1, "Minimal kuota 1 creator.")
+    .max(100, "Maksimal kuota 100 creator per campaign.")
+    .default(10),
   maxViewsPerCreator: z.coerce.number().int().min(1000).optional(),
   complimentType: z.string().min(3, "Jelaskan komplimen yang disediakan."),
   complimentValue: z.coerce.number().int().min(0),
@@ -107,9 +112,7 @@ export async function createCampaignAction(
       )[],
       budgetPool: data.budgetPool,
       cpmRate: data.cpmRate,
-      // maxCreators diisi 999 (tidak dibatasi) karena fitur kuota creator dihapus dari UI.
-      // Kolom masih ada di DB schema dan wajib diisi.
-      maxCreators: 999,
+      maxCreators: data.maxCreators,
       maxViewsPerCreator: data.maxViewsPerCreator ?? null,
       complimentType: data.complimentType,
       complimentValue: data.complimentValue,
