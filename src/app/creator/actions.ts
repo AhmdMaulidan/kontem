@@ -141,31 +141,36 @@ export async function submitContentAction(
     return { error: "Link konten ini sudah pernah dikirim." };
   }
 
-  await db.$transaction(async (tx) => {
-    await tx.submission.create({
-      data: {
-        campaignId,
-        creatorId: user.id,
-        participationId: participation.id,
-        contentUrl,
-        platform,
-        caption: caption || null,
-      },
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.submission.create({
+        data: {
+          campaignId,
+          creatorId: user.id,
+          participationId: participation.id,
+          contentUrl,
+          platform,
+          caption: caption || null,
+        },
+      });
+      await tx.campaignParticipation.update({
+        where: { id: participation.id },
+        data: { status: "SUBMITTED" },
+      });
+      await tx.notification.create({
+        data: {
+          userId: participation.campaign.vendorId,
+          type: "GENERAL",
+          title: "Submission baru masuk",
+          body: `${user.name} mengirim konten untuk "${participation.campaign.title}".`,
+          link: `/vendor/campaigns/${campaignId}`,
+        },
+      });
     });
-    await tx.campaignParticipation.update({
-      where: { id: participation.id },
-      data: { status: "SUBMITTED" },
-    });
-    await tx.notification.create({
-      data: {
-        userId: participation.campaign.vendorId,
-        type: "GENERAL",
-        title: "Submission baru masuk",
-        body: `${user.name} mengirim konten untuk "${participation.campaign.title}".`,
-        link: `/vendor/campaigns/${campaignId}`,
-      },
-    });
-  });
+  } catch (err) {
+    console.error("[submitContentAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat mengirim konten." };
+  }
 
   revalidatePath("/creator/submissions");
   return { success: "Konten terkirim, menunggu review vendor." };
@@ -195,27 +200,32 @@ export async function appealAction(
     return { error: "Hanya submission yang ditolak yang bisa dibanding." };
   }
 
-  await db.$transaction(async (tx) => {
-    await tx.submission.update({
-      where: { id: submissionId },
-      data: { status: "APPEALED" },
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.submission.update({
+        where: { id: submissionId },
+        data: { status: "APPEALED" },
+      });
+      const dispute = await tx.dispute.create({
+        data: { submissionId, openedById: user.id, reason, status: "OPEN" },
+      });
+      await tx.disputeMessage.create({
+        data: { disputeId: dispute.id, senderId: user.id, body: reason },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorId: user.id,
+          action: "submission.appeal",
+          entity: "Submission",
+          entityId: submissionId,
+          metadata: { alasan: reason },
+        },
+      });
     });
-    const dispute = await tx.dispute.create({
-      data: { submissionId, openedById: user.id, reason, status: "OPEN" },
-    });
-    await tx.disputeMessage.create({
-      data: { disputeId: dispute.id, senderId: user.id, body: reason },
-    });
-    await tx.auditLog.create({
-      data: {
-        actorId: user.id,
-        action: "submission.appeal",
-        entity: "Submission",
-        entityId: submissionId,
-        metadata: { alasan: reason },
-      },
-    });
-  });
+  } catch (err) {
+    console.error("[appealAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat mengajukan banding." };
+  }
 
   revalidatePath("/creator/submissions");
   return { success: "Banding diajukan. Admin akan meninjau dalam 2x24 jam." };
@@ -242,40 +252,45 @@ export async function updateBankAction(
     include: { user: true },
   });
 
-  await db.$transaction(async (tx) => {
-    await tx.creatorProfile.update({
-      where: { userId: user.id },
-      data: { bankName, bankAccountNumber, bankAccountName },
-    });
-
-    if (duplicate) {
-      await tx.fraudFlag.create({
-        data: {
-          flaggedUserId: user.id,
-          reportedById: null, // terdeteksi otomatis oleh sistem
-          type: "DUPLICATE_ACCOUNT",
-          severity: 3,
-          detail: `Nomor rekening ${bankAccountNumber} (${bankName} a.n. ${bankAccountName}) sama persis dengan akun kreator lain "${duplicate.user.name}" (ID: ${duplicate.userId}).`,
-        },
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.creatorProfile.update({
+        where: { userId: user.id },
+        data: { bankName, bankAccountNumber, bankAccountName },
       });
 
-      const admins = await tx.user.findMany({
-        where: { role: "ADMIN" },
-        select: { id: true },
-      });
-      if (admins.length > 0) {
-        await tx.notification.createMany({
-          data: admins.map((adm) => ({
-            userId: adm.id,
-            type: "GENERAL",
-            title: "Peringatan Akun Ganda (Sybil)",
-            body: `Kreator "${user.name}" mendaftarkan nomor rekening yang sama dengan kreator "${duplicate.user.name}". Periksa di panel Fraud.`,
-            link: "/admin/fraud",
-          })),
+      if (duplicate) {
+        await tx.fraudFlag.create({
+          data: {
+            flaggedUserId: user.id,
+            reportedById: null, // terdeteksi otomatis oleh sistem
+            type: "DUPLICATE_ACCOUNT",
+            severity: 3,
+            detail: `Nomor rekening ${bankAccountNumber} (${bankName} a.n. ${bankAccountName}) sama persis dengan akun kreator lain "${duplicate.user.name}" (ID: ${duplicate.userId}).`,
+          },
         });
+
+        const admins = await tx.user.findMany({
+          where: { role: "ADMIN" },
+          select: { id: true },
+        });
+        if (admins.length > 0) {
+          await tx.notification.createMany({
+            data: admins.map((adm) => ({
+              userId: adm.id,
+              type: "GENERAL",
+              title: "Peringatan Akun Ganda (Sybil)",
+              body: `Kreator "${user.name}" mendaftarkan nomor rekening yang sama dengan kreator "${duplicate.user.name}". Periksa di panel Fraud.`,
+              link: "/admin/fraud",
+            })),
+          });
+        }
       }
-    }
-  });
+    });
+  } catch (err) {
+    console.error("[updateBankAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat menyimpan rekening bank." };
+  }
 
   revalidatePath("/creator/earnings");
   revalidatePath("/admin/fraud");

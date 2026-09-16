@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Role } from "@/generated/prisma/enums";
+import { errorResponse, ErrorCode } from "@/lib/api-response";
 
 function escapeCSV(val: unknown): string {
   if (val === null || val === undefined) return "";
@@ -19,7 +20,11 @@ function toCSV(headers: string[], rows: (string | number | null | undefined)[][]
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== Role.ADMIN) {
-    return new Response("Unauthorized", { status: 401 });
+    return errorResponse(
+      ErrorCode.UNAUTHORIZED,
+      "Unauthorized: Akses ditolak. Hanya administrator yang diizinkan.",
+      401,
+    );
   }
 
   const { searchParams } = new URL(req.url);
@@ -207,5 +212,9 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return new Response("Tipe ekspor tidak didukung", { status: 400 });
+  return errorResponse(
+    ErrorCode.BAD_REQUEST,
+    "Tipe ekspor tidak didukung. Pilihan yang valid: payouts, escrow, analytics.",
+    400,
+  );
 }

@@ -122,3 +122,14 @@ export function clearRateLimitStores(): void {
   rateStore.clear();
   throttleStore.clear();
 }
+
+/** Reset record rate limit tertentu atau semua jika key tidak diberikan */
+export function resetRateLimit(key?: string): void {
+  if (key) {
+    rateStore.delete(key);
+    throttleStore.delete(key);
+  } else {
+    rateStore.clear();
+    throttleStore.clear();
+  }
+}

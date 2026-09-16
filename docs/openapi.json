@@ -1,0 +1,701 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Kontem Platform REST API",
+    "version": "1.0.0",
+    "description": "Production REST API documentation for Kontem - a pay-per-view influencer marketing platform with escrow protection, fraud detection, and automated payouts.",
+    "contact": {
+      "name": "Kontem Engineering Team",
+      "email": "engineering@kontem.id"
+    },
+    "license": {
+      "name": "Proprietary"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Development Server"
+    },
+    {
+      "url": "https://kontem.id",
+      "description": "Production Server"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Liveness Probe",
+        "description": "Returns 200 OK if the application process is running and responsive. Suitable for Kubernetes or container orchestrator liveness checks.",
+        "operationId": "getHealthLiveness",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "Application process is alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health/ready": {
+      "get": {
+        "summary": "Readiness Probe",
+        "description": "Verifies downstream infrastructure connectivity (PostgreSQL / Supabase database ping). Returns 200 OK if the database is accessible, 503 Service Unavailable if degraded.",
+        "operationId": "getHealthReadiness",
+        "tags": ["Health"],
+        "responses": {
+          "200": {
+            "description": "Application and database are ready to serve traffic",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database or downstream dependency unhealthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/campaigns": {
+      "get": {
+        "summary": "List Campaigns",
+        "description": "Retrieve paginated list of public active campaigns with filtering by city and category, and sorting.",
+        "operationId": "listCampaigns",
+        "tags": ["Campaigns"],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Items per page (default: 10, max: 50)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 10
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "description": "Filter campaigns by vendor city (case-insensitive substring match)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Filter campaigns by business category",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["KULINER", "WISATA_ALAM", "WISATA_BUATAN", "AKOMODASI", "LAINNYA"]
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Field to sort by (default: createdAt)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["createdAt", "budgetPool", "cpmRate", "endDate"],
+              "default": "createdAt"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "Sort direction (default: desc)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["asc", "desc"],
+              "default": "desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated campaign list retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/campaigns/{id}": {
+      "get": {
+        "summary": "Get Campaign Detail",
+        "description": "Retrieve detailed information for a single campaign by unique ID.",
+        "operationId": "getCampaignById",
+        "tags": ["Campaigns"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Unique identifier of the campaign",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Campaign detail retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Campaign not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cron/campaign-lifecycle": {
+      "get": {
+        "summary": "Execute Campaign Lifecycle Sync",
+        "description": "Cron job endpoint executed periodically (e.g. hourly) to transition expired campaigns to ENDED, expire unused redeem codes, cancel unfulfilled participations, and alert admins for settling.",
+        "operationId": "runLifecycleSync",
+        "tags": ["Cron"],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lifecycle sync completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LifecycleSyncResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Bearer CRON_SECRET token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Sync process encountered an unhandled error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/export": {
+      "get": {
+        "summary": "Export Admin Data",
+        "description": "Export system entities (audit logs, campaigns, escrow transactions, submissions) in JSON or CSV format. Requires ADMIN session authentication.",
+        "operationId": "exportAdminData",
+        "tags": ["Admin"],
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Entity type to export",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["audit", "campaigns", "escrow", "submissions"]
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Output file format (default: json)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["json", "csv"],
+              "default": "json"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Data exported successfully as downloadable file or JSON payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "description": "CSV formatted tabular data"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid entity type specified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Admin session required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - User does not hold ADMIN role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Token",
+        "description": "CRON_SECRET token provided via 'Authorization: Bearer <secret>' header."
+      },
+      "CookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "kontem_session",
+        "description": "Encrypted HTTP-only session cookie managed by Iron Session."
+      }
+    },
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-17T02:00:00.000Z"
+          },
+          "uptime": {
+            "type": "number",
+            "example": 3600.5
+          }
+        },
+        "required": ["status", "timestamp", "uptime"]
+      },
+      "ReadinessResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["ok", "degraded"],
+            "example": "ok"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-09-17T02:00:00.000Z"
+          },
+          "checks": {
+            "type": "object",
+            "properties": {
+              "database": {
+                "type": "string",
+                "enum": ["healthy", "unhealthy"],
+                "example": "healthy"
+              }
+            },
+            "required": ["database"]
+          },
+          "error": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          }
+        },
+        "required": ["status", "timestamp", "checks"]
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "example": 1
+          },
+          "limit": {
+            "type": "integer",
+            "example": 10
+          },
+          "totalItems": {
+            "type": "integer",
+            "example": 45
+          },
+          "totalPages": {
+            "type": "integer",
+            "example": 5
+          }
+        },
+        "required": ["page", "limit", "totalItems", "totalPages"]
+      },
+      "CampaignListItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "cuid_12345"
+          },
+          "title": {
+            "type": "string",
+            "example": "Promo Kuliner Bakso Viral"
+          },
+          "category": {
+            "type": "string",
+            "example": "KULINER"
+          },
+          "status": {
+            "type": "string",
+            "example": "ACTIVE"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "budgetPool": {
+            "type": "integer",
+            "example": 5000000
+          },
+          "cpmRate": {
+            "type": "integer",
+            "example": 15000
+          },
+          "complimentType": {
+            "type": "string",
+            "example": "1 Porsi Bakso Beranak Spesial + Es Teh"
+          },
+          "complimentValue": {
+            "type": "integer",
+            "example": 50000
+          },
+          "maxCreators": {
+            "type": "integer",
+            "example": 10
+          },
+          "slotsTaken": {
+            "type": "integer",
+            "example": 3
+          },
+          "allowedPlatforms": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["TIKTOK", "INSTAGRAM", "YOUTUBE"]
+            },
+            "example": ["TIKTOK", "INSTAGRAM"]
+          },
+          "vendor": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string",
+                "example": "Kedai Bakso Juara"
+              },
+              "businessName": {
+                "type": "string",
+                "example": "Kedai Bakso Juara"
+              },
+              "city": {
+                "type": "string",
+                "example": "Bandung"
+              },
+              "address": {
+                "type": "string",
+                "example": "Jl. Braga No. 12"
+              }
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "category",
+          "status",
+          "startDate",
+          "endDate",
+          "budgetPool",
+          "cpmRate",
+          "complimentType",
+          "maxCreators",
+          "slotsTaken",
+          "allowedPlatforms",
+          "vendor",
+          "createdAt"
+        ]
+      },
+      "CampaignListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CampaignListItem"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          }
+        },
+        "required": ["success", "data", "pagination"]
+      },
+      "CampaignDetailResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CampaignListItem"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "example": "Ceritakan pengalaman unik mencicipi kuah kaldu rempah asli kami."
+                  },
+                  "doGuidelines": {
+                    "type": "string",
+                    "example": "Tampilkan semangkuk bakso saat disajikan mengepul panas."
+                  },
+                  "dontGuidelines": {
+                    "type": "string",
+                    "example": "Jangan menjelekkan kompetitor di caption atau video."
+                  },
+                  "mandatoryTags": {
+                    "type": "string",
+                    "example": "#BaksoJuara #KulinerBandung"
+                  },
+                  "maxViewsPerCreator": {
+                    "type": "integer",
+                    "nullable": true,
+                    "example": 200000
+                  },
+                  "approvedSubmissionsCount": {
+                    "type": "integer",
+                    "example": 4
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "required": ["success", "data"]
+      },
+      "LifecycleSyncResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "campaignsEnded": {
+                "type": "integer",
+                "example": 2
+              },
+              "codesExpired": {
+                "type": "integer",
+                "example": 5
+              },
+              "participationsCancelled": {
+                "type": "integer",
+                "example": 3
+              },
+              "settleAlertsSent": {
+                "type": "integer",
+                "example": 1
+              }
+            }
+          }
+        },
+        "required": ["success", "timestamp", "result"]
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "NOT_FOUND"
+              },
+              "message": {
+                "type": "string",
+                "example": "Campaign dengan ID 'xyz' tidak ditemukan."
+              },
+              "details": {
+                "type": "object",
+                "nullable": true
+              }
+            },
+            "required": ["code", "message"]
+          }
+        },
+        "required": ["success", "error"]
+      }
+    }
+  }
+}

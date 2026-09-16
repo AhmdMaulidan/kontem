@@ -54,36 +54,41 @@ export async function reviewVendorAction(
 
   const approved = decision === "approve";
 
-  await db.$transaction([
-    db.user.update({
-      where: { id: vendorId },
-      data: { status: approved ? "VERIFIED" : "REJECTED" },
-    }),
-    db.vendorProfile.update({
-      where: { userId: vendorId },
-      data: approved
-        ? {
-            verifiedAt: new Date(),
-            verifiedById: admin.id,
-            verificationNote: note || null,
-            rejectionReason: null,
-          }
-        : { rejectionReason: note, verifiedAt: null },
-    }),
-    db.notification.create({
-      data: {
-        userId: vendorId,
-        type: approved ? "VENDOR_VERIFIED" : "GENERAL",
-        title: approved ? "Bisnis terverifikasi" : "Verifikasi ditolak",
-        body: approved
-          ? "Kamu sudah bisa membuat campaign."
-          : `Verifikasi ditolak: ${note}`,
-        link: "/vendor",
-      },
-    }),
-  ]);
+  try {
+    await db.$transaction([
+      db.user.update({
+        where: { id: vendorId },
+        data: { status: approved ? "VERIFIED" : "REJECTED" },
+      }),
+      db.vendorProfile.update({
+        where: { userId: vendorId },
+        data: approved
+          ? {
+              verifiedAt: new Date(),
+              verifiedById: admin.id,
+              verificationNote: note || null,
+              rejectionReason: null,
+            }
+          : { rejectionReason: note, verifiedAt: null },
+      }),
+      db.notification.create({
+        data: {
+          userId: vendorId,
+          type: approved ? "VENDOR_VERIFIED" : "GENERAL",
+          title: approved ? "Bisnis terverifikasi" : "Verifikasi ditolak",
+          body: approved
+            ? "Kamu sudah bisa membuat campaign."
+            : `Verifikasi ditolak: ${note}`,
+          link: "/vendor",
+        },
+      }),
+    ]);
 
-  await logAction(admin.id, approved ? "vendor.verify" : "vendor.reject", "VendorProfile", vendorId, { catatan: note || null });
+    await logAction(admin.id, approved ? "vendor.verify" : "vendor.reject", "VendorProfile", vendorId, { catatan: note || null });
+  } catch (err) {
+    console.error("[reviewVendorAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat memproses peninjauan vendor." };
+  }
 
   revalidatePath("/admin/vendors");
   return { success: approved ? "Vendor diverifikasi." : "Vendor ditolak." };
@@ -115,25 +120,30 @@ export async function reviewCreatorAction(
   // pengajuan awal maupun menonaktifkan akun yang sudah pernah aktif.
   const aktif = decision === "approve";
 
-  await db.$transaction([
-    db.user.update({
-      where: { id: creatorId },
-      data: { status: aktif ? "VERIFIED" : "REJECTED" },
-    }),
-    db.notification.create({
-      data: {
-        userId: creatorId,
-        type: "GENERAL",
-        title: aktif ? "Akun diaktifkan" : "Akun dinonaktifkan",
-        body: aktif
-          ? "Akunmu aktif. Kamu sudah bisa klaim campaign."
-          : `Akunmu dinonaktifkan: ${note}`,
-        link: "/creator",
-      },
-    }),
-  ]);
+  try {
+    await db.$transaction([
+      db.user.update({
+        where: { id: creatorId },
+        data: { status: aktif ? "VERIFIED" : "REJECTED" },
+      }),
+      db.notification.create({
+        data: {
+          userId: creatorId,
+          type: "GENERAL",
+          title: aktif ? "Akun diaktifkan" : "Akun dinonaktifkan",
+          body: aktif
+            ? "Akunmu aktif. Kamu sudah bisa klaim campaign."
+            : `Akunmu dinonaktifkan: ${note}`,
+          link: "/creator",
+        },
+      }),
+    ]);
 
-  await logAction(admin.id, aktif ? "creator.activate" : "creator.deactivate", "CreatorProfile", creatorId, { catatan: note || null });
+    await logAction(admin.id, aktif ? "creator.activate" : "creator.deactivate", "CreatorProfile", creatorId, { catatan: note || null });
+  } catch (err) {
+    console.error("[reviewCreatorAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat memproses peninjauan creator." };
+  }
 
   revalidatePath("/admin/creators");
   return { success: aktif ? "Creator diaktifkan." : "Creator dinonaktifkan." };
@@ -183,60 +193,65 @@ export async function reviewCampaignAction(
     }
   }
 
-  await db.$transaction([
-    db.campaign.update({
-      where: { id: campaignId },
-      data: approved
-        ? {
-            status: "ACTIVE",
-            approvedAt: new Date(),
-            approvedById: admin.id,
-            rejectionReason: null,
-          }
-        : { status: "REJECTED", rejectionReason: note },
-    }),
-    db.notification.create({
-      data: {
-        userId: campaign.vendorId,
-        type: "GENERAL",
-        title: approved ? "Campaign disetujui" : "Campaign ditolak",
-        body: approved
-          ? `"${campaign.title}" sudah live dan terlihat creator.`
-          : `"${campaign.title}" ditolak: ${note}`,
-        link: `/vendor/campaigns/${campaignId}`,
+  try {
+    await db.$transaction([
+      db.campaign.update({
+        where: { id: campaignId },
+        data: approved
+          ? {
+              status: "ACTIVE",
+              approvedAt: new Date(),
+              approvedById: admin.id,
+              rejectionReason: null,
+            }
+          : { status: "REJECTED", rejectionReason: note },
+      }),
+      db.notification.create({
+        data: {
+          userId: campaign.vendorId,
+          type: "GENERAL",
+          title: approved ? "Campaign disetujui" : "Campaign ditolak",
+          body: approved
+            ? `"${campaign.title}" sudah live dan terlihat creator.`
+            : `"${campaign.title}" ditolak: ${note}`,
+          link: `/vendor/campaigns/${campaignId}`,
+        },
+      }),
+    ]);
+
+    let creatorsNotified = 0;
+    const vendorCity = campaign.vendor.vendorProfile?.city;
+    if (approved && vendorCity) {
+      const broadcast = await broadcastNewCampaignToNearbyCreators(db, {
+        campaignId: campaign.id,
+        campaignTitle: campaign.title,
+        businessName: campaign.vendor.vendorProfile?.businessName ?? campaign.vendor.name,
+        city: vendorCity,
+      });
+      creatorsNotified = broadcast.count;
+    }
+
+    await logAction(
+      admin.id,
+      approved ? "campaign.approve" : "campaign.reject",
+      "Campaign",
+      campaignId,
+      {
+        catatan: note || null,
+        ...(approved ? { kota: vendorCity ?? null, creatorsNotified } : {}),
       },
-    }),
-  ]);
+    );
 
-  let creatorsNotified = 0;
-  const vendorCity = campaign.vendor.vendorProfile?.city;
-  if (approved && vendorCity) {
-    const broadcast = await broadcastNewCampaignToNearbyCreators(db, {
-      campaignId: campaign.id,
-      campaignTitle: campaign.title,
-      businessName: campaign.vendor.vendorProfile?.businessName ?? campaign.vendor.name,
-      city: vendorCity,
-    });
-    creatorsNotified = broadcast.count;
+    revalidatePath("/admin/campaigns");
+    return {
+      success: approved
+        ? `Campaign disetujui dan live.${creatorsNotified > 0 ? ` Notifikasi disiarkan ke ${creatorsNotified} creator di ${vendorCity}.` : ""}`
+        : "Campaign ditolak.",
+    };
+  } catch (err) {
+    console.error("[reviewCampaignAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat memproses peninjauan campaign." };
   }
-
-  await logAction(
-    admin.id,
-    approved ? "campaign.approve" : "campaign.reject",
-    "Campaign",
-    campaignId,
-    {
-      catatan: note || null,
-      ...(approved ? { kota: vendorCity ?? null, creatorsNotified } : {}),
-    },
-  );
-
-  revalidatePath("/admin/campaigns");
-  return {
-    success: approved
-      ? `Campaign disetujui dan live.${creatorsNotified > 0 ? ` Notifikasi disiarkan ke ${creatorsNotified} creator di ${vendorCity}.` : ""}`
-      : "Campaign ditolak.",
-  };
 }
 
 /** Pemicu manual sinkronisasi siklus hidup kampanye oleh admin. */
@@ -286,33 +301,38 @@ export async function confirmDepositAction(
   if (!deposit) return { error: "Transaksi deposit tidak ditemukan." };
   if (deposit.status === "COMPLETED") return { error: "Deposit sudah lunas." };
 
-  await db.$transaction([
-    db.escrowTransaction.update({
-      where: { id: deposit.id },
-      data: {
-        status: "COMPLETED",
-        completedAt: new Date(),
-        reference: deposit.reference || `MANUAL-${Date.now()}`,
-        note: deposit.note
-          ? `${deposit.note} · Diverifikasi oleh Admin (${admin.name})`
-          : `Dikonfirmasi manual oleh admin (${admin.name}) setelah cek mutasi bank.`,
-      },
-    }),
-    db.notification.create({
-      data: {
-        userId: deposit.campaign.vendorId,
-        type: "GENERAL",
-        title: "Deposit escrow diterima",
-        body: `Deposit budget pool sebesar ${deposit.amount.toLocaleString("id-ID")} rupiah untuk "${deposit.campaign.title}" telah diverifikasi dan dikunci aman di escrow.`,
-        link: `/vendor/campaigns/${campaignId}`,
-      },
-    }),
-  ]);
+  try {
+    await db.$transaction([
+      db.escrowTransaction.update({
+        where: { id: deposit.id },
+        data: {
+          status: "COMPLETED",
+          completedAt: new Date(),
+          reference: deposit.reference || `MANUAL-${Date.now()}`,
+          note: deposit.note
+            ? `${deposit.note} · Diverifikasi oleh Admin (${admin.name})`
+            : `Dikonfirmasi manual oleh admin (${admin.name}) setelah cek mutasi bank.`,
+        },
+      }),
+      db.notification.create({
+        data: {
+          userId: deposit.campaign.vendorId,
+          type: "GENERAL",
+          title: "Deposit escrow diterima",
+          body: `Deposit budget pool sebesar ${deposit.amount.toLocaleString("id-ID")} rupiah untuk "${deposit.campaign.title}" telah diverifikasi dan dikunci aman di escrow.`,
+          link: `/vendor/campaigns/${campaignId}`,
+        },
+      }),
+    ]);
 
-  await logAction(admin.id, "escrow.deposit.confirm", "Campaign", campaignId, {
-    jumlah: deposit.amount,
-    referensi: deposit.reference || null,
-  });
+    await logAction(admin.id, "escrow.deposit.confirm", "Campaign", campaignId, {
+      jumlah: deposit.amount,
+      referensi: deposit.reference || null,
+    });
+  } catch (err) {
+    console.error("[confirmDepositAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat memproses konfirmasi deposit." };
+  }
 
   revalidatePath("/admin/campaigns");
   revalidatePath("/admin/escrow");
@@ -360,32 +380,37 @@ export async function confirmRefundAction(
 
   const refCode = `REFUND-${Date.now().toString().slice(-8)}`;
 
-  await db.$transaction([
-    db.escrowTransaction.update({
-      where: { id: refundTrx.id },
-      data: {
-        status: "COMPLETED",
-        completedAt: new Date(),
-        reference: refCode,
-        note: `Sisa pool dikembalikan ${bankInfoText}. Dikonfirmasi oleh admin (${admin.name}).`,
-      },
-    }),
-    db.notification.create({
-      data: {
-        userId: refundTrx.campaign.vendorId,
-        type: "GENERAL",
-        title: "Refund sisa budget dicairkan",
-        body: `Sisa budget pool campaign "${refundTrx.campaign.title}" sebesar ${refundTrx.amount.toLocaleString("id-ID")} rupiah telah ditransfer ${bankInfoText} (Ref: ${refCode}).`,
-        link: `/vendor/campaigns/${refundTrx.campaignId}`,
-      },
-    }),
-  ]);
+  try {
+    await db.$transaction([
+      db.escrowTransaction.update({
+        where: { id: refundTrx.id },
+        data: {
+          status: "COMPLETED",
+          completedAt: new Date(),
+          reference: refCode,
+          note: `Sisa pool dikembalikan ${bankInfoText}. Dikonfirmasi oleh admin (${admin.name}).`,
+        },
+      }),
+      db.notification.create({
+        data: {
+          userId: refundTrx.campaign.vendorId,
+          type: "GENERAL",
+          title: "Refund sisa budget dicairkan",
+          body: `Sisa budget pool campaign "${refundTrx.campaign.title}" sebesar ${refundTrx.amount.toLocaleString("id-ID")} rupiah telah ditransfer ${bankInfoText} (Ref: ${refCode}).`,
+          link: `/vendor/campaigns/${refundTrx.campaignId}`,
+        },
+      }),
+    ]);
 
-  await logAction(admin.id, "escrow.refund.confirm", "EscrowTransaction", refundTrx.id, {
-    campaignId: refundTrx.campaignId,
-    jumlah: refundTrx.amount,
-    referensi: refCode,
-  });
+    await logAction(admin.id, "escrow.refund.confirm", "EscrowTransaction", refundTrx.id, {
+      campaignId: refundTrx.campaignId,
+      jumlah: refundTrx.amount,
+      referensi: refCode,
+    });
+  } catch (err) {
+    console.error("[confirmRefundAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat memproses konfirmasi refund." };
+  }
 
   revalidatePath("/admin/escrow");
   revalidatePath("/admin/campaigns");
@@ -403,9 +428,13 @@ export async function confirmRefundAction(
 
 const viewsSchema = z.object({
   submissionId: z.string().min(1),
-  views: z.coerce.number().int().min(0, "Views tidak boleh negatif."),
-  likes: z.coerce.number().int().min(0).optional(),
-  comments: z.coerce.number().int().min(0).optional(),
+  views: z.coerce
+    .number()
+    .int()
+    .min(0, "Views tidak boleh negatif.")
+    .max(1_000_000_000, "Views tidak boleh melebihi 1 miliar."),
+  likes: z.coerce.number().int().min(0).max(1_000_000_000).optional(),
+  comments: z.coerce.number().int().min(0).max(1_000_000_000).optional(),
   isCorrection: z.coerce.boolean().optional(),
 });
 
@@ -462,64 +491,69 @@ export async function updateViewsAction(
     comments ?? submission.lastComments ?? 0,
   );
 
-  await db.$transaction(async (tx) => {
-    await tx.submission.update({
-      where: { id: submissionId },
-      data: {
-        lastViews: views,
-        lastLikes: likes ?? submission.lastLikes,
-        lastComments: comments ?? submission.lastComments,
-        lastSyncedAt: new Date(),
-      },
-    });
-    await tx.viewSnapshot.create({
-      data: {
-        submissionId,
-        views,
-        likes: likes ?? 0,
-        comments: comments ?? 0,
-        source: "MANUAL",
-      },
-    });
-
-    if (fraudAssessment?.hasFraud) {
-      await tx.fraudFlag.create({
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.submission.update({
+        where: { id: submissionId },
+        data: {
+          lastViews: views,
+          lastLikes: likes ?? submission.lastLikes,
+          lastComments: comments ?? submission.lastComments,
+          lastSyncedAt: new Date(),
+        },
+      });
+      await tx.viewSnapshot.create({
         data: {
           submissionId,
-          flaggedUserId: submission.creatorId,
-          reportedById: null, // otomatis oleh sistem
-          type: fraudAssessment.type,
-          severity: fraudAssessment.severity,
-          detail: fraudAssessment.reason,
+          views,
+          likes: likes ?? 0,
+          comments: comments ?? 0,
+          source: "MANUAL",
         },
       });
 
-      if (fraudAssessment.severity >= 2) {
-        const admins = await tx.user.findMany({
-          where: { role: "ADMIN" },
-          select: { id: true },
+      if (fraudAssessment?.hasFraud) {
+        await tx.fraudFlag.create({
+          data: {
+            submissionId,
+            flaggedUserId: submission.creatorId,
+            reportedById: null, // otomatis oleh sistem
+            type: fraudAssessment.type,
+            severity: fraudAssessment.severity,
+            detail: fraudAssessment.reason,
+          },
         });
-        if (admins.length > 0) {
-          await tx.notification.createMany({
-            data: admins.map((adm) => ({
-              userId: adm.id,
-              type: "GENERAL",
-              title: "Peringatan Anomali Views (Fraud)",
-              body: `Sistem mendeteksi anomali konten #${submissionId.slice(-6)}: ${fraudAssessment.reason}`,
-              link: "/admin/fraud",
-            })),
+
+        if (fraudAssessment.severity >= 2) {
+          const admins = await tx.user.findMany({
+            where: { role: "ADMIN" },
+            select: { id: true },
           });
+          if (admins.length > 0) {
+            await tx.notification.createMany({
+              data: admins.map((adm) => ({
+                userId: adm.id,
+                type: "GENERAL",
+                title: "Peringatan Anomali Views (Fraud)",
+                body: `Sistem mendeteksi anomali konten #${submissionId.slice(-6)}: ${fraudAssessment.reason}`,
+                link: "/admin/fraud",
+              })),
+            });
+          }
         }
       }
-    }
-  });
+    });
 
-  await logAction(admin.id, "submission.views.update", "Submission", submissionId, {
-    dari: submission.lastViews,
-    ke: views,
-    koreksi: isCorrection ? true : null,
-    anomali: fraudAssessment?.hasFraud ? fraudAssessment.reason : null,
-  });
+    await logAction(admin.id, "submission.views.update", "Submission", submissionId, {
+      dari: submission.lastViews,
+      ke: views,
+      koreksi: isCorrection ? true : null,
+      anomali: fraudAssessment?.hasFraud ? fraudAssessment.reason : null,
+    });
+  } catch (err) {
+    console.error("[updateViewsAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat memperbarui views." };
+  }
 
   revalidatePath("/admin/views");
   revalidatePath("/admin/fraud");
@@ -692,50 +726,55 @@ export async function reviewSubmissionAction(
 
   const approved = decision === "approve";
 
-  await db.$transaction(async (tx) => {
-    await tx.submission.update({
-      where: { id: submissionId },
-      data: {
-        status: approved ? "APPROVED" : "REJECTED",
-        reviewedById: admin.id,
-        reviewedAt: new Date(),
-        reviewNote: note || null,
-      },
-    });
-
-    await tx.campaignParticipation.update({
-      where: { id: submission.participationId },
-      data: { status: approved ? "COMPLETED" : "SUBMITTED" },
-    });
-
-    if (approved) {
-      // Trust score naik pelan-pelan, dibatasi 100.
-      await tx.creatorProfile.updateMany({
-        where: { userId: submission.creatorId },
-        data: { trustScore: { increment: 2 } },
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.submission.update({
+        where: { id: submissionId },
+        data: {
+          status: approved ? "APPROVED" : "REJECTED",
+          reviewedById: admin.id,
+          reviewedAt: new Date(),
+          reviewNote: note || null,
+        },
       });
-    }
 
-    await tx.notification.create({
-      data: {
-        userId: submission.creatorId,
-        type: approved ? "SUBMISSION_APPROVED" : "SUBMISSION_REJECTED",
-        title: approved ? "Konten disetujui" : "Konten ditolak",
-        body: approved
-          ? `Kontenmu untuk "${submission.campaign.title}" disetujui. Views mulai dihitung.`
-          : `Admin menolak kontenmu: ${note}`,
-        link: "/creator/submissions",
-      },
+      await tx.campaignParticipation.update({
+        where: { id: submission.participationId },
+        data: { status: approved ? "COMPLETED" : "SUBMITTED" },
+      });
+
+      if (approved) {
+        // Trust score naik pelan-pelan, dibatasi 100.
+        await tx.creatorProfile.updateMany({
+          where: { userId: submission.creatorId },
+          data: { trustScore: { increment: 2 } },
+        });
+      }
+
+      await tx.notification.create({
+        data: {
+          userId: submission.creatorId,
+          type: approved ? "SUBMISSION_APPROVED" : "SUBMISSION_REJECTED",
+          title: approved ? "Konten disetujui" : "Konten ditolak",
+          body: approved
+            ? `Kontenmu untuk "${submission.campaign.title}" disetujui. Views mulai dihitung.`
+            : `Admin menolak kontenmu: ${note}`,
+          link: "/creator/submissions",
+        },
+      });
     });
-  });
 
-  await logAction(
-    admin.id,
-    approved ? "submission.approve" : "submission.reject",
-    "Submission",
-    submissionId,
-    { catatan: note || null },
-  );
+    await logAction(
+      admin.id,
+      approved ? "submission.approve" : "submission.reject",
+      "Submission",
+      submissionId,
+      { catatan: note || null },
+    );
+  } catch (err) {
+    console.error("[reviewSubmissionAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat mereview submission." };
+  }
 
   revalidatePath("/admin/submissions");
   return {
@@ -762,26 +801,31 @@ export async function flagSubmissionAction(
   });
   if (!submission) return { error: "Submission tidak ditemukan." };
 
-  await db.fraudFlag.create({
-    data: {
-      submissionId,
-      flaggedUserId: submission.creatorId,
-      reportedById: admin.id,
-      type: type as
-        | "REUSED_CONTENT"
-        | "INFLATED_VIEWS"
-        | "DUPLICATE_ACCOUNT"
-        | "OFF_BRIEF"
-        | "FAKE_VISIT"
-        | "OTHER",
-      detail,
-      severity: 2,
-    },
-  });
+  try {
+    await db.fraudFlag.create({
+      data: {
+        submissionId,
+        flaggedUserId: submission.creatorId,
+        reportedById: admin.id,
+        type: type as
+          | "REUSED_CONTENT"
+          | "INFLATED_VIEWS"
+          | "DUPLICATE_ACCOUNT"
+          | "OFF_BRIEF"
+          | "FAKE_VISIT"
+          | "OTHER",
+        detail,
+        severity: 2,
+      },
+    });
 
-  await logAction(admin.id, "flag.create", "Submission", submissionId, {
-    jenis: type,
-  });
+    await logAction(admin.id, "flag.create", "Submission", submissionId, {
+      jenis: type,
+    });
+  } catch (err) {
+    console.error("[flagSubmissionAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat melaporkan fraud." };
+  }
 
   revalidatePath("/admin/submissions");
   revalidatePath("/admin/fraud");
@@ -815,59 +859,64 @@ export async function resolveDisputeAction(
   // "overturn" memenangkan creator: submission kembali dihitung untuk payout.
   const overturn = decision === "overturn";
 
-  await db.$transaction(async (tx) => {
-    await tx.dispute.update({
-      where: { id: disputeId },
-      data: {
-        status: overturn ? "RESOLVED_OVERTURNED" : "RESOLVED_UPHELD",
-        resolution,
-        resolvedById: admin.id,
-        resolvedAt: new Date(),
-      },
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.dispute.update({
+        where: { id: disputeId },
+        data: {
+          status: overturn ? "RESOLVED_OVERTURNED" : "RESOLVED_UPHELD",
+          resolution,
+          resolvedById: admin.id,
+          resolvedAt: new Date(),
+        },
+      });
+      await tx.disputeMessage.create({
+        data: { disputeId, senderId: admin.id, body: resolution },
+      });
+      await tx.submission.update({
+        where: { id: dispute.submissionId },
+        data: {
+          status: overturn ? "ADMIN_APPROVED" : "ADMIN_REJECTED",
+          reviewedById: admin.id,
+          reviewedAt: new Date(),
+        },
+      });
+      await tx.campaignParticipation.update({
+        where: { id: dispute.submission.participationId },
+        data: { status: overturn ? "COMPLETED" : "CANCELLED" },
+      });
+      // Trust score creator turun kalau bandingnya tidak berdasar.
+      await tx.creatorProfile.updateMany({
+        where: { userId: dispute.submission.creatorId },
+        data: { trustScore: { increment: overturn ? 3 : -5 } },
+      });
+      await tx.notification.create({
+        data: {
+          userId: dispute.submission.creatorId,
+          type: "DISPUTE_UPDATE",
+          title: overturn ? "Banding dimenangkan" : "Banding ditolak",
+          body: resolution,
+          link: "/creator/submissions",
+        },
+      });
+      await tx.notification.create({
+        data: {
+          userId: dispute.submission.campaign.vendorId,
+          type: "DISPUTE_UPDATE",
+          title: "Keputusan sengketa",
+          body: overturn
+            ? `Admin menyetujui konten yang kamu tolak: ${resolution}`
+            : `Penolakanmu dikuatkan: ${resolution}`,
+          link: `/vendor/campaigns/${dispute.submission.campaignId}`,
+        },
+      });
     });
-    await tx.disputeMessage.create({
-      data: { disputeId, senderId: admin.id, body: resolution },
-    });
-    await tx.submission.update({
-      where: { id: dispute.submissionId },
-      data: {
-        status: overturn ? "ADMIN_APPROVED" : "ADMIN_REJECTED",
-        reviewedById: admin.id,
-        reviewedAt: new Date(),
-      },
-    });
-    await tx.campaignParticipation.update({
-      where: { id: dispute.submission.participationId },
-      data: { status: overturn ? "COMPLETED" : "CANCELLED" },
-    });
-    // Trust score creator turun kalau bandingnya tidak berdasar.
-    await tx.creatorProfile.updateMany({
-      where: { userId: dispute.submission.creatorId },
-      data: { trustScore: { increment: overturn ? 3 : -5 } },
-    });
-    await tx.notification.create({
-      data: {
-        userId: dispute.submission.creatorId,
-        type: "DISPUTE_UPDATE",
-        title: overturn ? "Banding dimenangkan" : "Banding ditolak",
-        body: resolution,
-        link: "/creator/submissions",
-      },
-    });
-    await tx.notification.create({
-      data: {
-        userId: dispute.submission.campaign.vendorId,
-        type: "DISPUTE_UPDATE",
-        title: "Keputusan sengketa",
-        body: overturn
-          ? `Admin menyetujui konten yang kamu tolak: ${resolution}`
-          : `Penolakanmu dikuatkan: ${resolution}`,
-        link: `/vendor/campaigns/${dispute.submission.campaignId}`,
-      },
-    });
-  });
 
-  await logAction(admin.id, overturn ? "dispute.overturn" : "dispute.uphold", "Dispute", disputeId, { dasar: resolution });
+    await logAction(admin.id, overturn ? "dispute.overturn" : "dispute.uphold", "Dispute", disputeId, { dasar: resolution });
+  } catch (err) {
+    console.error("[resolveDisputeAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat memproses sengketa." };
+  }
 
   revalidatePath("/admin/disputes");
   return {
@@ -891,28 +940,33 @@ export async function resolveFlagAction(
 
   const confirmed = decision === "confirm";
 
-  await db.$transaction(async (tx) => {
-    await tx.fraudFlag.update({
-      where: { id: flagId },
-      data: {
-        status: confirmed ? "CONFIRMED" : "DISMISSED",
-        resolutionNote: note || null,
-      },
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.fraudFlag.update({
+        where: { id: flagId },
+        data: {
+          status: confirmed ? "CONFIRMED" : "DISMISSED",
+          resolutionNote: note || null,
+        },
+      });
+      if (confirmed && flag.flaggedUserId) {
+        await tx.creatorProfile.updateMany({
+          where: { userId: flag.flaggedUserId },
+          data: { trustScore: { decrement: 15 } },
+        });
+        // Payout yang belum cair ditahan sampai ada keputusan lanjutan.
+        await tx.payout.updateMany({
+          where: { creatorId: flag.flaggedUserId, status: "PENDING" },
+          data: { status: "HELD", note: "Ditahan karena indikasi kecurangan." },
+        });
+      }
     });
-    if (confirmed && flag.flaggedUserId) {
-      await tx.creatorProfile.updateMany({
-        where: { userId: flag.flaggedUserId },
-        data: { trustScore: { decrement: 15 } },
-      });
-      // Payout yang belum cair ditahan sampai ada keputusan lanjutan.
-      await tx.payout.updateMany({
-        where: { creatorId: flag.flaggedUserId, status: "PENDING" },
-        data: { status: "HELD", note: "Ditahan karena indikasi kecurangan." },
-      });
-    }
-  });
 
-  await logAction(admin.id, confirmed ? "fraud.confirm" : "fraud.dismiss", "FraudFlag", flagId, { catatan: note || null });
+    await logAction(admin.id, confirmed ? "fraud.confirm" : "fraud.dismiss", "FraudFlag", flagId, { catatan: note || null });
+  } catch (err) {
+    console.error("[resolveFlagAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat memproses laporan fraud." };
+  }
 
   revalidatePath("/admin/fraud");
   return { success: confirmed ? "Laporan dikonfirmasi." : "Laporan ditutup." };
@@ -980,74 +1034,79 @@ export async function settleCampaignAction(
     maxViewsPerCreator: campaign.maxViewsPerCreator,
   });
 
-  await db.$transaction(async (tx) => {
-    for (const submission of campaign.submissions) {
-      await tx.submission.update({
-        where: { id: submission.id },
-        data: { finalViews: submission.finalViews ?? submission.lastViews },
-      });
-    }
+  try {
+    await db.$transaction(async (tx) => {
+      for (const submission of campaign.submissions) {
+        await tx.submission.update({
+          where: { id: submission.id },
+          data: { finalViews: submission.finalViews ?? submission.lastViews },
+        });
+      }
 
-    for (const line of hasil.lines) {
-      await tx.payout.create({
-        data: {
-          campaignId,
-          creatorId: line.creatorId,
-          submissionId: line.submissionId,
-          viewsCounted: line.viewsCounted,
-          totalPoolViews: line.totalPoolViews,
-          sharePercent: line.sharePercent,
-          grossAmount: line.grossAmount,
-          platformFee: line.platformFee,
-          netAmount: line.netAmount,
-          status: "PENDING",
-        },
-      });
-      await tx.notification.create({
-        data: {
-          userId: line.creatorId,
-          type: "PAYOUT_RELEASED",
-          title: "Payout dihitung",
-          body: `Campaign "${campaign.title}" selesai. Bagianmu ${line.netAmount.toLocaleString("id-ID")} rupiah, menunggu pencairan.`,
-          link: "/creator/earnings",
-        },
-      });
-    }
+      for (const line of hasil.lines) {
+        await tx.payout.create({
+          data: {
+            campaignId,
+            creatorId: line.creatorId,
+            submissionId: line.submissionId,
+            viewsCounted: line.viewsCounted,
+            totalPoolViews: line.totalPoolViews,
+            sharePercent: line.sharePercent,
+            grossAmount: line.grossAmount,
+            platformFee: line.platformFee,
+            netAmount: line.netAmount,
+            status: "PENDING",
+          },
+        });
+        await tx.notification.create({
+          data: {
+            userId: line.creatorId,
+            type: "PAYOUT_RELEASED",
+            title: "Payout dihitung",
+            body: `Campaign "${campaign.title}" selesai. Bagianmu ${line.netAmount.toLocaleString("id-ID")} rupiah, menunggu pencairan.`,
+            link: "/creator/earnings",
+          },
+        });
+      }
 
-    await tx.escrowTransaction.create({
-      data: {
-        campaignId,
-        type: "PLATFORM_FEE",
-        amount: hasil.totalPlatformFee,
-        status: "COMPLETED",
-        completedAt: new Date(),
-      },
-    });
-
-    if (hasil.refundToVendor > 0) {
       await tx.escrowTransaction.create({
         data: {
           campaignId,
-          type: "REFUND",
-          amount: hasil.refundToVendor,
-          status: "PENDING",
-          note: "Sisa pool yang tidak terserap.",
+          type: "PLATFORM_FEE",
+          amount: hasil.totalPlatformFee,
+          status: "COMPLETED",
+          completedAt: new Date(),
         },
       });
-    }
 
-    await tx.campaign.update({
-      where: { id: campaignId },
-      data: { status: "SETTLING", settledAt: new Date() },
+      if (hasil.refundToVendor > 0) {
+        await tx.escrowTransaction.create({
+          data: {
+            campaignId,
+            type: "REFUND",
+            amount: hasil.refundToVendor,
+            status: "PENDING",
+            note: "Sisa pool yang tidak terserap.",
+          },
+        });
+      }
+
+      await tx.campaign.update({
+        where: { id: campaignId },
+        data: { status: "SETTLING", settledAt: new Date() },
+      });
     });
-  });
 
-  await logAction(admin.id, "campaign.settle", "Campaign", campaignId, {
-    totalViews: hasil.totalViews,
-    dibagikan: hasil.totalDistributed,
-    fee: hasil.totalPlatformFee,
-    refund: hasil.refundToVendor,
-  });
+    await logAction(admin.id, "campaign.settle", "Campaign", campaignId, {
+      totalViews: hasil.totalViews,
+      dibagikan: hasil.totalDistributed,
+      fee: hasil.totalPlatformFee,
+      refund: hasil.refundToVendor,
+    });
+  } catch (err) {
+    console.error("[settleCampaignAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat memproses penyelesaian campaign." };
+  }
 
   revalidatePath("/admin/payouts");
   return {
@@ -1072,49 +1131,54 @@ export async function releasePayoutsAction(
 
   const total = payouts.reduce((sum, p) => sum + p.netAmount, 0);
 
-  await db.$transaction(async (tx) => {
-    await tx.payout.updateMany({
-      where: { campaignId, status: "PENDING" },
-      data: { status: "PAID", paidAt: new Date() },
-    });
-    await tx.escrowTransaction.create({
-      data: {
-        campaignId,
-        type: "PAYOUT",
-        amount: total,
-        status: "COMPLETED",
-        reference: `MANUAL-PAYOUT-${Date.now()}`,
-        completedAt: new Date(),
-      },
-    });
-
-    const masihTertahan = await tx.payout.count({
-      where: { campaignId, status: { in: ["PENDING", "HELD", "PROCESSING"] } },
-    });
-    if (masihTertahan === 0) {
-      await tx.campaign.update({
-        where: { id: campaignId },
-        data: { status: "SETTLED" },
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.payout.updateMany({
+        where: { campaignId, status: "PENDING" },
+        data: { status: "PAID", paidAt: new Date() },
       });
-    }
-
-    for (const payout of payouts) {
-      await tx.notification.create({
+      await tx.escrowTransaction.create({
         data: {
-          userId: payout.creatorId,
-          type: "PAYOUT_RELEASED",
-          title: "Payout cair",
-          body: `${payout.netAmount.toLocaleString("id-ID")} rupiah sudah ditransfer ke rekening terdaftar.`,
-          link: "/creator/earnings",
+          campaignId,
+          type: "PAYOUT",
+          amount: total,
+          status: "COMPLETED",
+          reference: `MANUAL-PAYOUT-${Date.now()}`,
+          completedAt: new Date(),
         },
       });
-    }
-  });
 
-  await logAction(admin.id, "payout.release", "Campaign", campaignId, {
-    jumlahCreator: payouts.length,
-    total,
-  });
+      const masihTertahan = await tx.payout.count({
+        where: { campaignId, status: { in: ["PENDING", "HELD", "PROCESSING"] } },
+      });
+      if (masihTertahan === 0) {
+        await tx.campaign.update({
+          where: { id: campaignId },
+          data: { status: "SETTLED" },
+        });
+      }
+
+      for (const payout of payouts) {
+        await tx.notification.create({
+          data: {
+            userId: payout.creatorId,
+            type: "PAYOUT_RELEASED",
+            title: "Payout cair",
+            body: `${payout.netAmount.toLocaleString("id-ID")} rupiah sudah ditransfer ke rekening terdaftar.`,
+            link: "/creator/earnings",
+          },
+        });
+      }
+    });
+
+    await logAction(admin.id, "payout.release", "Campaign", campaignId, {
+      jumlahCreator: payouts.length,
+      total,
+    });
+  } catch (err) {
+    console.error("[releasePayoutsAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat mencairkan payout." };
+  }
 
   revalidatePath("/admin/payouts");
   return { success: `${payouts.length} payout dicairkan, total ${total.toLocaleString("id-ID")} rupiah.` };
@@ -1150,51 +1214,56 @@ export async function releaseSinglePayoutAction(
     };
   }
 
-  await db.$transaction(async (tx) => {
-    await tx.payout.update({
-      where: { id: payout.id },
-      data: { status: "PAID", paidAt: new Date() },
-    });
-
-    await tx.escrowTransaction.create({
-      data: {
-        campaignId: payout.campaignId,
-        type: "PAYOUT",
-        amount: payout.netAmount,
-        status: "COMPLETED",
-        reference: `MANUAL-PAYOUT-${Date.now()}`,
-        completedAt: new Date(),
-      },
-    });
-
-    const masihTertahan = await tx.payout.count({
-      where: {
-        campaignId: payout.campaignId,
-        status: { in: ["PENDING", "HELD", "PROCESSING"] },
-      },
-    });
-    if (masihTertahan === 0) {
-      await tx.campaign.update({
-        where: { id: payout.campaignId },
-        data: { status: "SETTLED" },
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.payout.update({
+        where: { id: payout.id },
+        data: { status: "PAID", paidAt: new Date() },
       });
-    }
 
-    await tx.notification.create({
-      data: {
-        userId: payout.creatorId,
-        type: "PAYOUT_RELEASED",
-        title: "Payout cair",
-        body: `${payout.netAmount.toLocaleString("id-ID")} rupiah sudah ditransfer ke rekening terdaftar.`,
-        link: "/creator/earnings",
-      },
+      await tx.escrowTransaction.create({
+        data: {
+          campaignId: payout.campaignId,
+          type: "PAYOUT",
+          amount: payout.netAmount,
+          status: "COMPLETED",
+          reference: `MANUAL-PAYOUT-${Date.now()}`,
+          completedAt: new Date(),
+        },
+      });
+
+      const masihTertahan = await tx.payout.count({
+        where: {
+          campaignId: payout.campaignId,
+          status: { in: ["PENDING", "HELD", "PROCESSING"] },
+        },
+      });
+      if (masihTertahan === 0) {
+        await tx.campaign.update({
+          where: { id: payout.campaignId },
+          data: { status: "SETTLED" },
+        });
+      }
+
+      await tx.notification.create({
+        data: {
+          userId: payout.creatorId,
+          type: "PAYOUT_RELEASED",
+          title: "Payout cair",
+          body: `${payout.netAmount.toLocaleString("id-ID")} rupiah sudah ditransfer ke rekening terdaftar.`,
+          link: "/creator/earnings",
+        },
+      });
     });
-  });
 
-  await logAction(admin.id, "payout.release.single", "Payout", payout.id, {
-    creatorId: payout.creatorId,
-    jumlah: payout.netAmount,
-  });
+    await logAction(admin.id, "payout.release.single", "Payout", payout.id, {
+      creatorId: payout.creatorId,
+      jumlah: payout.netAmount,
+    });
+  } catch (err) {
+    console.error("[releaseSinglePayoutAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat mencairkan payout." };
+  }
 
   revalidatePath("/admin/payouts");
   revalidatePath("/admin/payouts/pratinjau");
@@ -1218,24 +1287,29 @@ export async function holdPayoutAction(
   if (!flag) return { error: "Laporan fraud tidak ditemukan." };
   if (!flag.flaggedUserId) return { error: "User tidak ditemukan pada laporan ini." };
 
-  const count = await db.payout.updateMany({
-    where: { creatorId: flag.flaggedUserId, status: "PENDING" },
-    data: {
-      status: "HELD",
-      note: "Ditahan oleh admin untuk penyelidikan indikasi kecurangan.",
-    },
-  });
+  try {
+    const count = await db.payout.updateMany({
+      where: { creatorId: flag.flaggedUserId, status: "PENDING" },
+      data: {
+        status: "HELD",
+        note: "Ditahan oleh admin untuk penyelidikan indikasi kecurangan.",
+      },
+    });
 
-  await logAction(admin.id, "fraud.payout.hold", "FraudFlag", flagId, {
-    flaggedUserId: flag.flaggedUserId,
-    jumlahTertahan: count.count,
-  });
+    await logAction(admin.id, "fraud.payout.hold", "FraudFlag", flagId, {
+      flaggedUserId: flag.flaggedUserId,
+      jumlahTertahan: count.count,
+    });
 
-  revalidatePath("/admin/fraud");
-  revalidatePath("/admin/payouts");
-  return {
-    success: `${count.count} payout berhasil ditahan untuk penyelidikan fraud.`,
-  };
+    revalidatePath("/admin/fraud");
+    revalidatePath("/admin/payouts");
+    return {
+      success: `${count.count} payout berhasil ditahan untuk penyelidikan fraud.`,
+    };
+  } catch (err) {
+    console.error("[holdPayoutAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat menahan payout." };
+  }
 }
 
 // ---------------------------------------------------------------- brief template
