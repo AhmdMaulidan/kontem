@@ -251,25 +251,59 @@ export async function flagSubmissionAction(
     return { error: "Submission tidak ditemukan." };
   }
 
-  await db.fraudFlag.create({
-    data: {
-      submissionId,
-      flaggedUserId: submission.creatorId,
-      reportedById: user.id,
-      type: type as
-        | "REUSED_CONTENT"
-        | "INFLATED_VIEWS"
-        | "DUPLICATE_ACCOUNT"
-        | "OFF_BRIEF"
-        | "FAKE_VISIT"
-        | "OTHER",
-      detail,
-      severity: 2,
-    },
+  await db.$transaction(async (tx) => {
+    const flag = await tx.fraudFlag.create({
+      data: {
+        submissionId,
+        flaggedUserId: submission.creatorId,
+        reportedById: user.id,
+        type: type as
+          | "REUSED_CONTENT"
+          | "INFLATED_VIEWS"
+          | "DUPLICATE_ACCOUNT"
+          | "OFF_BRIEF"
+          | "FAKE_VISIT"
+          | "OTHER",
+        detail,
+        severity: 2,
+      },
+    });
+
+    const admins = await tx.user.findMany({
+      where: { role: "ADMIN" },
+      select: { id: true },
+    });
+    if (admins.length > 0) {
+      await tx.notification.createMany({
+        data: admins.map((adm) => ({
+          userId: adm.id,
+          type: "GENERAL",
+          title: "Laporan Fraud dari Vendor",
+          body: `Vendor "${user.name}" melaporkan konten di "${submission.campaign.title}": ${detail}`,
+          link: "/admin/fraud",
+        })),
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: "submission.flag.vendor",
+        entity: "FraudFlag",
+        entityId: flag.id,
+        metadata: {
+          submissionId,
+          type,
+          detail,
+          campaignId: submission.campaignId,
+        },
+      },
+    });
   });
 
   revalidatePath(`/vendor/campaigns/${submission.campaignId}`);
-  return { success: "Laporan terkirim. Admin akan meninjau." };
+  revalidatePath("/admin/fraud");
+  return { success: "Laporan terkirim ke admin untuk ditinjau." };
 }
 
 const redeemSchema = z.object({

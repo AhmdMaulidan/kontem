@@ -205,12 +205,51 @@ export async function updateBankAction(
     return { error: "Semua kolom rekening wajib diisi." };
   }
 
-  await db.creatorProfile.update({
-    where: { userId: user.id },
-    data: { bankName, bankAccountNumber, bankAccountName },
+  const duplicate = await db.creatorProfile.findFirst({
+    where: {
+      userId: { not: user.id },
+      bankAccountNumber,
+    },
+    include: { user: true },
+  });
+
+  await db.$transaction(async (tx) => {
+    await tx.creatorProfile.update({
+      where: { userId: user.id },
+      data: { bankName, bankAccountNumber, bankAccountName },
+    });
+
+    if (duplicate) {
+      await tx.fraudFlag.create({
+        data: {
+          flaggedUserId: user.id,
+          reportedById: null, // terdeteksi otomatis oleh sistem
+          type: "DUPLICATE_ACCOUNT",
+          severity: 3,
+          detail: `Nomor rekening ${bankAccountNumber} (${bankName} a.n. ${bankAccountName}) sama persis dengan akun kreator lain "${duplicate.user.name}" (ID: ${duplicate.userId}).`,
+        },
+      });
+
+      const admins = await tx.user.findMany({
+        where: { role: "ADMIN" },
+        select: { id: true },
+      });
+      if (admins.length > 0) {
+        await tx.notification.createMany({
+          data: admins.map((adm) => ({
+            userId: adm.id,
+            type: "GENERAL",
+            title: "Peringatan Akun Ganda (Sybil)",
+            body: `Kreator "${user.name}" mendaftarkan nomor rekening yang sama dengan kreator "${duplicate.user.name}". Periksa di panel Fraud.`,
+            link: "/admin/fraud",
+          })),
+        });
+      }
+    }
   });
 
   revalidatePath("/creator/earnings");
+  revalidatePath("/admin/fraud");
   return { success: "Rekening tersimpan." };
 }
 

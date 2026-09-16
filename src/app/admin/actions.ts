@@ -9,6 +9,7 @@ import { calculatePayouts } from "@/domain/payout";
 import {
   validateViewUpdateThrottle,
   MAX_VIEW_UPDATES_PER_MINUTE,
+  evaluateViewFraud,
 } from "@/domain/views";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { fetchVideoMetrics } from "@/lib/video-metrics";
@@ -421,9 +422,15 @@ export async function updateViewsAction(
     return { error: throttle.message };
   }
 
-  // Views di platform sosial tidak pernah turun; penurunan berarti angka
-  // sebelumnya di-inflate atau salah input, jadi ditandai untuk ditinjau.
-  const mencurigakan = views < submission.lastViews;
+  // 3. Deteksi anomali views (penurunan, lonjakan spike velocity, keterlibatan ganjil)
+  const fraudAssessment = evaluateViewFraud(
+    submission.lastViews,
+    views,
+    submission.lastSyncedAt,
+    new Date(),
+    likes ?? submission.lastLikes ?? 0,
+    comments ?? submission.lastComments ?? 0,
+  );
 
   await db.$transaction(async (tx) => {
     await tx.submission.update({
@@ -444,16 +451,36 @@ export async function updateViewsAction(
         source: "MANUAL",
       },
     });
-    if (mencurigakan) {
+
+    if (fraudAssessment?.hasFraud) {
       await tx.fraudFlag.create({
         data: {
           submissionId,
           flaggedUserId: submission.creatorId,
-          type: "INFLATED_VIEWS",
-          severity: 2,
-          detail: `Views turun dari ${submission.lastViews} ke ${views}.`,
+          reportedById: null, // otomatis oleh sistem
+          type: fraudAssessment.type,
+          severity: fraudAssessment.severity,
+          detail: fraudAssessment.reason,
         },
       });
+
+      if (fraudAssessment.severity >= 2) {
+        const admins = await tx.user.findMany({
+          where: { role: "ADMIN" },
+          select: { id: true },
+        });
+        if (admins.length > 0) {
+          await tx.notification.createMany({
+            data: admins.map((adm) => ({
+              userId: adm.id,
+              type: "GENERAL",
+              title: "Peringatan Anomali Views (Fraud)",
+              body: `Sistem mendeteksi anomali konten #${submissionId.slice(-6)}: ${fraudAssessment.reason}`,
+              link: "/admin/fraud",
+            })),
+          });
+        }
+      }
     }
   });
 
@@ -461,12 +488,14 @@ export async function updateViewsAction(
     dari: submission.lastViews,
     ke: views,
     koreksi: isCorrection ? true : null,
+    anomali: fraudAssessment?.hasFraud ? fraudAssessment.reason : null,
   });
 
   revalidatePath("/admin/views");
+  revalidatePath("/admin/fraud");
   return {
-    success: mencurigakan
-      ? "Views tersimpan, tapi penurunan angka otomatis ditandai untuk ditinjau."
+    success: fraudAssessment?.hasFraud
+      ? `Views tersimpan. Sistem menandai anomali (${fraudAssessment.reason}) untuk ditinjau di panel Fraud.`
       : isCorrection
         ? "Koreksi views berhasil disimpan."
         : "Views diperbarui.",
