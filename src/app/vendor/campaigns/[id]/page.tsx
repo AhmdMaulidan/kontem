@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getCampaignPerformance } from "@/domain/campaign";
+import {
+  getCampaignPerformance,
+  getCampaignSettlementSummary,
+} from "@/domain/campaign";
 import { formatCompact, formatDate, formatIDR } from "@/lib/format";
 import {
   Badge,
@@ -31,6 +34,7 @@ import {
   submissionStatusTone,
 } from "@/lib/labels";
 
+import { CampaignSummaryCard } from "./campaign-summary-card";
 import { ManualDepositCard } from "./manual-deposit-card";
 import { RefundCard } from "./refund-card";
 
@@ -63,7 +67,13 @@ export default async function VendorCampaignDetail({
   const deposit = campaign.escrow.find((trx) => trx.type === "DEPOSIT") ?? null;
   const refundTrx = campaign.escrow.find((trx) => trx.type === "REFUND") ?? null;
   const vendorBank = campaign.vendor.vendorProfile;
-  const performance = await getCampaignPerformance(id);
+  const isFinished = campaign.status === "SETTLED" || campaign.payouts.length > 0;
+
+  const [performance, settlementSummary] = await Promise.all([
+    getCampaignPerformance(id),
+    isFinished ? getCampaignSettlementSummary(id) : Promise.resolve(null),
+  ]);
+
   const terpakai = performance?.totalDistributed ?? 0;
   const menungguReview = campaign.participations.filter(
     (p) => p.submission?.status === "PENDING_REVIEW",
@@ -114,48 +124,56 @@ export default async function VendorCampaignDetail({
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat
-          label="Total views"
-          value={formatCompact(performance?.totalViews ?? 0)}
-          tone="brand"
-        />
-        <Stat
-          label="Budget terpakai"
-          value={formatIDR(terpakai)}
-          hint={`dari ${formatIDR(campaign.budgetPool)}`}
-        />
-        <Stat
-          label="Creator bergabung"
-          value={campaign.participations.length}
-        />
-        <Stat
-          label="Menunggu review"
-          value={menungguReview}
-          tone={menungguReview > 0 ? "danger" : undefined}
-        />
-      </div>
-
-      <div className="mt-6">
-        <Card>
-          <div className="mb-2 flex justify-between text-sm">
-            <span className="text-muted">Serapan budget pool</span>
-            <span className="tabular font-medium">
-              {formatIDR(terpakai)} / {formatIDR(campaign.budgetPool)}
-            </span>
+      {settlementSummary ? (
+        <div className="mb-6">
+          <CampaignSummaryCard summary={settlementSummary} />
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Stat
+              label="Total views"
+              value={formatCompact(performance?.totalViews ?? 0)}
+              tone="brand"
+            />
+            <Stat
+              label="Budget terpakai"
+              value={formatIDR(terpakai)}
+              hint={`dari ${formatIDR(campaign.budgetPool)}`}
+            />
+            <Stat
+              label="Creator bergabung"
+              value={campaign.participations.length}
+            />
+            <Stat
+              label="Menunggu review"
+              value={menungguReview}
+              tone={menungguReview > 0 ? "danger" : undefined}
+            />
           </div>
-          <ProgressBar
-            value={terpakai}
-            max={campaign.budgetPool}
-            tone={performance?.poolExhausted ? "warning" : "brand"}
-          />
-          <p className="mt-2 text-xs text-muted">
-            {performance?.poolExhausted
-              ? "Tagihan CPM sudah melampaui pool — pembagian beralih ke proporsi views, kamu tidak membayar lebih dari pool."
-              : `Sisa ${formatIDR(performance?.refundToVendor ?? campaign.budgetPool)} akan dikembalikan kalau tidak terserap sampai campaign selesai.`}
-          </p>
-        </Card>
-      </div>
+
+          <div className="mt-6">
+            <Card>
+              <div className="mb-2 flex justify-between text-sm">
+                <span className="text-muted">Serapan budget pool</span>
+                <span className="tabular font-medium">
+                  {formatIDR(terpakai)} / {formatIDR(campaign.budgetPool)}
+                </span>
+              </div>
+              <ProgressBar
+                value={terpakai}
+                max={campaign.budgetPool}
+                tone={performance?.poolExhausted ? "warning" : "brand"}
+              />
+              <p className="mt-2 text-xs text-muted">
+                {performance?.poolExhausted
+                  ? "Tagihan CPM sudah melampaui pool — pembagian beralih ke proporsi views, kamu tidak membayar lebih dari pool."
+                  : `Sisa ${formatIDR(performance?.refundToVendor ?? campaign.budgetPool)} akan dikembalikan kalau tidak terserap sampai campaign selesai.`}
+              </p>
+            </Card>
+          </div>
+        </>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -206,7 +224,14 @@ export default async function VendorCampaignDetail({
                           )}
                         </Td>
                         <Td align="right">
-                          {formatCompact(p.submission?.lastViews ?? 0)}
+                          <span className="tabular">
+                            {formatCompact(p.submission?.lastViews ?? 0)}
+                          </span>
+                          {line?.isCapped ? (
+                            <span className="block text-[11px] font-medium text-amber-600">
+                              maks {formatCompact(line.viewsCounted)}
+                            </span>
+                          ) : null}
                         </Td>
                         <Td align="right">
                           {line ? `${line.sharePercent.toFixed(1)}%` : "—"}
@@ -278,6 +303,14 @@ export default async function VendorCampaignDetail({
                 },
                 { label: "Fee platform", value: `${campaign.platformFeeRate}%` },
                 { label: "Kuota creator", value: campaign.maxCreators },
+                ...(campaign.maxViewsPerCreator
+                  ? [
+                      {
+                        label: "Plafon per creator",
+                        value: `${formatCompact(campaign.maxViewsPerCreator)} views`,
+                      },
+                    ]
+                  : []),
                 {
                   label: "Platform",
                   value: campaign.allowedPlatforms

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { generateRedeemCode } from "@/domain/codes";
+import { verifyContentOwnership } from "@/domain/social-url";
 
 export type ActionState = { error?: string; success?: string };
 
@@ -104,6 +105,34 @@ export async function submitContentAction(
       error:
         "Kamu harus datang ke lokasi vendor dan menukarkan kode redeem terlebih dahulu sebelum bisa mengirim konten.",
     };
+  }
+
+  // Guardrail akun tertaut: kreator wajib memiliki akun media sosial terdaftar untuk platform ini
+  const socialAccount = await db.socialAccount.findFirst({
+    where: { userId: user.id, platform },
+  });
+
+  if (!socialAccount) {
+    const platformLabelName =
+      platform === "TIKTOK"
+        ? "TikTok"
+        : platform === "INSTAGRAM"
+          ? "Instagram"
+          : "YouTube";
+    return {
+      error: `Kamu belum menautkan akun ${platformLabelName} di profilmu. Tautkan akun ${platformLabelName} terlebih dahulu sebelum mengirim konten.`,
+    };
+  }
+
+  // Guardrail anti-hijack: pastikan handle dari URL video cocok dengan akun terdaftar kreator
+  const ownership = verifyContentOwnership({
+    url: contentUrl,
+    platform,
+    registeredHandle: socialAccount.handle,
+  });
+
+  if (!ownership.isValid) {
+    return { error: ownership.error || "Kepemilikan akun konten tidak valid." };
   }
 
   // Link yang sama tidak boleh dipakai ulang di campaign lain.

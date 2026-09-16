@@ -14,6 +14,7 @@ import {
 import { checkRateLimit } from "@/lib/rate-limit";
 import { fetchVideoMetrics } from "@/lib/video-metrics";
 import { runCampaignLifecycleSync } from "@/domain/lifecycle";
+import { verifyAuthorOwnership } from "@/domain/social-url";
 
 export type ActionState = { error?: string; success?: string };
 
@@ -530,6 +531,11 @@ export async function syncSingleSubmissionViewsAction(
 
   const submission = await db.submission.findUnique({
     where: { id: submissionId },
+    include: {
+      creator: {
+        include: { socialAccounts: true },
+      },
+    },
   });
   if (!submission) return { error: "Submission tidak ditemukan." };
 
@@ -583,6 +589,28 @@ export async function syncSingleSubmissionViewsAction(
           detail: `Views otomatis dari API (${metrics.views}) lebih rendah dari views tercatat sebelumnya (${submission.lastViews}).`,
         },
       });
+    }
+
+    // Deteksi ketidakcocokan author video riil dari API dengan akun terdaftar
+    const registeredAccount = submission.creator.socialAccounts.find(
+      (a) => a.platform === submission.platform,
+    );
+    if (registeredAccount && metrics.author) {
+      const isAuthorMatch = verifyAuthorOwnership({
+        author: metrics.author,
+        registeredHandle: registeredAccount.handle,
+      });
+      if (!isAuthorMatch) {
+        await tx.fraudFlag.create({
+          data: {
+            submissionId,
+            flaggedUserId: submission.creatorId,
+            type: "REUSED_CONTENT",
+            severity: 2,
+            detail: `Penarikan metrik mendeteksi video diunggah oleh akun @${metrics.author}, berbeda dengan akun ${submission.platform} terdaftar kreator (@${registeredAccount.handle}). Indikasi pengiriman konten orang lain.`,
+          },
+        });
+      }
     }
   });
 
@@ -920,6 +948,7 @@ export async function settleCampaignAction(
     budgetPool: campaign.budgetPool,
     cpmRate: campaign.cpmRate,
     platformFeeRate: campaign.platformFeeRate,
+    maxViewsPerCreator: campaign.maxViewsPerCreator,
   });
 
   await db.$transaction(async (tx) => {

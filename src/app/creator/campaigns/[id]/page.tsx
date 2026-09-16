@@ -53,6 +53,11 @@ export default async function CampaignDetailPage({
     include: { submission: true, redeemCode: true },
   });
 
+  const socialAccounts = await db.socialAccount.findMany({
+    where: { userId: user.id },
+    select: { platform: true, handle: true },
+  });
+
   const performance = await getCampaignPerformance(id);
   const estimasiSaya = performance?.lines.find((l) => l.creatorId === user.id);
 
@@ -208,8 +213,13 @@ export default async function CampaignDetailPage({
                         )}
                       </span>
                       <span className="tabular whitespace-nowrap text-muted">
-                        {formatCompact(row.views)} views ·{" "}
-                        {row.sharePercent.toFixed(1)}%
+                        {formatCompact(row.views)} views
+                        {row.isCapped ? (
+                          <span className="ml-1 text-[11px] font-medium text-amber-600">
+                            (plafon)
+                          </span>
+                        ) : null}{" "}
+                        · {row.sharePercent.toFixed(1)}%
                       </span>
                     </div>
                     <div className="mt-1.5">
@@ -244,6 +254,14 @@ export default async function CampaignDetailPage({
                   label: "Slot",
                   value: `${terisi} / ${campaign.maxCreators}`,
                 },
+                ...(campaign.maxViewsPerCreator
+                  ? [
+                      {
+                        label: "Batas views per creator",
+                        value: `${formatCompact(campaign.maxViewsPerCreator)} views`,
+                      },
+                    ]
+                  : []),
               ]}
             />
             <div className="mt-3">
@@ -257,9 +275,14 @@ export default async function CampaignDetailPage({
                   {formatIDR(estimasiSaya.netAmount)}
                 </p>
                 <p className="mt-0.5 text-xs text-brand">
-                  {formatCompact(estimasiSaya.viewsCounted)} views ·{" "}
+                  {formatCompact(estimasiSaya.viewsCounted)} views dihitung ·{" "}
                   {estimasiSaya.sharePercent.toFixed(1)}% dari total
                 </p>
+                {estimasiSaya.isCapped ? (
+                  <p className="mt-1 text-[11px] font-medium text-amber-700">
+                    Views asli ({formatCompact(estimasiSaya.rawViews)}) telah mencapai plafon maksimal ({formatCompact(estimasiSaya.viewsCounted)} views).
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
@@ -366,6 +389,7 @@ export default async function CampaignDetailPage({
                   <SubmitContentForm
                     campaignId={campaign.id}
                     allowedPlatforms={campaign.allowedPlatforms}
+                    registeredAccounts={socialAccounts}
                     locked={
                       participation.status !== "VISITED" &&
                       participation.redeemCode?.status !== "USED"

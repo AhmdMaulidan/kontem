@@ -25,6 +25,8 @@ export type PayoutLine = {
   creatorId: string;
   submissionId: string | null;
   viewsCounted: number;
+  rawViews: number;
+  isCapped: boolean;
   totalPoolViews: number;
   /** Porsi views creator ini terhadap total, dalam persen. */
   sharePercent: number;
@@ -48,12 +50,32 @@ export type PayoutResult = {
 
 export function calculatePayouts(
   entries: PayoutInput[],
-  opts: { budgetPool: number; cpmRate: number; platformFeeRate: number },
+  opts: {
+    budgetPool: number;
+    cpmRate: number;
+    platformFeeRate: number;
+    maxViewsPerCreator?: number | null;
+  },
 ): PayoutResult {
-  const { budgetPool, cpmRate, platformFeeRate } = opts;
+  const { budgetPool, cpmRate, platformFeeRate, maxViewsPerCreator } = opts;
 
-  const counted = entries.filter((entry) => entry.views > 0);
-  const totalViews = counted.reduce((sum, entry) => sum + entry.views, 0);
+  const counted = entries
+    .filter((entry) => entry.views > 0)
+    .map((entry) => {
+      const isCapped =
+        typeof maxViewsPerCreator === "number" &&
+        maxViewsPerCreator > 0 &&
+        entry.views > maxViewsPerCreator;
+      const viewsCounted = isCapped ? maxViewsPerCreator : entry.views;
+      return {
+        ...entry,
+        rawViews: entry.views,
+        viewsCounted,
+        isCapped,
+      };
+    });
+
+  const totalViews = counted.reduce((sum, entry) => sum + entry.viewsCounted, 0);
 
   if (totalViews === 0) {
     return {
@@ -68,7 +90,7 @@ export function calculatePayouts(
   }
 
   const cpmTotal = counted.reduce(
-    (sum, entry) => sum + (entry.views / 1000) * cpmRate,
+    (sum, entry) => sum + (entry.viewsCounted / 1000) * cpmRate,
     0,
   );
   const poolExhausted = cpmTotal > budgetPool;
@@ -76,8 +98,8 @@ export function calculatePayouts(
   // Nilai ideal (masih pecahan) sebelum dibulatkan ke rupiah penuh.
   const rawAmounts = counted.map((entry) =>
     poolExhausted
-      ? (budgetPool * entry.views) / totalViews
-      : (entry.views / 1000) * cpmRate,
+      ? (budgetPool * entry.viewsCounted) / totalViews
+      : (entry.viewsCounted / 1000) * cpmRate,
   );
 
   const grossAmounts = largestRemainder(
@@ -91,9 +113,11 @@ export function calculatePayouts(
     return {
       creatorId: entry.creatorId,
       submissionId: entry.submissionId,
-      viewsCounted: entry.views,
+      viewsCounted: entry.viewsCounted,
+      rawViews: entry.rawViews,
+      isCapped: entry.isCapped,
       totalPoolViews: totalViews,
-      sharePercent: Number(((entry.views / totalViews) * 100).toFixed(4)),
+      sharePercent: Number(((entry.viewsCounted / totalViews) * 100).toFixed(4)),
       grossAmount,
       platformFee,
       netAmount: grossAmount - platformFee,
@@ -154,13 +178,21 @@ function sum(values: number[]) {
 export function estimateEarning(
   myViews: number,
   allEntries: PayoutInput[],
-  opts: { budgetPool: number; cpmRate: number; platformFeeRate: number },
+  opts: {
+    budgetPool: number;
+    cpmRate: number;
+    platformFeeRate: number;
+    maxViewsPerCreator?: number | null;
+  },
   creatorId: string,
 ) {
   const result = calculatePayouts(allEntries, opts);
   const line = result.lines.find((l) => l.creatorId === creatorId);
   return {
     views: myViews,
+    viewsCounted: line?.viewsCounted ?? myViews,
+    rawViews: line?.rawViews ?? myViews,
+    isCapped: line?.isCapped ?? false,
     netAmount: line?.netAmount ?? 0,
     sharePercent: line?.sharePercent ?? 0,
     poolExhausted: result.poolExhausted,
