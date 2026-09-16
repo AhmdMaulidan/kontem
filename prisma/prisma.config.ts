@@ -1,11 +1,13 @@
-// Prisma 7 config — connection URLs for local PostgreSQL
-export default {
+import "dotenv/config";
+
+// Prisma 7 config — connection URLs
+const config = {
   datasources: {
     db: {
-      url: process.env.DATABASE_URL ||
-        "postgresql://postgres:admin123456@localhost:5433/kontem?schema=public",
-      directUrl: process.env.DIRECT_URL ||
-        "postgresql://postgres:admin123456@localhost:5433/kontem?schema=public",
+      url: process.env.DATABASE_URL || "",
+      directUrl: process.env.DIRECT_URL || process.env.DATABASE_URL || "",
     },
   },
 };
+
+export default config;

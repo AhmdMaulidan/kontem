@@ -9,7 +9,7 @@ import { requireRole } from "@/lib/auth";
 export type ActionState = { error?: string; success?: string };
 
 const campaignSchema = z.object({
-  title: z.string().min(5, "Judul campaign minimal 5 karakter."),
+  title: z.string().min(5, "Judul campaign minimal 5 karakter.").max(120, "Judul campaign maksimal 120 karakter."),
   category: z.enum([
     "KULINER",
     "WISATA_ALAM",
@@ -17,24 +17,41 @@ const campaignSchema = z.object({
     "AKOMODASI",
     "LAINNYA",
   ]),
-  description: z.string().min(20, "Deskripsi minimal 20 karakter."),
-  briefAngle: z.string().min(20, "Angle wajib minimal 20 karakter."),
+  description: z.string().min(20, "Deskripsi minimal 20 karakter.").max(2000, "Deskripsi maksimal 2.000 karakter."),
+  briefAngle: z.string().min(20, "Angle wajib minimal 20 karakter.").max(1000, "Angle wajib maksimal 1.000 karakter."),
   briefMustShow: z.string().min(3, "Isi minimal satu hal yang wajib ditampilkan."),
   briefProhibited: z.string().optional(),
-  minDurationSec: z.coerce.number().int().min(5).max(600),
+  minDurationSec: z.coerce.number().int().min(5, "Durasi minimal 5 detik.").max(600, "Durasi maksimal 600 detik."),
   platforms: z.string().min(1, "Pilih minimal satu platform."),
-  budgetPool: z.coerce.number().int().min(100_000, "Pool minimal Rp 100.000."),
-  cpmRate: z.coerce.number().int().min(1_000, "CPM minimal Rp 1.000."),
+  budgetPool: z.coerce
+    .number()
+    .int("Budget pool harus berupa bilangan bulat.")
+    .min(100_000, "Pool minimal Rp 100.000.")
+    .max(2_000_000_000, "Pool maksimal Rp 2.000.000.000 (2 Miliar)."),
+  cpmRate: z.coerce
+    .number()
+    .int("CPM rate harus berupa bilangan bulat.")
+    .min(1_000, "CPM minimal Rp 1.000.")
+    .max(10_000_000, "CPM rate maksimal Rp 10.000.000."),
   maxCreators: z.coerce
     .number()
     .int("Kuota creator harus bilangan bulat.")
     .min(1, "Minimal kuota 1 creator.")
     .max(100, "Maksimal kuota 100 creator per campaign.")
     .default(10),
-  maxViewsPerCreator: z.coerce.number().int().min(1000).optional(),
-  complimentType: z.string().min(3, "Jelaskan komplimen yang disediakan."),
-  complimentValue: z.coerce.number().int().min(0),
-  complimentTerms: z.string().optional(),
+  maxViewsPerCreator: z.coerce
+    .number()
+    .int("Batas views harus berupa bilangan bulat.")
+    .min(1000, "Batas views minimal 1.000.")
+    .max(100_000_000, "Batas views maksimal 100.000.000.")
+    .optional(),
+  complimentType: z.string().min(3, "Jelaskan komplimen yang disediakan.").max(150, "Komplimen maksimal 150 karakter."),
+  complimentValue: z.coerce
+    .number()
+    .int("Nilai komplimen harus berupa bilangan bulat.")
+    .min(0, "Nilai komplimen tidak boleh negatif.")
+    .max(100_000_000, "Nilai komplimen maksimal Rp 100.000.000."),
+  complimentTerms: z.string().max(500, "Syarat komplimen maksimal 500 karakter.").optional(),
   startDate: z.string().min(1, "Tanggal mulai wajib diisi."),
   endDate: z.string().min(1, "Tanggal selesai wajib diisi."),
 });
@@ -95,57 +112,70 @@ export async function createCampaignAction(
     return { error: "Pool budget tidak boleh lebih kecil dari CPM rate." };
   }
 
-  const campaign = await db.campaign.create({
-    data: {
-      vendorId: user.id,
-      title: data.title,
-      category: data.category,
-      description: data.description,
-      briefAngle: data.briefAngle,
-      briefMustShow: mustShow,
-      briefProhibited: toList(data.briefProhibited),
-      minDurationSec: data.minDurationSec,
-      allowedPlatforms: data.platforms.split(",") as (
-        | "TIKTOK"
-        | "INSTAGRAM"
-        | "YOUTUBE"
-      )[],
-      budgetPool: data.budgetPool,
-      cpmRate: data.cpmRate,
-      maxCreators: data.maxCreators,
-      maxViewsPerCreator: data.maxViewsPerCreator ?? null,
-      complimentType: data.complimentType,
-      complimentValue: data.complimentValue,
-      complimentTerms: data.complimentTerms || null,
-      startDate,
-      endDate,
-      // Views masih dilacak seminggu setelah campaign tutup sebelum payout final.
-      trackingEndsAt: new Date(endDate.getTime() + 7 * 24 * 60 * 60 * 1000),
-      status: "PENDING_REVIEW",
-      submittedAt: new Date(),
-      // Deposit escrow dicatat menunggu; di versi demo admin yang menandai lunas.
-      escrow: {
-        create: {
-          type: "DEPOSIT",
-          amount: data.budgetPool,
-          status: "PENDING",
-          note: "Menunggu pembayaran deposit budget pool.",
+  let newCampaignId: string;
+  try {
+    const campaign = await db.campaign.create({
+      data: {
+        vendorId: user.id,
+        title: data.title,
+        category: data.category,
+        description: data.description,
+        briefAngle: data.briefAngle,
+        briefMustShow: mustShow,
+        briefProhibited: toList(data.briefProhibited),
+        minDurationSec: data.minDurationSec,
+        allowedPlatforms: data.platforms.split(",") as (
+          | "TIKTOK"
+          | "INSTAGRAM"
+          | "YOUTUBE"
+        )[],
+        budgetPool: data.budgetPool,
+        cpmRate: data.cpmRate,
+        maxCreators: data.maxCreators,
+        maxViewsPerCreator: data.maxViewsPerCreator ?? null,
+        complimentType: data.complimentType,
+        complimentValue: data.complimentValue,
+        complimentTerms: data.complimentTerms || null,
+        startDate,
+        endDate,
+        // Views masih dilacak seminggu setelah campaign tutup sebelum payout final.
+        trackingEndsAt: new Date(endDate.getTime() + 7 * 24 * 60 * 60 * 1000),
+        status: "PENDING_REVIEW",
+        submittedAt: new Date(),
+        // Deposit escrow dicatat menunggu; di versi demo admin yang menandai lunas.
+        escrow: {
+          create: {
+            type: "DEPOSIT",
+            amount: data.budgetPool,
+            status: "PENDING",
+            note: "Menunggu pembayaran deposit budget pool.",
+          },
         },
       },
-    },
-  });
+    });
 
-  await db.auditLog.create({
-    data: {
-      actorId: user.id,
-      action: "campaign.submit",
-      entity: "Campaign",
-      entityId: campaign.id,
-    },
-  });
+    newCampaignId = campaign.id;
+
+    await db.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: "campaign.submit",
+        entity: "Campaign",
+        entityId: campaign.id,
+      },
+    });
+  } catch (err) {
+    console.error("[createCampaignAction Error]", err);
+    return {
+      error:
+        err instanceof Error
+          ? `Gagal membuat campaign: ${err.message}`
+          : "Terjadi kesalahan sistem saat membuat campaign.",
+    };
+  }
 
   revalidatePath("/vendor");
-  redirect(`/vendor/campaigns/${campaign.id}`);
+  redirect(`/vendor/campaigns/${newCampaignId}`);
 }
 
 

@@ -18,6 +18,13 @@ async function handleLifecycleSync(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = req.headers.get("authorization");
 
+  if (process.env.NODE_ENV === "production" && !cronSecret) {
+    return NextResponse.json(
+      { error: "Server Misconfiguration: CRON_SECRET belum dikonfigurasi di environment produksi." },
+      { status: 500 },
+    );
+  }
+
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json(
       { error: "Unauthorized: Token CRON_SECRET tidak valid." },
