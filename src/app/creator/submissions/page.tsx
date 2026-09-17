@@ -7,8 +7,10 @@ import {
   ButtonLink,
   Callout,
   Card,
+  DetailDrawer,
   EmptyState,
   IconExternal,
+  IconEye,
   PageHeader,
   Table,
   Td,
@@ -95,13 +97,22 @@ export default async function CreatorSubmissionsPage() {
                       {submissionStatusLabel[submission.status]}
                     </Badge>
                   </Td>
-                  <Td className="max-w-xs">
-                    {submission.disputes.length > 0 ? (
-                      <Callout tone="warning" title="Banding diproses">
-                        {submission.disputes[0].reason}
-                      </Callout>
-                    ) : (
-                      <div className="space-y-2">
+                  <Td>
+                    <div className="flex justify-center">
+                      <DetailDrawer
+                        label="Lihat catatan"
+                        title="Catatan reviewer"
+                        subtitle={submission.campaign.title}
+                        trigger="pill"
+                        iconOnly
+                        icon={<IconEye className="h-4 w-4" strokeWidth={2} />}
+                      >
+                        {submission.disputes.length > 0 ? (
+                          <Callout tone="warning" title="Banding diproses">
+                            {submission.disputes[0].reason}
+                          </Callout>
+                        ) : null}
+
                         {submission.reviewNote ? (
                           <Callout
                             tone={
@@ -116,25 +127,25 @@ export default async function CreatorSubmissionsPage() {
                           </Callout>
                         ) : null}
 
-                        {submission.status === "REJECTED" ? (
-                          <details className="text-xs">
-                            <summary className="cursor-pointer font-medium text-brand hover:underline">
-                              Ajukan banding ke admin
-                            </summary>
-                            <div className="mt-2 rounded-xl bg-surface-muted p-3">
-                              <p className="mb-2 text-[11px] text-muted">
-                                Jelaskan bagian konten yang sudah memenuhi brief.
-                              </p>
-                              <AppealForm submissionId={submission.id} />
-                            </div>
-                          </details>
+                        {submission.status === "REJECTED" &&
+                        submission.disputes.length === 0 ? (
+                          <div className="rounded-xl bg-surface-muted p-3">
+                            <p className="mb-2 text-xs text-muted">
+                              Jelaskan bagian konten yang sudah memenuhi brief.
+                            </p>
+                            <AppealForm submissionId={submission.id} />
+                          </div>
                         ) : null}
 
-                        {!submission.reviewNote && submission.status !== "REJECTED" ? (
-                          <span className="text-xs text-muted">—</span>
+                        {!submission.reviewNote &&
+                        submission.disputes.length === 0 &&
+                        submission.status !== "REJECTED" ? (
+                          <p className="text-sm text-muted">
+                            Belum ada catatan dari reviewer.
+                          </p>
                         ) : null}
-                      </div>
-                    )}
+                      </DetailDrawer>
+                    </div>
                   </Td>
                 </tr>
               ))}

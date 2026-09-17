@@ -1,19 +1,18 @@
+import Image from "next/image";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDate, formatIDR, daysUntil } from "@/lib/format";
 import {
   Badge,
-  Button,
   Card,
   EmptyState,
   IconArrowRight,
-  Input,
   PageHeader,
-  Select,
 } from "@/components/ui";
 import { categoryLabel, categoryTone } from "@/lib/labels";
 import type { BusinessCategory } from "@/generated/prisma/enums";
+import { CampaignFilters } from "./campaign-filters";
 
 export default async function BrowseCampaignPage({
   searchParams,
@@ -61,30 +60,12 @@ export default async function BrowseCampaignPage({
         description="Campaign yang sedang berjalan dan masih membuka slot."
       />
 
-      <Card className="mb-6">
-        <form className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto]">
-          <Input name="q" placeholder="Cari nama campaign..." defaultValue={q} />
-          <Select name="kota" defaultValue={kota}>
-            <option value="">Semua kota</option>
-            {kotaTersedia.map((item) => (
-              <option key={item.city} value={item.city}>
-                {item.city}
-              </option>
-            ))}
-          </Select>
-          <Select name="kategori" defaultValue={kategori}>
-            <option value="">Semua kategori</option>
-            {Object.entries(categoryLabel).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-          <Button type="submit" variant="primary">
-            Filter
-          </Button>
-        </form>
-      </Card>
+      <CampaignFilters
+        kota={kota}
+        kategori={kategori}
+        q={q}
+        kotaTersedia={kotaTersedia.map((item) => item.city)}
+      />
 
       {campaigns.length === 0 ? (
         <EmptyState
@@ -100,8 +81,22 @@ export default async function BrowseCampaignPage({
             );
             const sisaHari = daysUntil(campaign.endDate);
 
+            const foto = campaign.vendor.vendorProfile?.photos[0];
+
             return (
               <Card key={campaign.id} hover>
+                {foto ? (
+                  <Image
+                    src={foto}
+                    alt=""
+                    width={640}
+                    height={360}
+                    className="-mx-5 -mt-5 mb-4 aspect-video w-[calc(100%+2.5rem)] rounded-t-2xl object-cover"
+                  />
+                ) : (
+                  <div className="-mx-5 -mt-5 mb-4 aspect-video w-[calc(100%+2.5rem)] rounded-t-2xl bg-brand-50" />
+                )}
+
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <Badge tone={categoryTone[campaign.category]}>
@@ -150,15 +145,6 @@ export default async function BrowseCampaignPage({
                   </span>
                   <span>{sisaHari >= 0 ? `sisa ${sisaHari} hari` : "berakhir"}</span>
                 </div>
-
-                {campaign.complimentType ? (
-                  <p className="mt-4 rounded-xl bg-brand-soft px-3 py-2 text-sm text-brand">
-                    Komplimen: {campaign.complimentType}
-                    {campaign.complimentValue
-                      ? ` (${formatIDR(campaign.complimentValue)})`
-                      : ""}
-                  </p>
-                ) : null}
 
                 <div className="mt-4 flex items-center justify-between">
                   <span className="text-xs text-muted">
