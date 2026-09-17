@@ -32,7 +32,6 @@ export default async function CreatorDashboard() {
       include: {
         campaign: { include: { vendor: { include: { vendorProfile: true } } } },
         submission: true,
-        redeemCode: true,
       },
       orderBy: { joinedAt: "desc" },
     }),
@@ -123,12 +122,12 @@ export default async function CreatorDashboard() {
           <Card>
             <CardHeader
               title="Campaign yang kamu ikuti"
-              description="Status tiap slot yang sudah kamu klaim."
+              description="Status tiap konten yang sudah kamu kirim."
             />
             {participations.length === 0 ? (
               <EmptyState
                 title="Belum ikut campaign apa pun"
-                description="Cari campaign di kotamu dan klaim slotnya."
+                description="Cari campaign di kotamu dan kirim kontenmu."
                 action={
                   <ButtonLink href="/creator/campaigns">Lihat campaign</ButtonLink>
                 }
@@ -158,11 +157,6 @@ export default async function CreatorDashboard() {
                             <Badge tone={participationStatusTone[p.status]}>
                               {participationStatusLabel[p.status]}
                             </Badge>
-                            {p.status === "JOINED" && p.redeemCode ? (
-                              <span className="rounded-md border border-line bg-surface-muted px-2 py-0.5 font-mono text-xs font-semibold text-foreground">
-                                Kode: {p.redeemCode.code}
-                              </span>
-                            ) : null}
                             {p.submission ? (
                               <Badge tone={submissionStatusTone[p.submission.status]}>
                                 {submissionStatusLabel[p.submission.status]}

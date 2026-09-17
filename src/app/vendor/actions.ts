@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { checkRateLimit } from "@/lib/rate-limit";
 
 export type ActionState = { error?: string; success?: string };
 
@@ -34,25 +33,12 @@ const campaignSchema = z.object({
     .int("CPM rate harus berupa bilangan bulat.")
     .min(1_000, "CPM minimal Rp 1.000.")
     .max(10_000_000, "CPM rate maksimal Rp 10.000.000."),
-  maxCreators: z.coerce
-    .number()
-    .int("Kuota creator harus bilangan bulat.")
-    .min(1, "Minimal kuota 1 creator.")
-    .max(100, "Maksimal kuota 100 creator per campaign.")
-    .default(10),
   maxViewsPerCreator: z.coerce
     .number()
     .int("Batas views harus berupa bilangan bulat.")
     .min(1000, "Batas views minimal 1.000.")
     .max(100_000_000, "Batas views maksimal 100.000.000.")
     .optional(),
-  complimentType: z.string().min(3, "Jelaskan komplimen yang disediakan.").max(150, "Komplimen maksimal 150 karakter."),
-  complimentValue: z.coerce
-    .number()
-    .int("Nilai komplimen harus berupa bilangan bulat.")
-    .min(0, "Nilai komplimen tidak boleh negatif.")
-    .max(100_000_000, "Nilai komplimen maksimal Rp 100.000.000."),
-  complimentTerms: z.string().max(500, "Syarat komplimen maksimal 500 karakter.").optional(),
   startDate: z.string().min(1, "Tanggal mulai wajib diisi."),
   endDate: z.string().min(1, "Tanggal selesai wajib diisi."),
 });
@@ -63,6 +49,31 @@ function toList(value: string | undefined) {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+/**
+ * Simpan file gambar campaign sebagai data URI langsung di kolom `imageUrl`.
+ * Project ini belum punya infrastruktur object storage (S3/blob), jadi
+ * gambarnya disimpan inline di database — konsisten dengan pendekatan
+ * "versi demo" yang sudah dipakai di bagian lain (escrow manual, dst).
+ */
+async function readImageAsDataUrl(
+  file: File | null,
+): Promise<{ dataUrl?: string; error?: string }> {
+  if (!file || file.size === 0) return {};
+
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return { error: "Format gambar harus JPG, PNG, atau WEBP." };
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    return { error: "Ukuran gambar maksimal 3 MB." };
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  return { dataUrl: `data:${file.type};base64,${buffer.toString("base64")}` };
 }
 
 export async function createCampaignAction(
@@ -113,6 +124,12 @@ export async function createCampaignAction(
     return { error: "Pool budget tidak boleh lebih kecil dari CPM rate." };
   }
 
+  const imageFile = formData.get("imageFile");
+  const { dataUrl: imageUrl, error: imageError } = await readImageAsDataUrl(
+    imageFile instanceof File ? imageFile : null,
+  );
+  if (imageError) return { error: imageError };
+
   let newCampaignId: string;
   try {
     const campaign = await db.campaign.create({
@@ -121,6 +138,7 @@ export async function createCampaignAction(
         title: data.title,
         category: data.category,
         description: data.description,
+        imageUrl: imageUrl ?? null,
         briefAngle: data.briefAngle,
         briefMustShow: mustShow,
         briefProhibited: toList(data.briefProhibited),
@@ -132,11 +150,7 @@ export async function createCampaignAction(
         )[],
         budgetPool: data.budgetPool,
         cpmRate: data.cpmRate,
-        maxCreators: data.maxCreators,
         maxViewsPerCreator: data.maxViewsPerCreator ?? null,
-        complimentType: data.complimentType,
-        complimentValue: data.complimentValue,
-        complimentTerms: data.complimentTerms || null,
         startDate,
         endDate,
         // Views masih dilacak seminggu setelah campaign tutup sebelum payout final.
@@ -178,309 +192,6 @@ export async function createCampaignAction(
   revalidatePath("/vendor");
   redirect(`/vendor/campaigns/${newCampaignId}`);
 }
-
-
-export async function reviewSubmissionAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const user = await requireRole("VENDOR");
-  const submissionId = String(formData.get("submissionId") ?? "");
-  const decision = String(formData.get("decision") ?? "");
-  const note = String(formData.get("note") ?? "").trim();
-
-  // Guardrail utama: penolakan wajib beralasan, tercatat di audit trail,
-  // dan bisa dibanding creator.
-  if (decision === "reject" && note.length < 10) {
-    return { error: "Alasan penolakan wajib diisi minimal 10 karakter." };
-  }
-
-  const submission = await db.submission.findUnique({
-    where: { id: submissionId },
-    include: { campaign: true },
-  });
-
-  if (!submission || submission.campaign.vendorId !== user.id) {
-    return { error: "Submission tidak ditemukan." };
-  }
-  if (submission.status !== "PENDING_REVIEW") {
-    return { error: "Submission ini sudah direview." };
-  }
-
-    const approved = decision === "approve";
-
-    try {
-      await db.$transaction(async (tx) => {
-        await tx.submission.update({
-          where: { id: submissionId },
-          data: {
-            status: approved ? "APPROVED" : "REJECTED",
-            reviewedById: user.id,
-            reviewedAt: new Date(),
-            reviewNote: note || null,
-          },
-        });
-
-        await tx.campaignParticipation.update({
-          where: { id: submission.participationId },
-          data: { status: approved ? "COMPLETED" : "SUBMITTED" },
-        });
-
-        if (approved) {
-          // Trust score naik pelan-pelan, dibatasi 100.
-          await tx.creatorProfile.updateMany({
-            where: { userId: submission.creatorId },
-            data: { trustScore: { increment: 2 } },
-          });
-        }
-
-        await tx.notification.create({
-          data: {
-            userId: submission.creatorId,
-            type: approved ? "SUBMISSION_APPROVED" : "SUBMISSION_REJECTED",
-            title: approved ? "Konten disetujui" : "Konten ditolak",
-            body: approved
-              ? `Kontenmu untuk "${submission.campaign.title}" disetujui. Views mulai dihitung.`
-              : `Vendor menolak kontenmu: ${note}`,
-            link: "/creator/submissions",
-          },
-        });
-
-        await tx.auditLog.create({
-          data: {
-            actorId: user.id,
-            action: approved ? "submission.approve" : "submission.reject",
-            entity: "Submission",
-            entityId: submissionId,
-            metadata: { alasan: note || null },
-          },
-        });
-      });
-    } catch (err) {
-      console.error("[reviewSubmissionAction Error]", err);
-      return { error: "Terjadi kesalahan saat memproses review submission." };
-    }
-
-    revalidatePath(`/vendor/campaigns/${submission.campaignId}`);
-    revalidatePath("/vendor/submissions");
-    return {
-      success: approved ? "Submission disetujui." : "Submission ditolak.",
-    };
-  }
-
-  /** Vendor menandai submission mencurigakan untuk ditinjau admin. */
-  export async function flagSubmissionAction(
-    _prev: ActionState,
-    formData: FormData,
-  ): Promise<ActionState> {
-    const user = await requireRole("VENDOR");
-    const submissionId = String(formData.get("submissionId") ?? "");
-    const type = String(formData.get("type") ?? "OTHER");
-    const detail = String(formData.get("detail") ?? "").trim();
-
-    if (detail.length < 10) {
-      return { error: "Jelaskan kecurigaanmu minimal 10 karakter." };
-    }
-
-    const submission = await db.submission.findUnique({
-      where: { id: submissionId },
-      include: { campaign: true },
-    });
-    if (!submission || submission.campaign.vendorId !== user.id) {
-      return { error: "Submission tidak ditemukan." };
-    }
-
-    try {
-      await db.$transaction(async (tx) => {
-        const flag = await tx.fraudFlag.create({
-          data: {
-            submissionId,
-            flaggedUserId: submission.creatorId,
-            reportedById: user.id,
-            type: type as
-              | "REUSED_CONTENT"
-              | "INFLATED_VIEWS"
-              | "DUPLICATE_ACCOUNT"
-              | "OFF_BRIEF"
-              | "FAKE_VISIT"
-              | "OTHER",
-            detail,
-            severity: 2,
-          },
-        });
-
-        const admins = await tx.user.findMany({
-          where: { role: "ADMIN" },
-          select: { id: true },
-        });
-        if (admins.length > 0) {
-          await tx.notification.createMany({
-            data: admins.map((adm) => ({
-              userId: adm.id,
-              type: "GENERAL",
-              title: "Laporan Fraud dari Vendor",
-              body: `Vendor "${user.name}" melaporkan konten di "${submission.campaign.title}": ${detail}`,
-              link: "/admin/fraud",
-            })),
-          });
-        }
-
-        await tx.auditLog.create({
-          data: {
-            actorId: user.id,
-            action: "submission.flag.vendor",
-            entity: "FraudFlag",
-            entityId: flag.id,
-            metadata: {
-              submissionId,
-              type,
-              detail,
-              campaignId: submission.campaignId,
-            },
-          },
-        });
-      });
-    } catch (err) {
-      console.error("[flagSubmissionAction Error]", err);
-      return { error: "Terjadi kesalahan saat mengirim laporan fraud." };
-    }
-
-    revalidatePath(`/vendor/campaigns/${submission.campaignId}`);
-    revalidatePath("/admin/fraud");
-    return { success: "Laporan terkirim ke admin untuk ditinjau." };
-  }
-
-  const redeemSchema = z.object({
-    code: z
-      .string()
-      .min(1, "Kode redeem wajib diisi.")
-      .transform((val) => val.trim().toUpperCase()),
-  });
-
-  /**
-   * Verifikasi kode redeem yang ditunjukkan creator di lokasi fisik vendor.
-   * Menandai kode terpakai, mengubah status partisipasi jadi VISITED,
-   * dan mengizinkan creator mengirim konten.
-   */
-  export async function verifyRedeemCodeAction(
-    _prev: ActionState,
-    formData: FormData,
-  ): Promise<ActionState> {
-    const user = await requireRole("VENDOR");
-
-    // Proteksi brute-force penebakan kode voucher (maksimal 10 verifikasi per menit per vendor)
-    const rateLimit = checkRateLimit(`vendor-redeem:${user.id}`, 10, 60_000);
-    if (!rateLimit.allowed) {
-      const retrySec = Math.ceil(rateLimit.retryAfterMs / 1000);
-      return {
-        error: `Batas frekuensi verifikasi tercapai. Silakan tunggu ${retrySec} detik sebelum mencoba lagi.`,
-      };
-    }
-
-    const parsed = redeemSchema.safeParse(Object.fromEntries(formData.entries()));
-    if (!parsed.success) return { error: parsed.error.issues[0].message };
-
-    const { code } = parsed.data;
-
-    const redeemRecord = await db.redeemCode.findUnique({
-      where: { code },
-      include: {
-        campaign: {
-          select: {
-            id: true,
-            title: true,
-            vendorId: true,
-            complimentType: true,
-            complimentValue: true,
-          },
-        },
-        participation: {
-          include: {
-            creator: { select: { id: true, name: true } },
-          },
-        },
-      },
-    });
-
-    if (!redeemRecord) {
-      return { error: "Kode redeem tidak valid atau tidak ditemukan." };
-    }
-
-    if (redeemRecord.campaign.vendorId !== user.id) {
-      return { error: "Kode redeem ini bukan untuk campaign milik usahamu." };
-    }
-
-    if (redeemRecord.status === "USED") {
-      const waktu = redeemRecord.redeemedAt
-        ? new Intl.DateTimeFormat("id-ID", {
-            day: "numeric",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          }).format(redeemRecord.redeemedAt)
-        : "sebelumnya";
-      return {
-        error: `Kode ini sudah pernah ditukarkan pada ${waktu}.`,
-      };
-    }
-
-    if (redeemRecord.status === "EXPIRED" || new Date() > redeemRecord.expiresAt) {
-      return { error: "Kode redeem ini sudah kedaluwarsa." };
-    }
-
-    try {
-      await db.$transaction(async (tx) => {
-        await tx.redeemCode.update({
-          where: { id: redeemRecord.id },
-          data: {
-            status: "USED",
-            redeemedAt: new Date(),
-            redeemedBy: user.id,
-          },
-        });
-
-        await tx.campaignParticipation.update({
-          where: { id: redeemRecord.participationId },
-          data: { status: "VISITED" },
-        });
-
-        await tx.notification.create({
-          data: {
-            userId: redeemRecord.participation.creatorId,
-            type: "GENERAL",
-            title: "Kunjungan terkonfirmasi",
-            body: `Kode redeem untuk "${redeemRecord.campaign.title}" telah diverifikasi vendor. Kamu sekarang bisa mengirim konten.`,
-            link: `/creator/campaigns/${redeemRecord.campaignId}`,
-          },
-        });
-
-        await tx.auditLog.create({
-          data: {
-            actorId: user.id,
-            action: "redeem.verify",
-            entity: "RedeemCode",
-            entityId: redeemRecord.id,
-            metadata: {
-              campaignId: redeemRecord.campaignId,
-              creatorId: redeemRecord.participation.creatorId,
-              code: redeemRecord.code,
-            },
-          },
-        });
-      });
-    } catch (err) {
-      console.error("[verifyRedeemCodeAction Error]", err);
-      return { error: "Terjadi kesalahan saat memverifikasi kode redeem." };
-    }
-
-    revalidatePath("/vendor");
-    revalidatePath("/vendor/redeem");
-    revalidatePath(`/vendor/campaigns/${redeemRecord.campaignId}`);
-    return {
-      success: `Kode ${code} valid! Kehadiran kreator ${redeemRecord.participation.creator.name} terkonfirmasi. Berikan komplimen: ${redeemRecord.campaign.complimentType}.`,
-    };
-  }
-
 const transferProofSchema = z.object({
   campaignId: z.string().min(1, "Campaign ID wajib diisi."),
   senderBank: z.string().min(2, "Nama bank pengirim wajib diisi (mis. BCA, Mandiri)."),

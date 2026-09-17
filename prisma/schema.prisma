@@ -51,17 +51,9 @@ enum CampaignStatus {
 }
 
 enum ParticipationStatus {
-  JOINED // slot diklaim, belum datang
-  VISITED // redeem code sudah dipakai di lokasi
   SUBMITTED // konten sudah dikirim
   COMPLETED // submission disetujui, ikut hitungan payout
   CANCELLED // creator mundur / slot dicabut
-}
-
-enum RedeemCodeStatus {
-  UNUSED
-  USED
-  EXPIRED
 }
 
 enum SubmissionStatus {
@@ -273,6 +265,7 @@ model Campaign {
   title       String
   category    BusinessCategory
   description String
+  imageUrl    String? // URL gambar campaign, diisi vendor saat pembuatan
 
   // --- brief konten
   templateId       String?
@@ -287,12 +280,13 @@ model Campaign {
   budgetPool         Int // total pool yang disetor vendor (rupiah)
   cpmRate            Int // rupiah per 1.000 views
   platformFeeRate    Int @default(3) // persen komisi platform
-  maxCreators        Int
   maxViewsPerCreator Int? // batas views maksimal per creator yang dibayar
 
-  // --- komplimen yang disediakan vendor di lokasi
-  complimentType  String // mis. "Gratis 1 menu utama"
-  complimentValue Int // nilai rupiah
+  // --- komplimen yang disediakan vendor di lokasi (opsional sejak vendor
+  // tidak lagi mengisinya lewat wizard; field lama dibiarkan nullable
+  // supaya data campaign lama tetap tampil)
+  complimentType  String? // mis. "Gratis 1 menu utama"
+  complimentValue Int? // nilai rupiah
   complimentTerms String?
 
   startDate DateTime
@@ -311,7 +305,6 @@ model Campaign {
   updatedAt DateTime @updatedAt
 
   participations CampaignParticipation[]
-  redeemCodes    RedeemCode[]
   submissions    Submission[]
   payouts        Payout[]
   escrow         EscrowTransaction[]
@@ -327,35 +320,14 @@ model CampaignParticipation {
   creatorId  String
   creator    User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
-  status   ParticipationStatus @default(JOINED)
+  status   ParticipationStatus @default(SUBMITTED)
   joinedAt DateTime            @default(now())
 
-  redeemCode RedeemCode?
   submission Submission?
 
   // Satu creator hanya boleh satu slot per campaign.
   @@unique([campaignId, creatorId])
   @@index([creatorId, status])
-}
-
-model RedeemCode {
-  id         String   @id @default(cuid())
-  campaignId String
-  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-
-  participationId String                @unique
-  participation   CampaignParticipation @relation(fields: [participationId], references: [id], onDelete: Cascade)
-
-  code       String           @unique
-  status     RedeemCodeStatus @default(UNUSED)
-  redeemedAt DateTime?
-  // Vendor yang menandai kode terpakai saat creator hadir di lokasi.
-  redeemedBy String?
-  expiresAt  DateTime
-
-  createdAt DateTime @default(now())
-
-  @@index([campaignId, status])
 }
 
 // ---------------------------------------------------------------- submission

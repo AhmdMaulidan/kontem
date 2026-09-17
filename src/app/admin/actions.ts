@@ -263,8 +263,6 @@ export async function triggerLifecycleCheckAction(): Promise<ActionState> {
 
     await logAction(admin.id, "campaign.lifecycle.sync_manual", "System", "Lifecycle", {
       campaignsEnded: result.campaignsEnded,
-      codesExpired: result.codesExpired,
-      participationsCancelled: result.participationsCancelled,
       settleAlertsSent: result.settleAlertsSent,
     });
 
@@ -274,7 +272,7 @@ export async function triggerLifecycleCheckAction(): Promise<ActionState> {
     revalidatePath("/vendor");
 
     return {
-      success: `Siklus diperiksa: ${result.campaignsEnded} campaign berakhir, ${result.codesExpired} kode kedaluwarsa, ${result.participationsCancelled} slot dibatalkan, ${result.settleAlertsSent} siap settle.`,
+      success: `Siklus diperiksa: ${result.campaignsEnded} campaign berakhir, ${result.settleAlertsSent} siap settle.`,
     };
   } catch (error) {
     return {

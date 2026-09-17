@@ -10,7 +10,6 @@ import {
   IconArrowRight,
   Input,
   PageHeader,
-  ProgressBar,
   Select,
 } from "@/components/ui";
 import { categoryLabel, categoryTone } from "@/lib/labels";
@@ -96,7 +95,6 @@ export default async function BrowseCampaignPage({
         <div className="grid gap-4 md:grid-cols-2">
           {campaigns.map((campaign) => {
             const terisi = campaign.participations.length;
-            const penuh = terisi >= campaign.maxCreators;
             const sudahIkut = campaign.participations.some(
               (p) => p.creatorId === user.id,
             );
@@ -146,24 +144,21 @@ export default async function BrowseCampaignPage({
                   </div>
                 </div>
 
-                <div className="mt-4">
-                  <div className="mb-1 flex justify-between text-xs text-muted">
-                    <span>
-                      Slot {terisi}/{campaign.maxCreators}
-                    </span>
-                    <span>{sisaHari >= 0 ? `sisa ${sisaHari} hari` : "berakhir"}</span>
-                  </div>
-                  <ProgressBar
-                    value={terisi}
-                    max={campaign.maxCreators}
-                    tone={penuh ? "warning" : "brand"}
-                  />
+                <div className="mt-4 flex items-center justify-between text-xs text-muted">
+                  <span>
+                    {terisi > 0 ? `${terisi} creator ikut` : "Baru dibuka"}
+                  </span>
+                  <span>{sisaHari >= 0 ? `sisa ${sisaHari} hari` : "berakhir"}</span>
                 </div>
 
-                <p className="mt-4 rounded-xl bg-brand-soft px-3 py-2 text-sm text-brand">
-                  Komplimen: {campaign.complimentType} (
-                  {formatIDR(campaign.complimentValue)})
-                </p>
+                {campaign.complimentType ? (
+                  <p className="mt-4 rounded-xl bg-brand-soft px-3 py-2 text-sm text-brand">
+                    Komplimen: {campaign.complimentType}
+                    {campaign.complimentValue
+                      ? ` (${formatIDR(campaign.complimentValue)})`
+                      : ""}
+                  </p>
+                ) : null}
 
                 <div className="mt-4 flex items-center justify-between">
                   <span className="text-xs text-muted">

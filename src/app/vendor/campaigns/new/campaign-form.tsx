@@ -30,10 +30,6 @@ export type TemplateOption = {
 };
 
 const PLATFORMS: SocialPlatform[] = ["TIKTOK", "INSTAGRAM", "YOUTUBE"];
-// Harus sama dengan `platformFeeRate` @default di schema.prisma — ini hanya
-// pratinjau estimasi di wizard; angka yang benar-benar dipakai saat settlement
-// adalah `platformFeeRate` milik campaign itu sendiri.
-const FEE_RATE = 3;
 
 function tanggalDefault(offsetHari: number) {
   const date = new Date(Date.now() + offsetHari * 24 * 60 * 60 * 1000);
@@ -58,6 +54,7 @@ export function CampaignForm({
   const [budgetPool, setBudgetPool] = useState(2_500_000);
   const [cpmRate, setCpmRate] = useState(cpmRekomendasi[defaultCategory] || 15_000);
   const [maxViewsPerCreator, setMaxViewsPerCreator] = useState(500_000);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const template = templates.find((item) => item.category === category);
 
@@ -68,14 +65,7 @@ export function CampaignForm({
       maxViewsPerCreator > 0
         ? Math.floor((maxViewsPerCreator / 1000) * cpmRate)
         : 0;
-    const feePlatformPerCreator = Math.round(
-      (maxPenagihanPerCreator * FEE_RATE) / 100,
-    );
-    return {
-      maxPenagihanPerCreator,
-      feePlatformPerCreator,
-      payoutBersihPerCreator: maxPenagihanPerCreator - feePlatformPerCreator,
-    };
+    return { maxPenagihanPerCreator };
   }, [cpmRate, maxViewsPerCreator]);
 
   return (
@@ -112,6 +102,36 @@ export function CampaignForm({
             </Field>
             <Field label="Deskripsi singkat" hint="Dilihat creator di halaman listing.">
               <Textarea name="description" rows={3} required minLength={20} />
+            </Field>
+            <Field
+              label="Gambar campaign"
+              hint="Foto yang mewakili campaign ini, tampil di kartu katalog. JPG/PNG/WEBP, maks 3 MB."
+            >
+              <input
+                name="imageFile"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) {
+                    setImagePreview(null);
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () =>
+                    setImagePreview(reader.result as string);
+                  reader.readAsDataURL(file);
+                }}
+                className="block w-full rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-body outline-none transition-colors file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100 focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
+              />
+              {imagePreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={imagePreview}
+                  alt="Pratinjau gambar campaign"
+                  className="mt-3 aspect-video w-full max-w-xs rounded-md object-cover"
+                />
+              ) : null}
             </Field>
           </div>
         </Card>
@@ -184,40 +204,6 @@ export function CampaignForm({
                 </div>
               </Field>
             </div>
-          </div>
-        </Card>
-
-        <Card>
-          <CardHeader
-            title="Komplimen di lokasi"
-            description="Yang didapat creator saat berkunjung ke lokasi."
-          />
-          <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Jenis komplimen">
-                <Input
-                  name="complimentType"
-                  required
-                  placeholder="Gratis 1 menu kopi + 1 snack"
-                />
-              </Field>
-              <Field label="Nilai (Rp)">
-                <Input
-                  name="complimentValue"
-                  type="number"
-                  min={0}
-                  required
-                  defaultValue={65000}
-                />
-              </Field>
-            </div>
-            <Field label="Syarat & ketentuan" hint="Opsional.">
-              <Textarea
-                name="complimentTerms"
-                rows={2}
-                placeholder="Berlaku 1 orang, jam 15.00-18.00, tidak dapat digabung dengan promo lain."
-              />
-            </Field>
           </div>
         </Card>
 
@@ -297,19 +283,6 @@ export function CampaignForm({
                 }
               />
             </Field>
-            <Field
-              label="Kuota creator (maksimal peserta)"
-              hint="Jumlah slot creator yang dapat bergabung dan mengklaim komplimen di lokasi (1–100 creator)."
-            >
-              <Input
-                name="maxCreators"
-                type="number"
-                min={1}
-                max={100}
-                required
-                defaultValue={10}
-              />
-            </Field>
           </div>
         </Card>
 
@@ -327,20 +300,8 @@ export function CampaignForm({
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-muted">Payout kotor per creator</dt>
-              <dd className="tabular font-medium">
-                {formatIDR(proyeksi.maxPenagihanPerCreator)}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3 border-t border-line pt-3">
-              <dt className="text-muted">Fee platform ({FEE_RATE}%)</dt>
-              <dd className="tabular font-medium">
-                {formatIDR(proyeksi.feePlatformPerCreator)}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted">Diterima creator (maks)</dt>
               <dd className="tabular font-medium text-success">
-                {formatIDR(proyeksi.payoutBersihPerCreator)}
+                {formatIDR(proyeksi.maxPenagihanPerCreator)}
               </dd>
             </div>
           </dl>

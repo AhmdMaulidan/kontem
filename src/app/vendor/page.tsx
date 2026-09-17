@@ -10,12 +10,10 @@ import {
   Card,
   CardHeader,
   EmptyState,
-  IconClock,
   IconLock,
   IconMegaphone,
   IconTrend,
   PageHeader,
-  ProgressBar,
   Stat,
 } from "@/components/ui";
 import { campaignStatusLabel, campaignStatusTone } from "@/lib/labels";
@@ -34,7 +32,6 @@ export default async function VendorDashboard() {
       _count: {
         select: {
           participations: { where: { status: { not: "CANCELLED" } } },
-          submissions: true,
         },
       },
     },
@@ -51,44 +48,19 @@ export default async function VendorDashboard() {
     })),
   );
 
-  // --- Submission counts (pipeline) ---
-  const [
-    totalSubmission,
-    totalApproved,
-    totalRejected,
-    totalAppealed,
-    menungguReview,
-  ] = await Promise.all([
-    db.submission.count({ where: { campaign: { vendorId: user.id } } }),
-    db.submission.count({
-      where: {
-        campaign: { vendorId: user.id },
-        status: { in: ["APPROVED", "ADMIN_APPROVED"] },
-      },
-    }),
-    db.submission.count({
-      where: {
-        campaign: { vendorId: user.id },
-        status: { in: ["REJECTED", "ADMIN_REJECTED"] },
-      },
-    }),
-    db.submission.count({
-      where: { campaign: { vendorId: user.id }, status: "APPEALED" },
-    }),
-    db.submission.count({
-      where: { campaign: { vendorId: user.id }, status: "PENDING_REVIEW" },
-    }),
-  ]);
-
   // --- Keuangan: transaksi escrow yang sudah selesai (dari campaign settled) ---
   const escrowItems = await db.escrowTransaction.findMany({
-    where: { campaign: { vendorId: user.id }, status: "COMPLETED" },
+    where: {
+      campaign: { vendorId: user.id },
+      status: "COMPLETED",
+      type: { in: ["DEPOSIT", "PAYOUT", "REFUND"] },
+    },
     select: { type: true, amount: true },
   });
 
-  const escrowByType = { DEPOSIT: 0, PAYOUT: 0, PLATFORM_FEE: 0, REFUND: 0 };
+  const escrowByType = { DEPOSIT: 0, PAYOUT: 0, REFUND: 0 };
   for (const item of escrowItems) {
-    escrowByType[item.type] += item.amount;
+    escrowByType[item.type as "DEPOSIT" | "PAYOUT" | "REFUND"] += item.amount;
   }
 
   // --- Stat agregat header ---
@@ -109,7 +81,6 @@ export default async function VendorDashboard() {
       <PageHeader
         title={user.vendorProfile?.businessName ?? "Dashboard"}
         description={`${user.vendorProfile?.city ?? ""} · ${campaigns.length} campaign dibuat`}
-
       />
 
       {user.status !== "VERIFIED" ? (
@@ -123,7 +94,7 @@ export default async function VendorDashboard() {
       ) : null}
 
       {/* ── Stat cards ─────────────────────────────────────────────────── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Stat
           label="Campaign aktif"
           icon={IconMegaphone}
@@ -142,25 +113,7 @@ export default async function VendorDashboard() {
           value={formatIDR(escrowAktif)}
           hint="Campaign berjalan & pending"
         />
-        <Stat
-          label="Menunggu review"
-          icon={IconClock}
-          value={menungguReview}
-          hint={menungguReview > 0 ? "Segera putuskan" : "Semua sudah diputuskan"}
-          tone={menungguReview > 0 ? "danger" : undefined}
-        />
       </div>
-
-      {menungguReview > 0 ? (
-        <div className="mt-6">
-          <Callout tone="warning">
-            Ada {menungguReview} submission menunggu keputusanmu.{" "}
-            <Link href="/vendor/submissions" className="font-medium underline">
-              Review sekarang
-            </Link>
-          </Callout>
-        </div>
-      ) : null}
 
       {/* ── Main content ────────────────────────────────────────────────── */}
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
@@ -170,7 +123,7 @@ export default async function VendorDashboard() {
           <Card>
             <CardHeader
               title="Campaign berjalan"
-              description="Serapan budget dan performa views campaign yang sedang aktif."
+              description="Performa views campaign yang sedang aktif."
               action={
                 <ButtonLink
                   href="/vendor/campaigns?status=ACTIVE"
@@ -199,35 +152,25 @@ export default async function VendorDashboard() {
                   const terpakai = performance?.totalDistributed ?? 0;
                   return (
                     <li key={campaign.id} className="py-4 first:pt-0 last:pb-0">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <Link
-                            href={`/vendor/campaigns/${campaign.id}`}
-                            className="font-medium hover:text-brand"
+                      <div className="min-w-0">
+                        <Link
+                          href={`/vendor/campaigns/${campaign.id}`}
+                          className="font-medium hover:text-brand"
+                        >
+                          {campaign.title}
+                        </Link>
+                        <p className="mt-0.5 text-sm text-muted">
+                          {campaign._count.participations} creator ·{" "}
+                          <span
+                            className={
+                              sisa <= 3 ? "font-medium text-warning" : ""
+                            }
                           >
-                            {campaign.title}
-                          </Link>
-                          <p className="mt-0.5 text-sm text-muted">
-                            {campaign._count.participations} creator ·{" "}
-                            <span
-                              className={
-                                sisa <= 3 ? "font-medium text-warning" : ""
-                              }
-                            >
-                              {sisa > 0
-                                ? `${sisa} hari lagi`
-                                : "Berakhir hari ini"}
-                            </span>
-                          </p>
-                        </div>
-                        {campaign._count.submissions > 0 ? (
-                          <Link
-                            href="/vendor/submissions"
-                            className="text-xs font-medium text-brand-600 hover:underline"
-                          >
-                            {campaign._count.submissions} submission →
-                          </Link>
-                        ) : null}
+                            {sisa > 0
+                              ? `${sisa} hari lagi`
+                              : "Berakhir hari ini"}
+                          </span>
+                        </p>
                       </div>
 
                       <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
@@ -259,16 +202,6 @@ export default async function VendorDashboard() {
                               : "—"}
                           </p>
                         </div>
-                      </div>
-
-                      <div className="mt-3">
-                        <ProgressBar
-                          value={terpakai}
-                          max={campaign.budgetPool}
-                          tone={
-                            performance?.poolExhausted ? "warning" : "brand"
-                          }
-                        />
                       </div>
                     </li>
                   );
@@ -333,7 +266,7 @@ export default async function VendorDashboard() {
           </Card>
         </div>
 
-        {/* Kolom kanan — keuangan & submission */}
+        {/* Kolom kanan — keuangan */}
         <div className="space-y-6">
           {/* Ringkasan keuangan */}
           <Card>
@@ -354,12 +287,6 @@ export default async function VendorDashboard() {
                   {formatIDR(escrowByType.PAYOUT)}
                 </dd>
               </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted">Fee platform</dt>
-                <dd className="tabular font-medium text-muted">
-                  {formatIDR(escrowByType.PLATFORM_FEE)}
-                </dd>
-              </div>
               <div className="flex justify-between gap-3 border-t border-line pt-3">
                 <dt className="font-medium">Dikembalikan ke kamu</dt>
                 <dd className="tabular font-semibold text-success">
@@ -372,55 +299,6 @@ export default async function VendorDashboard() {
                 + {formatIDR(escrowAktif)} masih terkunci di campaign yang
                 belum selesai.
               </p>
-            ) : null}
-          </Card>
-
-          {/* Pipeline submission */}
-          <Card>
-            <CardHeader title="Pipeline submission" />
-            <dl className="space-y-3 text-sm">
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted">Total masuk</dt>
-                <dd className="tabular font-medium">{totalSubmission}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted">Disetujui</dt>
-                <dd className="tabular font-medium text-success">
-                  {totalApproved}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-muted">Ditolak</dt>
-                <dd className="tabular font-medium text-danger">
-                  {totalRejected}
-                </dd>
-              </div>
-              {totalAppealed > 0 ? (
-                <div className="flex justify-between gap-3">
-                  <dt className="text-muted">Dalam banding</dt>
-                  <dd className="tabular font-medium text-warning">
-                    {totalAppealed}
-                  </dd>
-                </div>
-              ) : null}
-              <div className="flex justify-between gap-3 border-t border-line pt-3">
-                <dt className="font-medium">Menunggu review</dt>
-                <dd
-                  className={[
-                    "tabular font-semibold",
-                    menungguReview > 0 ? "text-danger" : "text-muted",
-                  ].join(" ")}
-                >
-                  {menungguReview}
-                </dd>
-              </div>
-            </dl>
-            {menungguReview > 0 ? (
-              <div className="mt-4">
-                <ButtonLink href="/vendor/submissions" className="w-full">
-                  Review sekarang
-                </ButtonLink>
-              </div>
             ) : null}
           </Card>
         </div>

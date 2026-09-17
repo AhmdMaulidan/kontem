@@ -46,8 +46,6 @@ export const submissionStatusLabel: Record<SubmissionStatus, string> = {
 };
 
 export const participationStatusLabel: Record<ParticipationStatus, string> = {
-  JOINED: "Slot Diambil",
-  VISITED: "Sudah Berkunjung",
   SUBMITTED: "Konten Dikirim",
   COMPLETED: "Selesai",
   CANCELLED: "Dibatalkan",
@@ -137,10 +135,7 @@ export const submissionStatusTone: Record<SubmissionStatus, BadgeTone> = {
   ADMIN_REJECTED: "danger",
 };
 
-/** Tahapan kunjungan creator: menunggu datang -> hadir -> kirim konten. */
 export const participationStatusTone: Record<ParticipationStatus, BadgeTone> = {
-  JOINED: "warning",
-  VISITED: "sky",
   SUBMITTED: "info",
   COMPLETED: "success",
   CANCELLED: "neutral",
