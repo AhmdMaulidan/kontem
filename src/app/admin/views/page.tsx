@@ -117,10 +117,8 @@ export default async function AdminViewsPage({
       />
 
       <div className="mb-6">
-        <Callout tone="info" title="Mode demo">
-          Angka views diinput manual di halaman ini. Di produksi, pekerjaan ini
-          diambil alih job terjadwal yang menarik data dari API TikTok/Instagram
-          — antarmuka dan perhitungan di belakangnya tidak berubah.
+        <Callout tone="info" title="Sinkronisasi & Audit Views">
+          Gunakan tombol <strong>Tarik</strong> pada kolom aksi untuk memperbarui metrik views otomatis langsung dari platform media sosial (TikTok, Instagram, YouTube). Tombol <strong>Edit</strong> dapat digunakan oleh admin untuk koreksi angka manual atau penyesuaian jika diperlukan.
         </Callout>
       </div>
 
