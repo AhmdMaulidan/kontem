@@ -183,30 +183,34 @@ export default async function AdminDashboard({
       <div className="mt-8">
         <DataTable
           title="Campaign terbaru"
-          action={
-            <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
-          }
+          tableClassName="w-full text-xs sm:text-sm"
           footer={
-            <Pagination
-              basePath={BASE}
-              params={params}
-              page={page}
-              pageSize={pageSize}
-              total={campaignTerbaruTotal}
-            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex-1 flex justify-center sm:justify-start">
+                <Pagination
+                  basePath={BASE}
+                  params={params}
+                  page={page}
+                  pageSize={pageSize}
+                  total={campaignTerbaruTotal}
+                />
+              </div>
+              <div className="flex justify-end">
+                <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
+              </div>
+            </div>
           }
         >
-          {/* Tabel — desktop */}
-          <thead className="hidden md:table-header-group">
+          <thead>
             <tr>
-              <Th>No</Th>
-              <Th>Campaign</Th>
-              <Th>Vendor</Th>
-              <Th align="right">Budget</Th>
-              <Th>Status</Th>
+              <Th className="w-8 px-2 py-2 text-center text-xs">No</Th>
+              <Th className="px-2 py-2 text-xs">Campaign</Th>
+              <Th className="px-2 py-2 text-xs">Vendor</Th>
+              <Th align="right" className="px-2 py-2 text-xs">Budget</Th>
+              <Th className="px-2 py-2 text-xs">Status</Th>
             </tr>
           </thead>
-          <tbody className="hidden md:table-row-group">
+          <tbody>
             {campaignTerbaru.length === 0 ? (
               <TableEmptyRow
                 colSpan={5}
@@ -216,51 +220,25 @@ export default async function AdminDashboard({
             ) : (
               campaignTerbaru.map((campaign, index) => (
                 <tr key={campaign.id}>
-                  <Td className="tabular text-muted">
+                  <Td className="w-8 px-2 py-2 text-center tabular text-xs text-muted">
                     {rowNumber(index, page, pageSize)}
                   </Td>
-                  <Td className="font-medium">{campaign.title}</Td>
-                  <Td>{campaign.vendor.vendorProfile?.businessName ?? "—"}</Td>
-                  <Td align="right">{formatCompact(campaign.budgetPool)}</Td>
-                  <Td>
+                  <Td className="px-2 py-2 font-medium text-xs sm:text-sm">
+                    <span className="line-clamp-1">{campaign.title}</span>
+                  </Td>
+                  <Td className="px-2 py-2 text-xs text-muted sm:text-sm">
+                    <span className="line-clamp-1">
+                      {campaign.vendor.vendorProfile?.businessName ?? "—"}
+                    </span>
+                  </Td>
+                  <Td align="right" className="px-2 py-2 text-xs sm:text-sm whitespace-nowrap">
+                    {formatCompact(campaign.budgetPool)}
+                  </Td>
+                  <Td className="px-2 py-2 whitespace-nowrap">
                     <Badge tone={campaignStatusTone[campaign.status]} icon>
                       {campaignStatusLabel[campaign.status]}
                     </Badge>
                   </Td>
-                </tr>
-              ))
-            )}
-          </tbody>
-
-          {/* Kartu — mobile */}
-          <tbody className="md:hidden">
-            {campaignTerbaru.length === 0 ? (
-              <TableEmptyRow
-                colSpan={1}
-                title="Belum ada campaign"
-                description="Campaign muncul di sini begitu vendor mengirimkannya."
-              />
-            ) : (
-              campaignTerbaru.map((campaign) => (
-                <tr key={campaign.id}>
-                  <td className="block px-4 py-3 border-b border-line last:border-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm truncate">{campaign.title}</p>
-                        <p className="text-xs text-muted mt-0.5">
-                          {campaign.vendor.vendorProfile?.businessName ?? "—"}
-                        </p>
-                      </div>
-                      <div className="shrink-0 flex flex-col items-end gap-1">
-                        <Badge tone={campaignStatusTone[campaign.status]} icon>
-                          {campaignStatusLabel[campaign.status]}
-                        </Badge>
-                        <span className="tabular text-xs font-medium">
-                          {formatCompact(campaign.budgetPool)}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
                 </tr>
               ))
             )}

@@ -76,17 +76,11 @@ export function TableToolbar({
     router.replace(buildHref(basePath, params, { ...patch, page: undefined }));
 
   return (
-    <div className="flex flex-wrap items-center gap-2.5">
+    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2.5">
       {searchPlaceholder ? (
-        // Lebar dibatasi (bukan flex-1): tanpa batas, kotak cari menyerap
-        // seluruh sisa baris dan mendorong filter-filter ke ujung kanan,
-        // padahal semuanya seharusnya sejajar rapat di kiri. Lebar diperkecil
-        // di layar sempit (bukan tetap w-72) supaya kotak cari dan seluruh
-        // filter tetap sejajar satu baris pada lebar konten dasbor yang wajar
-        // — bukan wrap sendiri-sendiri begitu ruangnya pas-pasan.
-        <div className="relative w-56 max-w-full shrink-0 xl:w-72">
+        <div className="relative col-span-1 w-full sm:w-56 sm:shrink-0 xl:w-72">
           <IconSearch
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted sm:left-3.5 sm:h-4 sm:w-4"
             aria-hidden
           />
           <Input
@@ -94,28 +88,18 @@ export function TableToolbar({
             onChange={(event) => setTerm(event.target.value)}
             placeholder={searchPlaceholder}
             aria-label={searchPlaceholder}
-            className="pl-10"
+            className="pl-8 text-xs py-2 sm:pl-10 sm:text-sm sm:py-2.5"
           />
         </div>
       ) : null}
 
-      {/* Filter, toggle, dan action dulunya dikelompokkan dalam satu wadah
-          "ml-auto" tersendiri supaya menempel rapat di ujung kanan — tapi itu
-          membuat seluruh kelompok pindah baris sekaligus begitu ruangnya
-          sempit, sedangkan kotak cari tetap sendirian di baris atas. Item-item
-          ini sekarang jadi anak langsung wadah flex-wrap yang sama dengan
-          kotak cari, supaya yang pindah baris hanya item yang benar-benar
-          kehabisan tempat. */}
       {filters.map((filter) => (
-        // Select sendiri tetap "w-full" bawaan (form.tsx) — lebar diatur
-        // lewat pembungkusnya, bukan lewat className yang dioper ke Select.
-        // cn() hanya menyambung string, jadi "w-auto" yang bertabrakan dengan
-        // "w-full" tidak bisa diandalkan menang.
-        <div key={filter.name} className="w-36 shrink-0 xl:w-44">
+        <div key={filter.name} className="col-span-1 w-full sm:w-36 sm:shrink-0 xl:w-44">
           <Select
             aria-label={filter.label}
             value={params[filter.name] ?? ""}
             onChange={(event) => pindah({ [filter.name]: event.target.value })}
+            className="text-xs py-2 pr-8 sm:text-sm sm:py-2.5 sm:pr-10"
           >
             {filter.options.map((option) => (
               <option key={option.value} value={option.value}>
@@ -138,8 +122,8 @@ export function TableToolbar({
             }
             className={
               menyala
-                ? "rounded-full border border-brand-400 bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-700"
-                : "rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-medium text-muted transition-colors hover:border-line-brand hover:text-brand-700"
+                ? "col-span-2 sm:col-span-1 rounded-full border border-brand-400 bg-brand-50 px-3 py-1.5 text-xs sm:px-4 sm:py-2.5 sm:text-sm font-medium text-brand-700"
+                : "col-span-2 sm:col-span-1 rounded-full border border-line bg-surface px-3 py-1.5 text-xs sm:px-4 sm:py-2.5 sm:text-sm font-medium text-muted transition-colors hover:border-line-brand hover:text-brand-700"
             }
           >
             {toggle.label}
@@ -147,7 +131,7 @@ export function TableToolbar({
         );
       })}
 
-      {action ? <div className="ml-auto">{action}</div> : null}
+      {action ? <div className="col-span-2 sm:col-span-1 sm:ml-auto">{action}</div> : null}
     </div>
   );
 }
