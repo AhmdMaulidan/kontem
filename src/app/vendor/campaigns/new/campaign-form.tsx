@@ -105,7 +105,7 @@ export function CampaignForm({
               </Select>
             </Field>
             <Field label="Deskripsi singkat" hint="Dilihat creator di halaman listing.">
-              <Textarea name="description" rows={3} required minLength={20} />
+              <Textarea name="description" rows={3} required />
             </Field>
             <Field
               label="Gambar campaign"
@@ -252,7 +252,7 @@ export function CampaignForm({
                 name="budgetPool"
                 type="number"
                 min={100000}
-                step={50000}
+                step={1}
                 required
                 value={budgetPool}
                 onChange={(event) => setBudgetPool(Number(event.target.value))}
@@ -270,7 +270,7 @@ export function CampaignForm({
                 name="cpmRate"
                 type="number"
                 min={1000}
-                step={1000}
+                step={1}
                 required
                 value={cpmRate}
                 onChange={(event) => setCpmRate(Number(event.target.value))}
@@ -284,7 +284,7 @@ export function CampaignForm({
                 name="maxViewsPerCreator"
                 type="number"
                 min={1000}
-                step={50000}
+                step={1}
                 required
                 value={maxViewsPerCreator}
                 onChange={(event) =>
@@ -296,7 +296,7 @@ export function CampaignForm({
               label="Minimum penarikan per video (Rp, opsional)"
               hint="Creator baru bisa menarik dini penghasilan satu video setelah mencapai jumlah ini. Kosongkan kalau tidak ada minimum."
             >
-              <Input name="minWithdrawalAmount" type="number" min={0} step={10000} />
+              <Input name="minWithdrawalAmount" type="number" min={0} step={1} />
             </Field>
           </div>
         </Card>

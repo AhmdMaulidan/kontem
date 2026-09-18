@@ -34,8 +34,14 @@ import {
 } from "@/lib/labels";
 
 import { CampaignSummaryCard } from "./campaign-summary-card";
+import { DeleteCampaignCard } from "./delete-campaign-button";
 import { ManualDepositCard } from "./manual-deposit-card";
 import { RefundCard } from "./refund-card";
+
+// Sama dengan DELETABLE_CAMPAIGN_STATUSES di vendor/actions.ts — begitu
+// campaign disetujui admin (ACTIVE) ia sudah terlihat creator dan mungkin
+// sudah diklaim, jadi tombol hapus tidak lagi ditampilkan.
+const DELETABLE_STATUSES = ["DRAFT", "PENDING_REVIEW", "REJECTED"];
 
 export default async function VendorCampaignDetail({
   params,
@@ -468,6 +474,13 @@ export default async function VendorCampaignDetail({
               </ul>
             )}
           </Card>
+
+          {DELETABLE_STATUSES.includes(campaign.status) ? (
+            <DeleteCampaignCard
+              campaignId={campaign.id}
+              campaignTitle={campaign.title}
+            />
+          ) : null}
         </div>
       </div>
     </div>

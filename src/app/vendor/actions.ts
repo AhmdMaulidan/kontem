@@ -17,7 +17,7 @@ const campaignSchema = z.object({
     "AKOMODASI",
     "LAINNYA",
   ]),
-  description: z.string().min(20, "Deskripsi minimal 20 karakter.").max(2000, "Deskripsi maksimal 2.000 karakter."),
+  description: z.string().min(1, "Deskripsi wajib diisi.").max(2000, "Deskripsi maksimal 2.000 karakter."),
   briefAngle: z.string().min(20, "Angle wajib minimal 20 karakter.").max(1000, "Angle wajib maksimal 1.000 karakter."),
   briefMustShow: z.string().min(3, "Isi minimal satu hal yang wajib ditampilkan."),
   briefProhibited: z.string().optional(),
@@ -350,4 +350,67 @@ export async function updateVendorBankAction(
   revalidatePath("/vendor");
   revalidatePath("/vendor/campaigns");
   return { success: "Informasi rekening bank refund berhasil disimpan." };
+}
+
+// Campaign yang belum pernah diputuskan admin — hanya status inilah yang
+// boleh dihapus vendor sendiri. Begitu campaign disetujui (ACTIVE) ia sudah
+// terlihat creator dan mungkin sudah diklaim, jadi vendor tidak lagi bisa
+// menghapusnya sendiri.
+const DELETABLE_CAMPAIGN_STATUSES = ["DRAFT", "PENDING_REVIEW", "REJECTED"];
+
+export async function deleteCampaignAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireRole("VENDOR");
+  const campaignId = String(formData.get("campaignId") ?? "");
+  if (!campaignId) return { error: "ID campaign tidak valid." };
+
+  const campaign = await db.campaign.findUnique({
+    where: { id: campaignId },
+    include: { escrow: { where: { type: "DEPOSIT" } } },
+  });
+
+  if (!campaign || campaign.vendorId !== user.id) {
+    return { error: "Campaign tidak ditemukan atau bukan milik Anda." };
+  }
+
+  if (!DELETABLE_CAMPAIGN_STATUSES.includes(campaign.status)) {
+    return {
+      error:
+        "Campaign yang sudah disetujui admin tidak dapat dihapus lagi. Hubungi admin kalau memang perlu dibatalkan.",
+    };
+  }
+
+  // Deposit yang sudah lunas berarti ada dana nyata tersimpan di escrow —
+  // penghapusan tidak boleh membuat dana itu hilang jejak begitu saja.
+  const deposit = campaign.escrow[0];
+  if (deposit?.status === "COMPLETED") {
+    return {
+      error:
+        "Deposit escrow campaign ini sudah lunas. Hubungi admin untuk proses pengembalian dana sebelum menghapus campaign.",
+    };
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.campaign.delete({ where: { id: campaignId } });
+      await tx.auditLog.create({
+        data: {
+          actorId: user.id,
+          action: "campaign.delete",
+          entity: "Campaign",
+          entityId: campaignId,
+          metadata: { title: campaign.title, status: campaign.status },
+        },
+      });
+    });
+  } catch (err) {
+    console.error("[deleteCampaignAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat menghapus campaign." };
+  }
+
+  revalidatePath("/vendor");
+  revalidatePath("/vendor/campaigns");
+  redirect("/vendor/campaigns");
 }
