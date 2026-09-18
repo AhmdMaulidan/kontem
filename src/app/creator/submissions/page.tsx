@@ -5,19 +5,19 @@ import { formatCompact, formatDateTime } from "@/lib/format";
 import {
   Badge,
   ButtonLink,
-  Callout,
   Card,
-  DetailDrawer,
   EmptyState,
   IconExternal,
-  IconEye,
   PageHeader,
   Table,
   Td,
   Th,
 } from "@/components/ui";
 import { submissionStatusLabel, submissionStatusTone, platformLabel } from "@/lib/labels";
-import { AppealForm } from "./appeal-form";
+import {
+  RefreshViewsButton,
+  SubmissionActionMenu,
+} from "./submission-actions";
 
 export default async function CreatorSubmissionsPage() {
   const user = await requireRole("CREATOR");
@@ -27,6 +27,8 @@ export default async function CreatorSubmissionsPage() {
     include: {
       campaign: { include: { vendor: { include: { vendorProfile: true } } } },
       disputes: { orderBy: { createdAt: "desc" }, take: 1 },
+      withdrawal: true,
+      payout: true,
     },
     orderBy: { submittedAt: "desc" },
   });
@@ -54,101 +56,88 @@ export default async function CreatorSubmissionsPage() {
                 <Th>Dikirim</Th>
                 <Th align="right">Views</Th>
                 <Th>Status</Th>
-                <Th>Catatan / Banding</Th>
+                <Th align="right">Aksi</Th>
               </tr>
             </thead>
             <tbody>
-              {submissions.map((submission) => (
-                <tr key={submission.id}>
-                  <Td>
-                    <Link
-                      href={`/creator/campaigns/${submission.campaignId}`}
-                      className="font-medium text-body hover:text-brand"
-                    >
-                      {submission.campaign.title}
-                    </Link>
-                    <p className="mt-0.5 text-xs text-muted">
-                      {submission.campaign.vendor.vendorProfile?.businessName} ·{" "}
-                      {submission.campaign.vendor.vendorProfile?.city}
-                    </p>
-                  </Td>
-                  <Td>
-                    <span className="text-xs font-semibold text-body">
-                      {platformLabel[submission.platform]}
-                    </span>
-                    <a
-                      href={submission.contentUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-1 flex max-w-[220px] items-center gap-1 truncate text-xs text-brand hover:underline"
-                    >
-                      <IconExternal className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{submission.contentUrl}</span>
-                    </a>
-                  </Td>
-                  <Td className="whitespace-nowrap text-xs text-muted">
-                    {formatDateTime(submission.submittedAt)}
-                  </Td>
-                  <Td align="right" className="font-medium text-body">
-                    {formatCompact(submission.lastViews)}
-                  </Td>
-                  <Td>
-                    <Badge tone={submissionStatusTone[submission.status]}>
-                      {submissionStatusLabel[submission.status]}
-                    </Badge>
-                  </Td>
-                  <Td>
-                    <div className="flex justify-center">
-                      <DetailDrawer
-                        label="Lihat catatan"
-                        title="Catatan reviewer"
-                        subtitle={submission.campaign.title}
-                        trigger="pill"
-                        iconOnly
-                        icon={<IconEye className="h-4 w-4" strokeWidth={2} />}
+              {submissions.map((submission) => {
+                const hasPayout = !!submission.payout;
+                const hasActiveWithdrawal =
+                  !!submission.withdrawal &&
+                  submission.withdrawal.status !== "REJECTED";
+                const isSettled = submission.campaign.status === "SETTLED";
+                const canDelete = !hasPayout && !hasActiveWithdrawal && !isSettled;
+
+                let deleteDisabledReason: string | undefined;
+                if (hasPayout) {
+                  deleteDisabledReason = "Submission sudah memiliki data pembayaran.";
+                } else if (hasActiveWithdrawal) {
+                  deleteDisabledReason =
+                    "Pengajuan penarikan dana sedang diproses atau sudah dicairkan.";
+                } else if (isSettled) {
+                  deleteDisabledReason = "Campaign sudah selesai (settled).";
+                }
+
+                return (
+                  <tr key={submission.id}>
+                    <Td>
+                      <Link
+                        href={`/creator/campaigns/${submission.campaignId}`}
+                        className="font-medium text-body hover:text-brand"
                       >
-                        {submission.disputes.length > 0 ? (
-                          <Callout tone="warning" title="Banding diproses">
-                            {submission.disputes[0].reason}
-                          </Callout>
-                        ) : null}
-
-                        {submission.reviewNote ? (
-                          <Callout
-                            tone={
-                              submission.status === "APPROVED" ||
-                              submission.status === "ADMIN_APPROVED"
-                                ? "success"
-                                : "danger"
-                            }
-                            title="Catatan reviewer"
-                          >
-                            {submission.reviewNote}
-                          </Callout>
-                        ) : null}
-
-                        {submission.status === "REJECTED" &&
-                        submission.disputes.length === 0 ? (
-                          <div className="rounded-xl bg-surface-muted p-3">
-                            <p className="mb-2 text-xs text-muted">
-                              Jelaskan bagian konten yang sudah memenuhi brief.
-                            </p>
-                            <AppealForm submissionId={submission.id} />
-                          </div>
-                        ) : null}
-
-                        {!submission.reviewNote &&
-                        submission.disputes.length === 0 &&
-                        submission.status !== "REJECTED" ? (
-                          <p className="text-sm text-muted">
-                            Belum ada catatan dari reviewer.
-                          </p>
-                        ) : null}
-                      </DetailDrawer>
-                    </div>
-                  </Td>
-                </tr>
-              ))}
+                        {submission.campaign.title}
+                      </Link>
+                      <p className="mt-0.5 text-xs text-muted">
+                        {submission.campaign.vendor.vendorProfile?.businessName} ·{" "}
+                        {submission.campaign.vendor.vendorProfile?.city}
+                      </p>
+                    </Td>
+                    <Td>
+                      <span className="text-xs font-semibold text-body">
+                        {platformLabel[submission.platform]}
+                      </span>
+                      <a
+                        href={submission.contentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 flex max-w-[220px] items-center gap-1 truncate text-xs text-brand hover:underline"
+                      >
+                        <IconExternal className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{submission.contentUrl}</span>
+                      </a>
+                    </Td>
+                    <Td className="whitespace-nowrap text-xs text-muted">
+                      {formatDateTime(submission.submittedAt)}
+                    </Td>
+                    <Td align="right">
+                      <div className="flex items-center justify-end gap-1.5 font-medium text-body">
+                        <span>{formatCompact(submission.lastViews)}</span>
+                        <RefreshViewsButton
+                          submissionId={submission.id}
+                          lastSyncedAt={submission.lastSyncedAt}
+                        />
+                      </div>
+                    </Td>
+                    <Td>
+                      <Badge tone={submissionStatusTone[submission.status]}>
+                        {submissionStatusLabel[submission.status]}
+                      </Badge>
+                    </Td>
+                    <Td align="right">
+                      <SubmissionActionMenu
+                        submissionId={submission.id}
+                        campaignTitle={submission.campaign.title}
+                        contentUrl={submission.contentUrl}
+                        status={submission.status}
+                        reviewNote={submission.reviewNote}
+                        dispute={submission.disputes[0] || null}
+                        canDelete={canDelete}
+                        deleteDisabledReason={deleteDisabledReason}
+                      />
+                    </Td>
+                  </tr>
+                );
+              })}
             </tbody>
           </Table>
         </Card>
@@ -156,3 +145,4 @@ export default async function CreatorSubmissionsPage() {
     </div>
   );
 }
+

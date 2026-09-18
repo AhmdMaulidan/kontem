@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { verifyContentOwnership } from "@/domain/social-url";
+import { verifyContentOwnership, verifyAuthorOwnership } from "@/domain/social-url";
+import { isWithinCooldown, VIEW_SYNC_COOLDOWN_MS } from "@/domain/views";
+import { fetchVideoMetrics } from "@/lib/video-metrics";
 import { COUNTABLE_STATUSES } from "@/domain/campaign";
 import { calculateCreatorEarning, calculateWithdrawalFee } from "@/domain/withdrawal";
 import { formatIDR } from "@/lib/format";
@@ -404,3 +406,221 @@ export async function requestWithdrawalAction(
     success: "Penarikan diajukan. Menunggu approval admin sebelum dana ditransfer.",
   };
 }
+
+/**
+ * Segarkan jumlah views dari submission oleh kreator pemilik konten.
+ * Dilengkapi proteksi jeda waktu 5 menit (throttling) dan penarikan metrik otomatis.
+ */
+export async function refreshCreatorSubmissionViewsAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireRole("CREATOR");
+  const submissionId = String(formData.get("submissionId") ?? "");
+  if (!submissionId) return { error: "ID submission tidak valid." };
+
+  const submission = await db.submission.findUnique({
+    where: { id: submissionId },
+    include: {
+      creator: {
+        include: { socialAccounts: true },
+      },
+    },
+  });
+
+  if (!submission || submission.creatorId !== user.id) {
+    return { error: "Submission tidak ditemukan." };
+  }
+
+  // 1. Throttling jeda 5 menit
+  if (isWithinCooldown(submission.lastSyncedAt)) {
+    const elapsedMs = Date.now() - new Date(submission.lastSyncedAt!).getTime();
+    const remainingSeconds = Math.ceil((VIEW_SYNC_COOLDOWN_MS - elapsedMs) / 1000);
+    const remainingMinutes = Math.ceil(remainingSeconds / 60);
+    return {
+      error: `Views baru saja diperbarui. Mohon tunggu jeda 5 menit (sisa ~${remainingMinutes} menit) sebelum menyegarkan kembali.`,
+    };
+  }
+
+  // 2. Fetch metrik dari platform
+  let metrics;
+  try {
+    metrics = await fetchVideoMetrics(submission.platform, submission.contentUrl);
+  } catch (err) {
+    return {
+      error: `Gagal memperbarui views otomatis: ${err instanceof Error ? err.message : "Kesalahan jaringan"}`,
+    };
+  }
+
+  const mencurigakan = metrics.views < submission.lastViews;
+
+  // 3. Simpan perubahan secara atomik
+  await db.$transaction(async (tx) => {
+    await tx.submission.update({
+      where: { id: submissionId },
+      data: {
+        lastViews: metrics.views,
+        lastLikes: metrics.likes,
+        lastComments: metrics.comments,
+        lastSyncedAt: new Date(),
+      },
+    });
+
+    await tx.viewSnapshot.create({
+      data: {
+        submissionId,
+        views: metrics.views,
+        likes: metrics.likes,
+        comments: metrics.comments,
+        source: "API",
+      },
+    });
+
+    if (mencurigakan) {
+      await tx.fraudFlag.create({
+        data: {
+          submissionId,
+          flaggedUserId: submission.creatorId,
+          type: "INFLATED_VIEWS",
+          severity: 2,
+          detail: `Views otomatis dari API (${metrics.views}) lebih rendah dari views tercatat sebelumnya (${submission.lastViews}).`,
+        },
+      });
+    }
+
+    const registeredAccount = submission.creator.socialAccounts.find(
+      (a) => a.platform === submission.platform,
+    );
+    if (registeredAccount && metrics.author) {
+      const isAuthorMatch = verifyAuthorOwnership({
+        author: metrics.author,
+        registeredHandle: registeredAccount.handle,
+      });
+      if (!isAuthorMatch) {
+        await tx.fraudFlag.create({
+          data: {
+            submissionId,
+            flaggedUserId: submission.creatorId,
+            type: "REUSED_CONTENT",
+            severity: 2,
+            detail: `Penarikan metrik mendeteksi video diunggah oleh akun @${metrics.author}, berbeda dengan akun ${submission.platform} terdaftar kreator (@${registeredAccount.handle}).`,
+          },
+        });
+      }
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: "submission.views.sync_creator",
+        entity: "Submission",
+        entityId: submissionId,
+        metadata: {
+          dari: submission.lastViews,
+          ke: metrics.views,
+          platform: submission.platform,
+        },
+      },
+    });
+  });
+
+  revalidatePath("/creator/submissions");
+  revalidatePath("/creator/earnings");
+  return {
+    success: `Views berhasil diperbarui: ${metrics.views.toLocaleString("id-ID")} views.`,
+  };
+}
+
+/**
+ * Hapus submission dan reset partisipasi agar kreator dapat mengirim ulang
+ * konten baru jika terdapat kesalahan atau submission ditolak.
+ */
+export async function deleteSubmissionAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireRole("CREATOR");
+  const submissionId = String(formData.get("submissionId") ?? "");
+  if (!submissionId) return { error: "ID submission tidak valid." };
+
+  const submission = await db.submission.findUnique({
+    where: { id: submissionId },
+    include: {
+      campaign: true,
+      withdrawal: true,
+      payout: true,
+    },
+  });
+
+  if (!submission || submission.creatorId !== user.id) {
+    return { error: "Submission tidak ditemukan." };
+  }
+
+  if (submission.payout) {
+    return {
+      error: "Submission tidak dapat dihapus karena sudah memiliki data pembayaran (payout).",
+    };
+  }
+
+  if (submission.withdrawal && submission.withdrawal.status !== "REJECTED") {
+    return {
+      error:
+        "Submission tidak dapat dihapus karena memiliki pengajuan penarikan dana aktif atau sudah dicairkan.",
+    };
+  }
+
+  if (submission.campaign.status === "SETTLED") {
+    return {
+      error: "Submission tidak dapat dihapus karena campaign sudah diselesaikan (settled).",
+    };
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      // Hapus submission
+      await tx.submission.delete({
+        where: { id: submissionId },
+      });
+
+      // Reset / hapus partisipasi sehingga slot partisipasi terbuka kembali
+      // dan kreator bisa mengirim ulang konten baru jika campaign masih aktif
+      await tx.campaignParticipation.delete({
+        where: { id: submission.participationId },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: user.id,
+          action: "submission.delete",
+          entity: "Submission",
+          entityId: submissionId,
+          metadata: {
+            campaignId: submission.campaignId,
+            contentUrl: submission.contentUrl,
+            platform: submission.platform,
+            lastViews: submission.lastViews,
+            status: submission.status,
+          },
+        },
+      });
+    });
+  } catch (err) {
+    console.error("[deleteSubmissionAction Error]", err);
+    return {
+      error:
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan sistem saat menghapus submission.",
+    };
+  }
+
+  revalidatePath("/creator/submissions");
+  revalidatePath(`/creator/campaigns/${submission.campaignId}`);
+  revalidatePath("/creator/campaigns");
+  revalidatePath(`/vendor/campaigns/${submission.campaignId}`);
+  revalidatePath("/admin/submissions");
+  return {
+    success: "Submission berhasil dihapus. Kamu dapat mengirim ulang konten untuk campaign ini.",
+  };
+}
+

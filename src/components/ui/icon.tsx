@@ -46,16 +46,20 @@ export {
   MapPin as IconPin,
   Menu as IconMenu,
   Megaphone as IconMegaphone,
+  MoreVertical as IconMore,
   QrCode as IconQr,
+  RefreshCw as IconRefresh,
   ShieldAlert as IconShieldAlert,
   ShieldCheck as IconShieldCheck,
   Store as IconStore,
   Star as IconStar,
   Ticket as IconTicket,
+  Trash2 as IconTrash,
   TrendingUp as IconTrend,
   Video as IconVideo,
   Wallet as IconWallet,
   X as IconX,
+  Loader2 as IconSpinner,
 } from "lucide-react";
 
 export type { LucideIcon } from "lucide-react";
