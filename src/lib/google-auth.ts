@@ -18,11 +18,45 @@ import { authSecret } from "./auth";
 const PENDING_COOKIE = "kontem_google_pending";
 const PENDING_MAX_AGE_SECONDS = 10 * 60; // 10 menit, cukup untuk isi form registrasi
 
+export function getGoogleRedirectUri(requestUrl?: string | URL): string {
+  if (process.env.GOOGLE_REDIRECT_URI) {
+    if (requestUrl) {
+      try {
+        const reqOrigin = typeof requestUrl === "string" ? new URL(requestUrl).origin : requestUrl.origin;
+        const envUri = new URL(process.env.GOOGLE_REDIRECT_URI);
+        // Jika origin request cocok dengan env, gunakan env
+        if (envUri.origin === reqOrigin) {
+          return process.env.GOOGLE_REDIRECT_URI;
+        }
+        // Jika request berasal dari host yang berbeda (misal Vercel deployment), gunakan pathname dari envUri
+        const pathname = envUri.pathname || "/api/auth/google/callback";
+        return `${reqOrigin}${pathname}`;
+      } catch {
+        return process.env.GOOGLE_REDIRECT_URI;
+      }
+    }
+    return process.env.GOOGLE_REDIRECT_URI;
+  }
+
+  if (requestUrl) {
+    try {
+      const parsed = typeof requestUrl === "string" ? new URL(requestUrl) : requestUrl;
+      if (parsed.pathname.includes("/api/auth/")) {
+        return `${parsed.origin}${parsed.pathname}`;
+      }
+      return `${parsed.origin}/api/auth/google/callback`;
+    } catch {
+      // fallback
+    }
+  }
+
+  return "http://localhost:3000/api/auth/google/callback";
+}
+
 export function isGoogleConfigured() {
   return Boolean(
     process.env.GOOGLE_CLIENT_ID &&
-      process.env.GOOGLE_CLIENT_SECRET &&
-      process.env.GOOGLE_REDIRECT_URI,
+      process.env.GOOGLE_CLIENT_SECRET,
   );
 }
 
@@ -31,8 +65,9 @@ export function isGoogleConfigured() {
  * disimpan di cookie terpisah. Keabsahannya cukup diverifikasi dari tanda
  * tangannya sendiri saat callback, tanpa perlu state tersimpan di server.
  */
-export async function buildGoogleAuthUrl() {
-  const state = await new SignJWT({ purpose: "google_oauth_state" })
+export async function buildGoogleAuthUrl(requestUrl?: string | URL) {
+  const redirectUri = getGoogleRedirectUri(requestUrl);
+  const state = await new SignJWT({ purpose: "google_oauth_state", redirectUri })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("10m")
@@ -40,7 +75,7 @@ export async function buildGoogleAuthUrl() {
 
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID!,
-    redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: "openid email profile",
     state,
@@ -50,12 +85,20 @@ export async function buildGoogleAuthUrl() {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
-export async function verifyGoogleState(state: string) {
+export async function verifyGoogleState(
+  state: string,
+): Promise<{ valid: boolean; redirectUri?: string }> {
   try {
     const { payload } = await jwtVerify(state, authSecret());
-    return payload.purpose === "google_oauth_state";
+    if (payload.purpose === "google_oauth_state") {
+      return {
+        valid: true,
+        redirectUri: typeof payload.redirectUri === "string" ? payload.redirectUri : undefined,
+      };
+    }
+    return { valid: false };
   } catch {
-    return false;
+    return { valid: false };
   }
 }
 
@@ -67,7 +110,19 @@ export type GoogleProfile = {
 };
 
 /** Tukar `code` dari Google jadi profil pengguna (email, nama, googleId). */
-export async function exchangeGoogleCode(code: string): Promise<GoogleProfile> {
+export async function exchangeGoogleCode(code: string, requestUrl?: string | URL): Promise<GoogleProfile> {
+  let redirectUri = getGoogleRedirectUri(requestUrl);
+  if (requestUrl) {
+    try {
+      const parsed = typeof requestUrl === "string" ? new URL(requestUrl) : requestUrl;
+      if (parsed.pathname.includes("/api/auth/")) {
+        redirectUri = `${parsed.origin}${parsed.pathname}`;
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -75,7 +130,7 @@ export async function exchangeGoogleCode(code: string): Promise<GoogleProfile> {
       code,
       client_id: process.env.GOOGLE_CLIENT_ID!,
       client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+      redirect_uri: redirectUri,
       grant_type: "authorization_code",
     }),
   });

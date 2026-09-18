@@ -18,6 +18,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(url);
   }
 
-  const authUrl = await buildGoogleAuthUrl();
+  const authUrl = await buildGoogleAuthUrl(request.url);
   return NextResponse.redirect(authUrl);
 }
