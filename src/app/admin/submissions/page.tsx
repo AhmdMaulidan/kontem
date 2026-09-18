@@ -577,12 +577,13 @@ export default async function AdminSubmissionsPage({
                         <a href={w.submission.contentUrl} target="_blank" rel="noreferrer" className="block truncate text-sm text-brand">
                           {w.submission.contentUrl}
                         </a>
-                        <div className="rounded-xl bg-surface-muted p-3 text-sm">
+                        <div className="rounded-xl bg-surface-muted p-3 text-sm mt-3">
                           <div className="flex justify-between"><span className="text-muted">Views dihitung</span><span className="tabular">{formatCompact(w.viewsCounted)}</span></div>
                           <div className="mt-1 flex justify-between"><span className="text-muted">Fee penarikan</span><span className="tabular">{formatIDR(w.feeAmount)}</span></div>
                           <div className="mt-1 flex justify-between font-medium"><span>Diterima creator</span><span className="tabular">{formatIDR(w.netAmount)}</span></div>
+                          <div className="mt-2 border-t border-line/60 pt-2 flex justify-between text-xs"><span className="text-muted">Rekening Tujuan</span><span className="font-semibold text-foreground">{w.bankName ?? "—"} {w.bankAccountNumber ?? ""} ({w.bankAccountName ?? "—"})</span></div>
                         </div>
-                        <div className="border-t border-line pt-4">
+                        <div className="border-t border-line pt-4 mt-4">
                           <DecisionForm action={reviewWithdrawalAction} hiddenField="withdrawalId" hiddenValue={w.id} approveLabel="Setujui" rejectLabel="Tolak" />
                         </div>
                       </DetailDrawer>
@@ -660,6 +661,7 @@ export default async function AdminSubmissionsPage({
                             <div className="flex justify-between"><span className="text-muted">Views dihitung</span><span className="tabular">{formatCompact(w.viewsCounted)}</span></div>
                             <div className="mt-1 flex justify-between"><span className="text-muted">Fee penarikan</span><span className="tabular">{formatIDR(w.feeAmount)}</span></div>
                             <div className="mt-1 flex justify-between font-medium"><span>Diterima creator</span><span className="tabular">{formatIDR(w.netAmount)}</span></div>
+                            <div className="mt-2 border-t border-line/60 pt-2 flex justify-between text-xs"><span className="text-muted">Rekening Tujuan</span><span className="font-semibold text-foreground">{w.bankName ?? "—"} {w.bankAccountNumber ?? ""} ({w.bankAccountName ?? "—"})</span></div>
                           </div>
                           <div className="border-t border-line pt-4 mt-4">
                             <DecisionForm action={reviewWithdrawalAction} hiddenField="withdrawalId" hiddenValue={w.id} approveLabel="Setujui" rejectLabel="Tolak" />
@@ -702,7 +704,12 @@ export default async function AdminSubmissionsPage({
               <tbody className="hidden md:table-row-group">
                 {withdrawalDisetujui.map((w) => (
                   <tr key={w.id}>
-                    <Td className="font-medium">{w.creator.name}</Td>
+                    <Td className="font-medium">
+                      {w.creator.name}
+                      <p className="text-xs text-muted font-normal mt-0.5">
+                        {w.bankName ?? "—"} {w.bankAccountNumber ?? ""} ({w.bankAccountName ?? "—"})
+                      </p>
+                    </Td>
                     <Td>{w.campaign.title}</Td>
                     <Td align="right" className="tabular font-medium">
                       {formatIDR(w.netAmount)}
