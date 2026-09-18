@@ -26,21 +26,22 @@ export function WithdrawalForm({
   }
 
   return (
-    <form action={formAction} className="space-y-2">
+    <form action={formAction} className="flex flex-col items-end text-right space-y-1.5">
       <input type="hidden" name="submissionId" value={submissionId} />
       {state.error ? (
-        <p className="text-xs font-medium text-danger">{state.error}</p>
+        <p className="text-xs font-medium text-danger text-right">{state.error}</p>
       ) : null}
       <SubmitButton
         variant="primary"
         size="sm"
         disabled={Boolean(disabledReason)}
         pendingLabel="Memproses..."
+        className="shrink-0"
       >
         Tarik Dana
       </SubmitButton>
       {disabledReason ? (
-        <p className="text-xs text-muted">{disabledReason}</p>
+        <p className="text-xs text-muted text-right max-w-xs">{disabledReason}</p>
       ) : null}
     </form>
   );

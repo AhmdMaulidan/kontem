@@ -88,8 +88,7 @@ export default async function CreatorDashboard() {
         title={`Halo, ${user.name.split(" ")[0]}`}
         description={`Domisili ${user.creatorProfile?.city ?? "-"} · Trust score ${user.creatorProfile?.trustScore ?? 0}/100`}
       />
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Estimasi berjalan"
           icon={IconWallet}
@@ -139,8 +138,8 @@ export default async function CreatorDashboard() {
                   const sisaHari = daysUntil(p.campaign.endDate);
                   const foto = p.campaign.vendor.vendorProfile?.photos[0];
                   return (
-                    <li key={p.id} className="py-3 first:pt-0 last:pb-0">
-                      <div className="flex flex-wrap items-center gap-3">
+                    <li key={p.id} className="py-3.5 first:pt-0 last:pb-0">
+                      <div className="flex items-start gap-3">
                         {foto ? (
                           <Image
                             src={foto}
@@ -156,15 +155,16 @@ export default async function CreatorDashboard() {
                         <div className="min-w-0 flex-1">
                           <Link
                             href={`/creator/campaigns/${p.campaignId}`}
-                            className="font-medium hover:text-brand"
+                            className="font-medium hover:text-brand text-foreground leading-snug break-words block"
                           >
                             {p.campaign.title}
                           </Link>
-                          <p className="mt-0.5 text-sm text-muted">
+                          <p className="mt-0.5 text-xs text-muted">
                             {p.campaign.vendor.vendorProfile?.businessName} ·{" "}
                             {p.campaign.vendor.vendorProfile?.city}
                           </p>
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
+
+                          <div className="mt-2 flex items-center gap-2 flex-wrap">
                             <Badge tone={participationStatusTone[p.status]}>
                               {participationStatusLabel[p.status]}
                             </Badge>
@@ -173,22 +173,26 @@ export default async function CreatorDashboard() {
                                 {submissionStatusLabel[p.submission.status]}
                               </Badge>
                             ) : null}
-                            {p.campaign.status === "ACTIVE" && sisaHari >= 0 ? (
-                              <span className="text-xs text-muted">
-                                sisa {sisaHari} hari
-                              </span>
-                            ) : null}
+                          </div>
+
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <div>
+                              {p.campaign.status === "ACTIVE" && sisaHari >= 0 ? (
+                                <span className="text-xs text-muted whitespace-nowrap">
+                                  sisa {sisaHari} hari
+                                </span>
+                              ) : null}
+                            </div>
+                            <ButtonLink
+                              href={`/creator/campaigns/${p.campaignId}`}
+                              variant="secondary"
+                              size="sm"
+                              className="shrink-0"
+                            >
+                              Lihat Detail
+                            </ButtonLink>
                           </div>
                         </div>
-
-                        <ButtonLink
-                          href={`/creator/campaigns/${p.campaignId}`}
-                          variant="secondary"
-                          size="sm"
-                          className="shrink-0"
-                        >
-                          Lihat Detail
-                        </ButtonLink>
                       </div>
                     </li>
                   );

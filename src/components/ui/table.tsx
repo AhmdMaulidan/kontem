@@ -12,15 +12,18 @@ export function Table({ children }: { children: ReactNode }) {
 export function Th({
   children,
   align,
+  className,
 }: {
   children: ReactNode;
   align?: "right";
+  className?: string;
 }) {
   return (
     <th
       className={cn(
         "border-b border-line px-3 py-2.5 text-xs font-medium text-muted",
         align === "right" ? "text-right" : "text-left",
+        className,
       )}
     >
       {children}
@@ -56,7 +59,7 @@ export function DescriptionList({
   items: Array<{ label: string; value: ReactNode }>;
 }) {
   return (
-    <dl className="grid gap-3 sm:grid-cols-2">
+    <dl className="grid grid-cols-2 gap-3">
       {items.map((item) => (
         <div key={item.label}>
           <dt className="text-xs font-medium text-muted">

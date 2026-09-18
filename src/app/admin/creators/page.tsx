@@ -126,25 +126,16 @@ export default async function AdminCreatorsPage({
       <DataTable
         title="Verifikasi Creator"
         summary={`${belumCek} akun belum diverifikasi`}
-        action={
-          <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
-        }
+        tableClassName="w-full text-sm md:min-w-[52rem]"
         toolbar={
           <TableToolbar
             basePath={BASE}
             params={params}
             searchPlaceholder="Cari nama / handle..."
+            action={
+              <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
+            }
             filters={[
-              {
-                name: "status",
-                label: "Status",
-                options: [
-                  { value: "ALL", label: "Semua status" },
-                  { value: "UNVERIFIED", label: "Belum cek" },
-                  { value: "VERIFIED", label: "Aktif" },
-                  { value: "REJECTED", label: "Non-aktif" },
-                ],
-              },
               {
                 name: "platform",
                 label: "Platform",
@@ -168,6 +159,16 @@ export default async function AdminCreatorsPage({
                 ],
               },
               {
+                name: "status",
+                label: "Status",
+                options: [
+                  { value: "ALL", label: "Semua status" },
+                  { value: "UNVERIFIED", label: "Belum cek" },
+                  { value: "VERIFIED", label: "Aktif" },
+                  { value: "REJECTED", label: "Non-aktif" },
+                ],
+              },
+              {
                 name: "urut",
                 label: "Urutkan",
                 options: [
@@ -188,7 +189,8 @@ export default async function AdminCreatorsPage({
           />
         }
       >
-        <thead>
+        {/* Tabel — desktop */}
+        <thead className="hidden md:table-header-group">
           <tr>
             <Th>No</Th>
             <Th>Creator</Th>
@@ -201,7 +203,7 @@ export default async function AdminCreatorsPage({
             <Th>Aksi</Th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="hidden md:table-row-group">
           {creators.length === 0 ? (
             <TableEmptyRow
               colSpan={10}
@@ -344,6 +346,179 @@ export default async function AdminCreatorsPage({
                       </div>
                     </DetailDrawer>
                   </Td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+
+        {/* Isi Tabel — Mobile (Baris dengan Grid 2 Kolom Sepanjang Tabel) */}
+        <tbody className="md:hidden">
+          {creators.length === 0 ? (
+            <TableEmptyRow
+              colSpan={1}
+              title="Tidak ada creator pada penyaringan ini"
+              description="Ubah kata kunci atau pilih status lain."
+            />
+          ) : (
+            creators.map((creator, index) => {
+              const totalFollower = creator.socialAccounts.reduce(
+                (sum, akun) => sum + akun.followerCount,
+                0,
+              );
+              const sudahDiperiksa =
+                creator.status === "VERIFIED" || creator.status === "REJECTED";
+
+              return (
+                <tr key={`m-${creator.id}`} className="border-b border-line last:border-0">
+                  <td className="block w-full p-4">
+                    {/* Header item */}
+                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-line">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="tabular text-xs font-semibold text-muted shrink-0">
+                          #{rowNumber(index, page, pageSize)}
+                        </span>
+                        <h3 className="font-semibold text-sm truncate text-foreground">
+                          {creator.name}
+                        </h3>
+                      </div>
+                      <Badge tone={creatorAccountStatusTone[creator.status]} icon>
+                        {creatorAccountStatusLabel[creator.status]}
+                      </Badge>
+                    </div>
+
+                    {/* Grid data 2 kolom */}
+                    <div className="grid grid-cols-2 gap-3 py-3 text-xs border-b border-line">
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Kota
+                        </span>
+                        <span className="font-medium text-foreground mt-0.5 block">
+                          {creator.creatorProfile?.city ?? "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Trust Score
+                        </span>
+                        <span className="font-medium text-foreground mt-0.5 block">
+                          {creator.creatorProfile?.trustScore !== null && creator.creatorProfile?.trustScore !== undefined
+                            ? `${creator.creatorProfile.trustScore} / 100`
+                            : "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Akun Sosial & Follower
+                        </span>
+                        <p className="font-medium text-foreground mt-0.5 truncate">
+                          {creator.socialAccounts.length === 0
+                            ? "—"
+                            : creator.socialAccounts
+                                .map((a) => `${platformLabel[a.platform]}: @${a.handle}`)
+                                .join(" · ")}
+                        </p>
+                        <p className="tabular text-muted mt-0.5">
+                          {formatCompact(totalFollower)} Follower
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Campaign
+                        </span>
+                        <span className="font-medium text-foreground mt-0.5 block">
+                          {creator._count.participations} Diikuti
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Footer baris: Didaftarkan & Aksi */}
+                    <div className="flex items-center justify-between pt-2.5">
+                      <div className="text-xs text-muted">
+                        <span className="text-[11px] block">Didaftarkan:</span>
+                        <span className="font-medium text-foreground">{formatDate(creator.createdAt)}</span>
+                      </div>
+                      <div>
+                        <DetailDrawer
+                          label={sudahDiperiksa ? "Lihat" : "Periksa"}
+                          icon={<IconShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />}
+                          title={creator.name}
+                          subtitle={`${creator.creatorProfile?.city ?? "—"} · Trust ${creator.creatorProfile?.trustScore ?? "—"}`}
+                        >
+                          <div>
+                            <p className="mb-2 text-sm font-semibold">Akun terhubung</p>
+                            {creator.socialAccounts.length === 0 ? (
+                              <p className="rounded-xl bg-surface-muted px-3 py-2 text-sm text-muted">
+                                Belum ada akun media sosial ditautkan.
+                              </p>
+                            ) : (
+                              <ul className="space-y-2">
+                                {creator.socialAccounts.map((akun) => (
+                                  <li
+                                    key={akun.id}
+                                    className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium">
+                                        {platformLabel[akun.platform]} @{akun.handle}
+                                      </p>
+                                      <p className="tabular text-xs text-muted">
+                                        {formatCompact(akun.followerCount)} follower ·{" "}
+                                        {akun.verifiedAt ? "token cocok" : "belum dicek"}
+                                      </p>
+                                    </div>
+                                    <a
+                                      href={akun.profileUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="shrink-0 text-brand-600 hover:text-brand-700"
+                                    >
+                                      <IconExternal className="h-4 w-4" strokeWidth={2} />
+                                    </a>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                          <dl className="space-y-3 text-sm">
+                            <div>
+                              <dt className="text-xs font-medium text-muted">Riwayat</dt>
+                              <dd className="mt-0.5">
+                                {creator._count.participations} campaign · {creator._count.submissions} submission
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs font-medium text-muted">Rekening</dt>
+                              <dd className="tabular mt-0.5">
+                                {creator.creatorProfile?.bankName
+                                  ? `${creator.creatorProfile.bankName} ${creator.creatorProfile.bankAccountNumber ?? ""} a.n. ${creator.creatorProfile.bankAccountName ?? "—"}`
+                                  : "Belum diisi"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs font-medium text-muted">Kontak</dt>
+                              <dd className="mt-0.5">
+                                {creator.email}
+                                {creator.phone ? ` · ${creator.phone}` : ""}
+                              </dd>
+                            </div>
+                          </dl>
+                          <div className="border-t border-line pt-4">
+                            <DecisionForm
+                              action={reviewCreatorAction}
+                              hiddenField="creatorId"
+                              hiddenValue={creator.id}
+                              approveLabel="Aktif"
+                              rejectLabel="Non-aktif"
+                              noteLabel="Alasan non-aktif"
+                              noteHint="Wajib diisi, dikirim ke creator dan tercatat di audit trail."
+                              requireNoteOnApprove
+                            />
+                          </div>
+                        </DetailDrawer>
+                      </div>
+                    </div>
+                  </td>
                 </tr>
               );
             })

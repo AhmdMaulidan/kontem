@@ -13,9 +13,11 @@ const PILIHAN = [
 export function PeriodePicker({
   value,
   basePath = "/admin",
+  className,
 }: {
   value: string;
   basePath?: string;
+  className?: string;
 }) {
   const router = useRouter();
 
@@ -30,7 +32,7 @@ export function PeriodePicker({
             : `${basePath}?periode=${event.target.value}`,
         )
       }
-      className="w-auto min-w-[11rem]"
+      className={className ?? "w-auto min-w-[11rem]"}
     >
       {PILIHAN.map((pilihan) => (
         <option key={pilihan.value} value={pilihan.value}>

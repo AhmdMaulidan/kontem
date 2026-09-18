@@ -227,10 +227,7 @@ export function ManualDepositCard({
               />
             </Field>
 
-            <div className="flex items-center gap-3">
-              <SubmitButton pendingLabel="Mengirim konfirmasi...">
-                Kirim Konfirmasi Transfer
-              </SubmitButton>
+            <div className="flex items-center justify-end gap-3">
               {bukaFormUbah ? (
                 <Button
                   variant="ghost"
@@ -239,6 +236,9 @@ export function ManualDepositCard({
                   Batal
                 </Button>
               ) : null}
+              <SubmitButton pendingLabel="Mengirim konfirmasi...">
+                Kirim Konfirmasi Transfer
+              </SubmitButton>
             </div>
           </form>
         )}

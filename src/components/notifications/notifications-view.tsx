@@ -26,7 +26,7 @@ export async function NotificationsView({ basePath }: { basePath: string }) {
           adaBelumDibaca ? (
             <form action={markAllReadAction}>
               <input type="hidden" name="path" value={`${basePath}/notifications`} />
-              <Button variant="secondary" type="submit">
+              <Button variant="secondary" size="sm" type="submit">
                 Tandai semua dibaca
               </Button>
             </form>

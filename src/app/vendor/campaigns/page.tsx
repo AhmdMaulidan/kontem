@@ -60,7 +60,7 @@ export default async function VendorCampaignsPage(props: {
 
   return (
     <div>
-      {/* Baris 1: judul + jumlah */}
+      {/* Baris 1: judul + jumlah, tombol "Buat campaign" di pojok kanan atas */}
       <PageHeader
         title="Semua campaign"
         description={
@@ -68,15 +68,16 @@ export default async function VendorCampaignsPage(props: {
             ? `${totalCount} campaign`
             : `${campaigns.length} dari ${totalCount} campaign`
         }
+        action={
+          <ButtonLink href="/vendor/campaigns/new" size="sm">
+            Buat campaign
+          </ButtonLink>
+        }
       />
 
-      {/* Baris 2: search + status kiri, button kanan */}
-      <div className="-mt-2 mb-6 flex items-center gap-2">
+      {/* Baris 2: search sejajar dengan filter status */}
+      <div className="-mt-2 mb-6">
         <CampaignFilters defaultQ={q} defaultStatus={statusParam} />
-        <div className="flex-1" />
-        <ButtonLink href="/vendor/campaigns/new" size="sm">
-          Buat campaign
-        </ButtonLink>
       </div>
 
       {user.status !== "VERIFIED" ? (
@@ -105,7 +106,7 @@ export default async function VendorCampaignsPage(props: {
           action={undefined}
         />
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-5 xl:grid-cols-4">
           {campaigns.map((campaign, idx) => {
             const performance = performances[idx];
             const totalViews = performance?.totalViews ?? 0;
@@ -123,7 +124,7 @@ export default async function VendorCampaignsPage(props: {
                   href={`/vendor/campaigns/${campaign.id}`}
                   className="block h-full"
                 >
-                  <Card className="flex h-full flex-col gap-4 p-2.5 transition-shadow hover:shadow-float">
+                  <Card className="flex h-full flex-col gap-2.5 p-2.5 transition-shadow hover:shadow-float lg:gap-4">
                     {campaign.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -135,50 +136,57 @@ export default async function VendorCampaignsPage(props: {
                       <div className="aspect-video w-full rounded-md bg-surface-muted" />
                     )}
 
-                    {/* Baris atas: nama + badge status */}
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="font-display font-semibold leading-snug">
-                        {campaign.title}
-                      </span>
-                      <Badge tone={campaignStatusTone[campaign.status]}>
-                        {campaignStatusLabel[campaign.status]}
-                      </Badge>
-                    </div>
+                    {/* Judul campaign */}
+                    <span className="block truncate font-display text-sm font-semibold leading-snug lg:text-base">
+                      {campaign.title}
+                    </span>
 
-                    {/* Meta */}
-                    <p className="text-sm text-muted">
-                      {categoryLabel[campaign.category]}
-                      {" · "}
-                      {formatDate(campaign.startDate)}
-                      {" – "}
-                      {formatDate(campaign.endDate)}
-                      {" · "}
-                      {campaign._count.participations} creator
-                    </p>
+                    {/* Tanggal di bawah judul */}
+                    <span className="block text-[10px] font-medium text-muted lg:text-xs">
+                      {formatDate(campaign.startDate)} – {formatDate(campaign.endDate)}
+                    </span>
 
-                    {/* Stats row */}
-                    <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div>
-                        <p className="text-xs text-muted">Views</p>
-                        <p className="tabular font-medium">
+                    <Badge tone={campaignStatusTone[campaign.status]}>
+                      {campaignStatusLabel[campaign.status]}
+                    </Badge>
+
+                    {/* Fakta kartu — satu baris per info (label kiri, nilai
+                        kanan) supaya kebaca jelas di kartu sempit ponsel,
+                        bukan dijejalkan dalam grid berkolom. */}
+                    <ul className="space-y-1.5 text-[11px] lg:text-sm">
+                      <li className="flex items-center justify-between gap-2">
+                        <span className="text-muted">Kategori</span>
+                        <span className="truncate font-medium">
+                          {categoryLabel[campaign.category]}
+                        </span>
+                      </li>
+                      <li className="flex items-center justify-between gap-2">
+                        <span className="text-muted">Creator</span>
+                        <span className="font-medium">
+                          {campaign._count.participations}
+                        </span>
+                      </li>
+                      <li className="flex items-center justify-between gap-2">
+                        <span className="text-muted">Views</span>
+                        <span className="tabular font-medium">
                           {formatCompact(totalViews)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted">Terpakai</p>
-                        <p className="tabular font-medium">
+                        </span>
+                      </li>
+                      <li className="flex items-center justify-between gap-2">
+                        <span className="text-muted">Terpakai</span>
+                        <span className="tabular truncate font-medium">
                           {formatIDR(totalDistributed)}
-                          <span className="text-xs text-muted">
+                          <span className="text-muted">
                             {" / "}
                             {formatIDR(campaign.budgetPool)}
                           </span>
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted">CPM efektif</p>
-                        <p className="tabular font-medium">{cpmEfektif}</p>
-                      </div>
-                    </div>
+                        </span>
+                      </li>
+                      <li className="flex items-center justify-between gap-2">
+                        <span className="text-muted">CPM</span>
+                        <span className="tabular font-medium">{cpmEfektif}</span>
+                      </li>
+                    </ul>
                   </Card>
                 </Link>
               </li>

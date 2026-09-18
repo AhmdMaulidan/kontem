@@ -121,21 +121,23 @@ export default async function EarningsPage() {
                 return (
                   <li
                     key={submission.id}
-                    className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                    className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
                   >
-                    <div className="min-w-0">
-                      <p className="font-medium">{submission.campaign.title}</p>
-                      <p className="mt-0.5 text-sm text-muted">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground leading-snug">{submission.campaign.title}</p>
+                      <p className="mt-0.5 text-xs text-muted">
                         {formatCompact(earning.viewsCounted)} views ·{" "}
                         <span className="tabular font-medium text-brand-600">
                           {formatIDR(earning.grossAmount)}
                         </span>
                       </p>
                     </div>
-                    <WithdrawalForm
-                      submissionId={submission.id}
-                      disabledReason={disabledReason}
-                    />
+                    <div className="shrink-0">
+                      <WithdrawalForm
+                        submissionId={submission.id}
+                        disabledReason={disabledReason}
+                      />
+                    </div>
                   </li>
                 );
               })}
@@ -157,42 +159,86 @@ export default async function EarningsPage() {
                 description="Payout muncul setelah campaign yang kamu ikuti selesai dan dihitung admin."
               />
             ) : (
-              <Table>
-                <thead>
-                  <tr>
-                    <Th>Campaign</Th>
-                    <Th align="right">Views</Th>
-                    <Th align="right">Porsi</Th>
-                    <Th align="right">Bruto</Th>
-                    <Th align="right">Diterima</Th>
-                    <Th>Status</Th>
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                <div className="hidden sm:block">
+                  <Table>
+                    <thead>
+                      <tr>
+                        <Th>Campaign</Th>
+                        <Th align="right">Views</Th>
+                        <Th align="right">Porsi</Th>
+                        <Th align="right">Bruto</Th>
+                        <Th align="right">Diterima</Th>
+                        <Th>Status</Th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {payouts.map((payout) => (
+                        <tr key={payout.id}>
+                          <Td>
+                            <p className="font-medium">{payout.campaign.title}</p>
+                            <p className="text-xs text-muted">
+                              {payout.campaign.vendor.vendorProfile?.businessName}
+                              {payout.paidAt ? ` · ${formatDate(payout.paidAt)}` : ""}
+                            </p>
+                          </Td>
+                          <Td align="right">{formatCompact(payout.viewsCounted)}</Td>
+                          <Td align="right">{payout.sharePercent.toFixed(1)}%</Td>
+                          <Td align="right">{formatIDR(payout.grossAmount)}</Td>
+                          <Td align="right" className="font-medium">
+                            {formatIDR(payout.netAmount)}
+                          </Td>
+                          <Td>
+                            <Badge tone={payoutStatusTone[payout.status]}>
+                              {payoutStatusLabel[payout.status]}
+                            </Badge>
+                          </Td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+
+                <div className="divide-y divide-line sm:hidden">
                   {payouts.map((payout) => (
-                    <tr key={payout.id}>
-                      <Td>
-                        <p className="font-medium">{payout.campaign.title}</p>
-                        <p className="text-xs text-muted">
-                          {payout.campaign.vendor.vendorProfile?.businessName}
-                          {payout.paidAt ? ` · ${formatDate(payout.paidAt)}` : ""}
-                        </p>
-                      </Td>
-                      <Td align="right">{formatCompact(payout.viewsCounted)}</Td>
-                      <Td align="right">{payout.sharePercent.toFixed(1)}%</Td>
-                      <Td align="right">{formatIDR(payout.grossAmount)}</Td>
-                      <Td align="right" className="font-medium">
-                        {formatIDR(payout.netAmount)}
-                      </Td>
-                      <Td>
-                        <Badge tone={payoutStatusTone[payout.status]}>
-                          {payoutStatusLabel[payout.status]}
-                        </Badge>
-                      </Td>
-                    </tr>
+                    <div key={payout.id} className="p-3.5 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-foreground leading-snug">{payout.campaign.title}</p>
+                          <p className="mt-0.5 text-xs text-muted">
+                            {payout.campaign.vendor.vendorProfile?.businessName}
+                            {payout.paidAt ? ` · ${formatDate(payout.paidAt)}` : ""}
+                          </p>
+                        </div>
+                        <div className="shrink-0">
+                          <Badge tone={payoutStatusTone[payout.status]}>
+                            {payoutStatusLabel[payout.status]}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <ul className="space-y-1.5 rounded-xl bg-surface-muted/60 p-2.5 text-xs">
+                        <li className="flex items-center justify-between text-muted">
+                          <span>Views:</span>
+                          <span className="font-medium text-foreground tabular">{formatCompact(payout.viewsCounted)}</span>
+                        </li>
+                        <li className="flex items-center justify-between text-muted">
+                          <span>Porsi:</span>
+                          <span className="font-medium text-foreground tabular">{payout.sharePercent.toFixed(1)}%</span>
+                        </li>
+                        <li className="flex items-center justify-between text-muted">
+                          <span>Bruto:</span>
+                          <span className="font-medium text-foreground tabular">{formatIDR(payout.grossAmount)}</span>
+                        </li>
+                        <li className="flex items-center justify-between border-t border-line/60 pt-1 text-muted">
+                          <span className="font-medium text-foreground">Diterima:</span>
+                          <span className="font-semibold text-brand tabular">{formatIDR(payout.netAmount)}</span>
+                        </li>
+                      </ul>
+                    </div>
                   ))}
-                </tbody>
-              </Table>
+                </div>
+              </>
             )}
           </Card>
 
@@ -208,39 +254,78 @@ export default async function EarningsPage() {
                   description="Ajukan lewat daftar video di atas setelah capai minimum campaign."
                 />
               ) : (
-                <Table>
-                  <thead>
-                    <tr>
-                      <Th>Campaign</Th>
-                      <Th align="right">Views</Th>
-                      <Th align="right">Fee</Th>
-                      <Th align="right">Diterima</Th>
-                      <Th>Status</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <>
+                  <div className="hidden sm:block">
+                    <Table>
+                      <thead>
+                        <tr>
+                          <Th>Campaign</Th>
+                          <Th align="right">Views</Th>
+                          <Th align="right">Fee</Th>
+                          <Th align="right">Diterima</Th>
+                          <Th>Status</Th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {withdrawals.map((w) => (
+                          <tr key={w.id}>
+                            <Td>
+                              <p className="font-medium">{w.campaign.title}</p>
+                              <p className="text-xs text-muted">
+                                Diajukan {formatDate(w.requestedAt)}
+                              </p>
+                            </Td>
+                            <Td align="right">{formatCompact(w.viewsCounted)}</Td>
+                            <Td align="right">{formatIDR(w.feeAmount)}</Td>
+                            <Td align="right" className="font-medium">
+                              {formatIDR(w.netAmount)}
+                            </Td>
+                            <Td>
+                              <Badge tone={withdrawalStatusTone[w.status]}>
+                                {withdrawalStatusLabel[w.status]}
+                              </Badge>
+                            </Td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </div>
+
+                  <div className="divide-y divide-line sm:hidden">
                     {withdrawals.map((w) => (
-                      <tr key={w.id}>
-                        <Td>
-                          <p className="font-medium">{w.campaign.title}</p>
-                          <p className="text-xs text-muted">
-                            Diajukan {formatDate(w.requestedAt)}
-                          </p>
-                        </Td>
-                        <Td align="right">{formatCompact(w.viewsCounted)}</Td>
-                        <Td align="right">{formatIDR(w.feeAmount)}</Td>
-                        <Td align="right" className="font-medium">
-                          {formatIDR(w.netAmount)}
-                        </Td>
-                        <Td>
-                          <Badge tone={withdrawalStatusTone[w.status]}>
-                            {withdrawalStatusLabel[w.status]}
-                          </Badge>
-                        </Td>
-                      </tr>
+                      <div key={w.id} className="p-3.5 space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-foreground leading-snug">{w.campaign.title}</p>
+                            <p className="mt-0.5 text-xs text-muted">
+                              Diajukan {formatDate(w.requestedAt)}
+                            </p>
+                          </div>
+                          <div className="shrink-0">
+                            <Badge tone={withdrawalStatusTone[w.status]}>
+                              {withdrawalStatusLabel[w.status]}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <ul className="space-y-1.5 rounded-xl bg-surface-muted/60 p-2.5 text-xs">
+                          <li className="flex items-center justify-between text-muted">
+                            <span>Views:</span>
+                            <span className="font-medium text-foreground tabular">{formatCompact(w.viewsCounted)}</span>
+                          </li>
+                          <li className="flex items-center justify-between text-muted">
+                            <span>Fee platform:</span>
+                            <span className="font-medium text-foreground tabular">{formatIDR(w.feeAmount)}</span>
+                          </li>
+                          <li className="flex items-center justify-between border-t border-line/60 pt-1 text-muted">
+                            <span className="font-medium text-foreground">Diterima:</span>
+                            <span className="font-semibold text-brand tabular">{formatIDR(w.netAmount)}</span>
+                          </li>
+                        </ul>
+                      </div>
                     ))}
-                  </tbody>
-                </Table>
+                  </div>
+                </>
               )}
             </Card>
           </div>

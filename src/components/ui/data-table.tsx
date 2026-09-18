@@ -15,6 +15,7 @@ export function DataTable({
   toolbar,
   footer,
   children,
+  tableClassName,
 }: {
   title: string;
   summary?: ReactNode;
@@ -22,28 +23,36 @@ export function DataTable({
   toolbar?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
+  tableClassName?: string;
 }) {
   return (
     <section className="rounded-2xl border border-line bg-surface shadow-card">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
-        <h2 className="font-display text-lg font-semibold">{title}</h2>
-        <div className="flex items-center gap-3">
-          {summary ? <p className="text-sm text-muted">{summary}</p> : null}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 sm:px-5 sm:pt-5">
+        <h2 className="font-display text-base font-semibold sm:text-lg">{title}</h2>
+        <div
+          className={cn(
+            "flex w-full items-center gap-3 sm:w-auto sm:justify-end",
+            summary ? "justify-between" : "justify-end",
+          )}
+        >
+          {summary ? <p className="text-xs text-muted sm:text-sm">{summary}</p> : null}
           {action}
         </div>
       </div>
 
-      {toolbar ? <div className="px-5 pt-4">{toolbar}</div> : null}
+      {toolbar ? <div className="px-4 pt-3 sm:px-5 sm:pt-4">{toolbar}</div> : null}
 
       {/* Isi halaman dibatasi max-w-6xl oleh rangka dasbor, jadi tabel
           berkolom banyak digulung di dalam pembungkusnya sendiri — bukan
           dibiarkan melar mengikuti lebar layar. */}
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[52rem] text-sm">{children}</table>
+      <div className="mt-3 sm:mt-4 overflow-x-auto">
+        <table className={cn("w-full text-sm", tableClassName ?? "min-w-[52rem]")}>
+          {children}
+        </table>
       </div>
 
       {footer ? (
-        <div className="border-t border-line px-5 py-3">{footer}</div>
+        <div className="border-t border-line px-4 py-3 sm:px-5">{footer}</div>
       ) : null}
     </section>
   );

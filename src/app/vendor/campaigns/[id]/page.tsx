@@ -129,7 +129,7 @@ export default async function VendorCampaignDetail({
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <Stat
               label="Total views"
               value={formatCompact(performance?.totalViews ?? 0)}
@@ -187,31 +187,30 @@ export default async function VendorCampaignDetail({
                 description="Campaign yang sudah live akan muncul di listing creator sekota."
               />
             ) : (
-              <Table>
-                <thead>
-                  <tr>
-                    <Th>Creator</Th>
-                    <Th>Status</Th>
-                    <Th align="right">Views</Th>
-                    <Th align="right">Porsi</Th>
-                    <Th align="right">Proyeksi</Th>
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                {/* Daftar kartu di ponsel — tabel lebar dengan kolom rata
+                    kanan bikin nilainya cuma kebaca lewat scroll ke ujung
+                    kanan. Tabel aslinya tetap dipakai mulai lg. */}
+                <ul className="space-y-3 lg:hidden">
                   {campaign.participations.map((p) => {
                     const line = performance?.lines.find(
                       (l) => l.creatorId === p.creatorId,
                     );
                     return (
-                      <tr key={p.id}>
-                        <Td>
-                          <p className="font-medium">{p.creator.name}</p>
-                          <p className="text-xs text-muted">
-                            {p.creator.creatorProfile?.city} · trust{" "}
-                            {p.creator.creatorProfile?.trustScore}
-                          </p>
-                        </Td>
-                        <Td>
+                      <li
+                        key={p.id}
+                        className="rounded-xl border border-line p-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {p.creator.name}
+                            </p>
+                            <p className="truncate text-xs text-muted">
+                              {p.creator.creatorProfile?.city} · trust{" "}
+                              {p.creator.creatorProfile?.trustScore}
+                            </p>
+                          </div>
                           {p.submission ? (
                             <Badge tone={submissionStatusTone[p.submission.status]}>
                               {submissionStatusLabel[p.submission.status]}
@@ -221,28 +220,98 @@ export default async function VendorCampaignDetail({
                               {participationStatusLabel[p.status]}
                             </Badge>
                           )}
-                        </Td>
-                        <Td align="right">
-                          <span className="tabular">
-                            {formatCompact(p.submission?.lastViews ?? 0)}
-                          </span>
-                          {line?.isCapped ? (
-                            <span className="block text-[11px] font-medium text-amber-600">
-                              maks {formatCompact(line.viewsCounted)}
-                            </span>
-                          ) : null}
-                        </Td>
-                        <Td align="right">
-                          {line ? `${line.sharePercent.toFixed(1)}%` : "—"}
-                        </Td>
-                        <Td align="right">
-                          {line ? formatIDR(line.netAmount) : "—"}
-                        </Td>
-                      </tr>
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                          <div className="min-w-0">
+                            <p className="text-muted">Views</p>
+                            <p className="tabular truncate font-medium">
+                              {formatCompact(p.submission?.lastViews ?? 0)}
+                            </p>
+                            {line?.isCapped ? (
+                              <p className="truncate font-medium text-amber-600">
+                                maks {formatCompact(line.viewsCounted)}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-muted">Porsi</p>
+                            <p className="tabular truncate font-medium">
+                              {line ? `${line.sharePercent.toFixed(1)}%` : "—"}
+                            </p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-muted">Proyeksi</p>
+                            <p className="tabular truncate font-medium">
+                              {line ? formatIDR(line.netAmount) : "—"}
+                            </p>
+                          </div>
+                        </div>
+                      </li>
                     );
                   })}
-                </tbody>
-              </Table>
+                </ul>
+
+                <div className="hidden lg:block">
+                  <Table>
+                    <thead>
+                      <tr>
+                        <Th>Creator</Th>
+                        <Th>Status</Th>
+                        <Th align="right">Views</Th>
+                        <Th align="right">Porsi</Th>
+                        <Th align="right">Proyeksi</Th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {campaign.participations.map((p) => {
+                        const line = performance?.lines.find(
+                          (l) => l.creatorId === p.creatorId,
+                        );
+                        return (
+                          <tr key={p.id}>
+                            <Td>
+                              <p className="font-medium">{p.creator.name}</p>
+                              <p className="text-xs text-muted">
+                                {p.creator.creatorProfile?.city} · trust{" "}
+                                {p.creator.creatorProfile?.trustScore}
+                              </p>
+                            </Td>
+                            <Td>
+                              {p.submission ? (
+                                <Badge
+                                  tone={submissionStatusTone[p.submission.status]}
+                                >
+                                  {submissionStatusLabel[p.submission.status]}
+                                </Badge>
+                              ) : (
+                                <Badge tone={participationStatusTone[p.status]}>
+                                  {participationStatusLabel[p.status]}
+                                </Badge>
+                              )}
+                            </Td>
+                            <Td align="right">
+                              <span className="tabular">
+                                {formatCompact(p.submission?.lastViews ?? 0)}
+                              </span>
+                              {line?.isCapped ? (
+                                <span className="block text-[11px] font-medium text-amber-600">
+                                  maks {formatCompact(line.viewsCounted)}
+                                </span>
+                              ) : null}
+                            </Td>
+                            <Td align="right">
+                              {line ? `${line.sharePercent.toFixed(1)}%` : "—"}
+                            </Td>
+                            <Td align="right">
+                              {line ? formatIDR(line.netAmount) : "—"}
+                            </Td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </Table>
+                </div>
+              </>
             )}
           </Card>
 
@@ -252,30 +321,68 @@ export default async function VendorCampaignDetail({
                 title="Payout final"
                 description="Rincian pembagian pool setelah campaign selesai."
               />
-              <Table>
-                <thead>
-                  <tr>
-                    <Th>Creator</Th>
-                    <Th align="right">Views</Th>
-                    <Th align="right">Bruto</Th>
-                    <Th align="right">Fee</Th>
-                    <Th align="right">Diterima</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {campaign.payouts.map((payout) => (
-                    <tr key={payout.id}>
-                      <Td>{payout.creator.name}</Td>
-                      <Td align="right">{formatCompact(payout.viewsCounted)}</Td>
-                      <Td align="right">{formatIDR(payout.grossAmount)}</Td>
-                      <Td align="right">{formatIDR(payout.platformFee)}</Td>
-                      <Td align="right" className="font-medium">
-                        {formatIDR(payout.netAmount)}
-                      </Td>
+              <ul className="space-y-3 lg:hidden">
+                {campaign.payouts.map((payout) => (
+                  <li key={payout.id} className="rounded-xl border border-line p-3">
+                    <p className="truncate text-sm font-medium">
+                      {payout.creator.name}
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                      <div className="min-w-0">
+                        <p className="text-muted">Views</p>
+                        <p className="tabular truncate font-medium">
+                          {formatCompact(payout.viewsCounted)}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-muted">Diterima</p>
+                        <p className="tabular truncate font-medium">
+                          {formatIDR(payout.netAmount)}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-muted">Bruto</p>
+                        <p className="tabular truncate font-medium">
+                          {formatIDR(payout.grossAmount)}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-muted">Fee</p>
+                        <p className="tabular truncate font-medium">
+                          {formatIDR(payout.platformFee)}
+                        </p>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="hidden lg:block">
+                <Table>
+                  <thead>
+                    <tr>
+                      <Th>Creator</Th>
+                      <Th align="right">Views</Th>
+                      <Th align="right">Bruto</Th>
+                      <Th align="right">Fee</Th>
+                      <Th align="right">Diterima</Th>
                     </tr>
-                  ))}
-                </tbody>
-              </Table>
+                  </thead>
+                  <tbody>
+                    {campaign.payouts.map((payout) => (
+                      <tr key={payout.id}>
+                        <Td>{payout.creator.name}</Td>
+                        <Td align="right">{formatCompact(payout.viewsCounted)}</Td>
+                        <Td align="right">{formatIDR(payout.grossAmount)}</Td>
+                        <Td align="right">{formatIDR(payout.platformFee)}</Td>
+                        <Td align="right" className="font-medium">
+                          {formatIDR(payout.netAmount)}
+                        </Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
             </Card>
           ) : null}
         </div>
@@ -341,10 +448,15 @@ export default async function VendorCampaignDetail({
                 {campaign.escrow
                   .filter((trx) => trx.type !== "PLATFORM_FEE")
                   .map((trx) => (
-                    <li key={trx.id} className="flex justify-between gap-3">
-                      <span className="text-muted">{trx.type}</span>
-                      <span className="tabular">
-                        {formatIDR(trx.amount)}
+                    <li
+                      key={trx.id}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <span className="min-w-0 truncate text-muted">
+                        {trx.type}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className="tabular">{formatIDR(trx.amount)}</span>
                         <Badge
                           tone={trx.status === "COMPLETED" ? "success" : "warning"}
                         >

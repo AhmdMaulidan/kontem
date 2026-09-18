@@ -117,6 +117,51 @@ export function ViewsRowCells({
   );
 }
 
+/**
+ * Aksi untuk kartu baris di mode mobile.
+ */
+export function ViewsMobileActions({
+  submissionId,
+  currentViews,
+  currentLikes,
+  currentComments,
+  lastSyncedAt,
+}: {
+  submissionId: string;
+  currentViews: number;
+  currentLikes: number;
+  currentComments: number;
+  lastSyncedAt?: Date | string | null;
+}) {
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <AutoSyncButton
+        submissionId={submissionId}
+        lastSyncedAt={lastSyncedAt}
+      />
+      <DetailDrawer
+        label="Edit"
+        icon={
+          <span className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:border-brand/40 hover:bg-brand/10 hover:text-brand">
+            <IconEdit className="h-3.5 w-3.5 text-brand" strokeWidth={2} />
+            <span>Edit</span>
+          </span>
+        }
+        title="Update views manual"
+        subtitle={`Views tercatat saat ini: ${angkaID.format(currentViews)}`}
+      >
+        <ViewsForm
+          submissionId={submissionId}
+          currentViews={currentViews}
+          currentLikes={currentLikes}
+          currentComments={currentComments}
+          lastSyncedAt={lastSyncedAt}
+        />
+      </DetailDrawer>
+    </div>
+  );
+}
+
 function ViewsForm({
   submissionId,
   currentViews,

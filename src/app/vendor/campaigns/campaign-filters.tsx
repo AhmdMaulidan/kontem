@@ -59,10 +59,11 @@ export function CampaignFilters({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Search */}
-      <div className="relative w-72">
+      {/* Search — dipendekkan lewat rasio flex di ponsel supaya dropdown
+          status kebagian ruang cukup untuk menampilkan tulisannya utuh. */}
+      <div className="relative min-w-0 flex-[3] sm:flex-1">
         <IconSearch
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+          className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
           strokeWidth={2}
           aria-hidden
         />
@@ -71,25 +72,26 @@ export function CampaignFilters({
           value={q}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="Cari campaign..."
-          className="w-full rounded-xl border border-line bg-surface py-2.5 pl-9 pr-3 text-sm text-body outline-none transition-colors placeholder:text-muted/70 focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
+          className="w-full rounded-xl border border-line bg-surface py-2.5 pr-2 pl-8 text-sm text-body outline-none transition-colors placeholder:text-muted/70 focus:border-brand-400 focus:ring-4 focus:ring-brand-100 sm:pr-3 sm:pl-9"
         />
       </div>
 
-      {/* Status dropdown — dibungkus div karena Select punya w-full di controlClass;
-          mengoper w-* lewat className tidak bisa diandalkan (cn() hanya concat string). */}
-      <div className="w-44">
-      <Select
-        value={status}
-        onChange={(e) => handleStatus(e.target.value)}
-      >
-        {STATUS_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </Select>
+      {/* Status dropdown — flex-[2] di ponsel supaya labelnya (mis. "Semua
+          status") tidak terpotong; sm ke atas kembali ke lebar tetap yang
+          lebih lega. Padding kanan/kiri select ikut dirapatkan di ponsel. */}
+      <div className="min-w-0 flex-[2] sm:w-44 sm:flex-none">
+        <Select
+          value={status}
+          onChange={(e) => handleStatus(e.target.value)}
+          className="pr-7 pl-2.5 text-xs sm:pr-10 sm:pl-4 sm:text-sm"
+        >
+          {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </Select>
       </div>
-
     </div>
   );
 }

@@ -151,27 +151,16 @@ export default async function AdminCampaignsPage({
       <DataTable
         title="Approval & Monitoring Campaign"
         summary={`${menunggu} menunggu approval`}
-        action={
-          <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
-        }
+        tableClassName="w-full text-sm md:min-w-[52rem]"
         toolbar={
           <TableToolbar
             basePath={BASE}
             params={params}
             searchPlaceholder="Cari judul / vendor..."
+            action={
+              <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
+            }
             filters={[
-              {
-                name: "status",
-                label: "Status",
-                options: [
-                  { value: "PENDING_REVIEW", label: "Menunggu" },
-                  { value: "ACTIVE", label: "Berjalan" },
-                  { value: "ENDED", label: "Periode selesai" },
-                  { value: "SETTLED", label: "Selesai" },
-                  { value: "REJECTED", label: "Ditolak" },
-                  { value: "ALL", label: "Semua status" },
-                ],
-              },
               {
                 name: "kategori",
                 label: "Kategori",
@@ -195,6 +184,18 @@ export default async function AdminCampaignsPage({
                 ],
               },
               {
+                name: "status",
+                label: "Status",
+                options: [
+                  { value: "PENDING_REVIEW", label: "Menunggu" },
+                  { value: "ACTIVE", label: "Berjalan" },
+                  { value: "ENDED", label: "Periode selesai" },
+                  { value: "SETTLED", label: "Selesai" },
+                  { value: "REJECTED", label: "Ditolak" },
+                  { value: "ALL", label: "Semua status" },
+                ],
+              },
+              {
                 name: "urut",
                 label: "Urutkan",
                 options: [
@@ -215,7 +216,8 @@ export default async function AdminCampaignsPage({
           />
         }
       >
-        <thead>
+        {/* Tabel — desktop */}
+        <thead className="hidden md:table-header-group">
           <tr>
             <Th>No</Th>
             <Th>Campaign</Th>
@@ -229,7 +231,7 @@ export default async function AdminCampaignsPage({
             <Th>Aksi</Th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="hidden md:table-row-group">
           {campaigns.length === 0 ? (
             <TableEmptyRow
               colSpan={11}
@@ -485,6 +487,237 @@ export default async function AdminCampaignsPage({
                       </div>
                     </DetailDrawer>
                   </Td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+
+        {/* Kartu — mobile */}
+        <tbody className="md:hidden">
+          {campaigns.length === 0 ? (
+            <TableEmptyRow
+              colSpan={1}
+              title="Tidak ada campaign pada penyaringan ini"
+              description="Ubah kata kunci atau pilih status lain."
+            />
+          ) : (
+            campaigns.map((campaign, index) => {
+              const deposit = campaign.escrow.find((trx) => trx.type === "DEPOSIT");
+              const depositLunas = deposit?.status === "COMPLETED";
+              const vendorTerverifikasi = campaign.vendor.status === "VERIFIED";
+              const performance = serapan.get(campaign.id);
+              const menungguApproval = campaign.status === "PENDING_REVIEW";
+              const durasiHari = Math.max(
+                1,
+                Math.round(
+                  (campaign.endDate.getTime() - campaign.startDate.getTime()) /
+                    (1000 * 60 * 60 * 24),
+                ),
+              );
+
+              return (
+                <tr key={`m-${campaign.id}`} className="border-b border-line last:border-0">
+                  <td className="block w-full p-4">
+                    {/* Header item */}
+                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-line">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="tabular text-xs font-semibold text-muted shrink-0">
+                          #{rowNumber(index, page, pageSize)}
+                        </span>
+                        <h3 className="font-semibold text-sm truncate text-foreground">
+                          {campaign.title}
+                        </h3>
+                      </div>
+                      <Badge tone={campaignStatusTone[campaign.status]} icon>
+                        {campaignStatusLabel[campaign.status]}
+                      </Badge>
+                    </div>
+
+                    {/* Grid data 2 kolom */}
+                    <div className="grid grid-cols-2 gap-3 py-3 text-xs border-b border-line">
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Vendor & Kategori
+                        </span>
+                        <span className="font-medium text-foreground mt-0.5 block truncate">
+                          {campaign.vendor.vendorProfile?.businessName ?? "—"}
+                        </span>
+                        <p className="text-muted text-xs mt-0.5">
+                          {categoryLabel[campaign.category]}
+                          {campaign.vendor.vendorProfile?.city ? ` · ${campaign.vendor.vendorProfile.city}` : ""}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Budget Pool
+                        </span>
+                        <span className="font-semibold text-foreground mt-0.5 block tabular">
+                          {formatIDR(campaign.budgetPool)}
+                        </span>
+                        {performance ? (
+                          <p className="tabular text-muted text-xs mt-0.5">
+                            Serapan: {formatIDR(performance.totalDistributed)}
+                          </p>
+                        ) : (
+                          <p className="tabular text-muted text-xs mt-0.5">
+                            {formatIDR(campaign.cpmRate)}/cpm
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Periode & Durasi
+                        </span>
+                        <span className="font-medium text-foreground mt-0.5 block text-xs">
+                          {formatDate(campaign.startDate)} – {formatDate(campaign.endDate)}
+                        </span>
+                        <p className="text-muted text-xs mt-0.5">
+                          {durasiHari} Hari {daysUntil(campaign.endDate) > 0 ? `· Sisa ${daysUntil(campaign.endDate)} hari` : ""}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Deposit Escrow
+                        </span>
+                        <div className="mt-1">
+                          <Badge tone={depositLunas ? "success" : "warning"} icon>
+                            {depositLunas ? "Lunas" : "Belum Lunas"}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer baris: Partisipan & Aksi */}
+                    <div className="flex items-center justify-between pt-2.5">
+                      <div className="text-xs text-muted">
+                        <span className="font-medium text-foreground">{campaign._count.participations} Partisipan</span>
+                        <span className="text-[11px] block">{campaign._count.submissions} Submission</span>
+                      </div>
+                      <div>
+                        <DetailDrawer
+                          label={menungguApproval ? "Periksa" : "Pantau"}
+                          icon={<IconShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />}
+                          title={campaign.title}
+                          subtitle={`${campaign.vendor.vendorProfile?.businessName ?? "—"} · ${categoryLabel[campaign.category]}`}
+                        >
+                          <div className="flex flex-wrap gap-2">
+                            <Badge tone={vendorTerverifikasi ? "success" : "danger"} icon>
+                              {vendorTerverifikasi ? "Vendor terverifikasi" : "Vendor belum terverifikasi"}
+                            </Badge>
+                            <Badge tone={campaignStatusTone[campaign.status]} icon>
+                              {campaignStatusLabel[campaign.status]}
+                            </Badge>
+                          </div>
+
+                          <dl className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <dt className="text-xs font-medium text-muted">Budget pool</dt>
+                              <dd className="tabular mt-0.5 font-medium">{formatIDR(campaign.budgetPool)}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs font-medium text-muted">CPM</dt>
+                              <dd className="tabular mt-0.5 font-medium">{formatIDR(campaign.cpmRate)} / 1k</dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs font-medium text-muted">Creator ikut</dt>
+                              <dd className="tabular mt-0.5">{campaign._count.participations} creator</dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs font-medium text-muted">Escrow</dt>
+                              <dd className="mt-0.5"><Badge tone={depositLunas ? "success" : "warning"} icon>{depositLunas ? "Lunas" : "Belum"}</Badge></dd>
+                            </div>
+                            <div className="col-span-2">
+                              <dt className="text-xs font-medium text-muted">Periode</dt>
+                              <dd className="mt-0.5">{formatDate(campaign.startDate)} – {formatDate(campaign.endDate)} ({durasiHari} hari)</dd>
+                            </div>
+                          </dl>
+
+                          <div className="rounded-xl bg-surface-muted p-3 text-sm">
+                            <p className="font-medium">Brief</p>
+                            <p className="mt-1 text-muted">
+                              <span className="font-medium">Angle wajib:</span>{" "}
+                              {campaign.briefAngle}
+                            </p>
+                            <ul className="mt-2 space-y-0.5 text-muted">
+                              {campaign.briefMustShow.map((item) => (
+                                <li key={item} className="flex items-start gap-2">
+                                  <IconCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+                                  {item}
+                                </li>
+                              ))}
+                              {campaign.briefProhibited.map((item) => (
+                                <li key={item} className="flex items-start gap-2">
+                                  <IconX className="mt-0.5 h-3.5 w-3.5 shrink-0 text-danger" />
+                                  {item}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          {performance ? (
+                            <div>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted">Serapan budget</span>
+                                <span className="tabular font-medium">
+                                  {formatIDR(performance.totalDistributed)} / {formatIDR(campaign.budgetPool)}
+                                </span>
+                              </div>
+                              <div className="mt-2">
+                                <ProgressBar value={performance.totalDistributed} max={campaign.budgetPool} />
+                              </div>
+                              <p className="mt-2 text-sm text-muted">
+                                {formatCompact(performance.totalViews)} views dari {campaign._count.submissions} submission ·{" "}
+                                {daysUntil(campaign.endDate) > 0 ? `${daysUntil(campaign.endDate)} hari lagi` : "periode selesai"}
+                              </p>
+                            </div>
+                          ) : null}
+
+                          <div className="space-y-3 border-t border-line pt-4">
+                            {!depositLunas ? (
+                              <>
+                                <Callout
+                                  tone={deposit?.note && !deposit.note.toLowerCase().includes("menunggu pembayaran") ? "info" : "warning"}
+                                  title={deposit?.note && !deposit.note.toLowerCase().includes("menunggu pembayaran") ? "Konfirmasi Transfer Vendor Diterima" : "Deposit Escrow Belum Lunas"}
+                                >
+                                  {deposit?.note && !deposit.note.toLowerCase().includes("menunggu pembayaran") ? (
+                                    <div className="space-y-1 text-xs">
+                                      <p><strong className="text-foreground">Info transfer vendor: </strong>{deposit.note}</p>
+                                      <p className="text-muted">Nominal pool: {formatIDR(campaign.budgetPool)}. Cocokkan dengan mutasi rekening BCA sebelum konfirmasi lunas.</p>
+                                    </div>
+                                  ) : (
+                                    `Escrow: belum ada deposit ${formatIDR(campaign.budgetPool)} tercatat.`
+                                  )}
+                                </Callout>
+                                <SimpleActionForm
+                                  action={confirmDepositAction}
+                                  hiddenField="campaignId"
+                                  hiddenValue={campaign.id}
+                                  label="Konfirmasi deposit diterima"
+                                  variant="secondary"
+                                />
+                              </>
+                            ) : null}
+                            {menungguApproval ? (
+                              <DecisionForm
+                                action={reviewCampaignAction}
+                                hiddenField="campaignId"
+                                hiddenValue={campaign.id}
+                                approveLabel="Setujui"
+                                rejectLabel="Tolak"
+                                noteLabel="Alasan penolakan"
+                              />
+                            ) : campaign.rejectionReason ? (
+                              <div className="rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">
+                                <p className="font-medium">Alasan penolakan</p>
+                                <p className="mt-0.5">{campaign.rejectionReason}</p>
+                              </div>
+                            ) : null}
+                          </div>
+                        </DetailDrawer>
+                      </div>
+                    </div>
+                  </td>
                 </tr>
               );
             })

@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatCompact, formatDate, formatIDR } from "@/lib/format";
 import {
+  Badge,
   BarChart,
   ButtonLink,
   Card,
@@ -28,7 +29,11 @@ import {
   resolvePageSize,
   rowNumber,
 } from "@/components/ui";
-import { categoryLabel } from "@/lib/labels";
+import {
+  campaignStatusLabel,
+  campaignStatusTone,
+  categoryLabel,
+} from "@/lib/labels";
 import { PeriodePicker } from "../periode-picker";
 
 const PERIODE: Record<string, { label: string; hari: number }> = {
@@ -224,7 +229,7 @@ export default async function AdminAnalyticsPage({
         title="Analitik platform"
         description="Angka kesehatan ekosistem dua sisi — dipakai untuk laporan internal dan materi pitch."
         action={
-          <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3">
             <PeriodePicker value={key} basePath="/admin/analytics" />
             <ButtonLink
               href="/api/admin/export?type=analytics"
@@ -238,7 +243,7 @@ export default async function AdminAnalyticsPage({
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Stat
           label="GMV"
           icon={IconChart}
@@ -341,9 +346,47 @@ export default async function AdminAnalyticsPage({
       <div className="mt-8">
         <DataTable
           title="Campaign terbaik periode ini"
-          summary={periodeLabel}
+          summary={<span className="hidden md:inline">{periodeLabel}</span>}
+          tableClassName="w-full text-sm md:min-w-[52rem]"
           action={
-            <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
+            <div className="hidden md:block">
+              <PageSizeSelect
+                basePath={BASE}
+                params={params}
+                pageSize={pageSize}
+              />
+            </div>
+          }
+          toolbar={
+            <div className="grid grid-cols-2 items-center gap-2 md:hidden">
+              {/* Baris 1: Kiri = Filter Periode, Kanan = Tampilkan */}
+              <div className="col-span-1">
+                <PeriodePicker
+                  value={key}
+                  basePath="/admin/analytics"
+                  className="w-full text-xs py-1.5"
+                />
+              </div>
+              <div className="col-span-1 flex justify-end">
+                <PageSizeSelect
+                  basePath={BASE}
+                  params={params}
+                  pageSize={pageSize}
+                />
+              </div>
+
+              {/* Baris 2: Kanan (di bawah Tampilkan) = Ikon Unduh */}
+              <div className="col-span-1 col-start-2 flex justify-end">
+                <ButtonLink
+                  href="/api/admin/export?type=analytics"
+                  variant="secondary"
+                  size="sm"
+                  title="Export CSV"
+                >
+                  <IconDownload className="h-4 w-4" strokeWidth={2} />
+                </ButtonLink>
+              </div>
+            </div>
           }
           footer={
             <Pagination
@@ -355,7 +398,8 @@ export default async function AdminAnalyticsPage({
             />
           }
         >
-          <thead>
+          {/* Tabel — desktop */}
+          <thead className="hidden md:table-header-group">
             <tr>
               <Th>No</Th>
               <Th>Campaign</Th>
@@ -368,7 +412,7 @@ export default async function AdminAnalyticsPage({
               <Th>Aksi</Th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="hidden md:table-row-group">
             {peringkat.length === 0 ? (
               <TableEmptyRow
                 colSpan={9}
@@ -403,6 +447,101 @@ export default async function AdminAnalyticsPage({
                       <IconShieldCheck className="h-4 w-4" strokeWidth={2} />
                     </Link>
                   </Td>
+                </tr>
+              ))
+            )}
+          </tbody>
+
+          {/* Kartu — mobile */}
+          <tbody className="md:hidden">
+            {peringkat.length === 0 ? (
+              <TableEmptyRow
+                colSpan={9}
+                title="Belum ada campaign pada periode ini"
+                description="Pilih rentang periode yang lebih panjang."
+              />
+            ) : (
+              peringkat.map((campaign, index) => (
+                <tr
+                  key={`m-${campaign.id}`}
+                  className="border-b border-line last:border-b-0"
+                >
+                  <td colSpan={9} className="p-4">
+                    {/* Header: No, Title, Status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="tabular text-xs font-semibold text-muted">
+                            #{rowNumber(index, page, pageSize)}
+                          </span>
+                          <span className="font-medium text-foreground">
+                            {campaign.title}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted">
+                          Vendor:{" "}
+                          <span className="font-medium text-foreground">
+                            {campaign.vendor}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="shrink-0">
+                        <Badge tone={campaignStatusTone[campaign.status]} icon>
+                          {campaignStatusLabel[campaign.status]}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Grid Data 2x2 */}
+                    <div className="mt-3 grid grid-cols-2 gap-3 border-y border-line py-3 text-xs">
+                      <div>
+                        <p className="text-muted">Budget Pool</p>
+                        <p className="tabular mt-0.5 font-medium text-foreground">
+                          {formatIDR(campaign.budget)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted">Total Views</p>
+                        <p className="tabular mt-0.5 font-medium text-foreground">
+                          {formatCompact(campaign.totalViews)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted">CPM Efektif</p>
+                        <p className="tabular mt-0.5 text-foreground">
+                          {campaign.cpmEfektif > 0
+                            ? formatIDR(campaign.cpmEfektif)
+                            : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted">Partisipan</p>
+                        <p className="tabular mt-0.5 text-foreground">
+                          {campaign.creator} creator
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Footer: Selesai & Action Link */}
+                    <div className="mt-3 flex items-center justify-between gap-2 text-xs">
+                      <span className="text-muted">
+                        {campaign.status === "ACTIVE"
+                          ? "Sedang berjalan"
+                          : `Selesai: ${formatDate(campaign.endDate)}`}
+                      </span>
+
+                      <Link
+                        href={`/admin/campaigns?q=${encodeURIComponent(campaign.title)}&status=ALL`}
+                        className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/10"
+                      >
+                        <IconShieldCheck
+                          className="h-3.5 w-3.5"
+                          strokeWidth={2}
+                        />
+                        <span>Lihat Campaign</span>
+                      </Link>
+                    </div>
+                  </td>
                 </tr>
               ))
             )}

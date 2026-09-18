@@ -4,6 +4,7 @@ import { formatCompact, formatDateTime } from "@/lib/format";
 import {
   Callout,
   DataTable,
+  IconExternal,
   PageHeader,
   PageSizeSelect,
   Pagination,
@@ -23,7 +24,7 @@ import type {
 } from "@/generated/prisma/enums";
 import { platformLabel } from "@/lib/labels";
 import { isWithinCooldown } from "@/domain/views";
-import { ViewsRowCells } from "./views-form";
+import { ViewsMobileActions, ViewsRowCells } from "./views-form";
 
 const PAGE_SIZE = 15;
 const BASE = "/admin/views";
@@ -125,6 +126,7 @@ export default async function AdminViewsPage({
             ? `Terakhir disinkronkan ${formatDateTime(terakhirSinkron.lastSyncedAt)}`
             : "Belum pernah disinkronkan"
         }
+        tableClassName="w-full text-sm md:min-w-[52rem]"
         action={
           <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
         }
@@ -169,7 +171,7 @@ export default async function AdminViewsPage({
           />
         }
       >
-        <thead>
+        <thead className="hidden md:table-header-group">
           <tr>
             <Th>No</Th>
             <Th>Creator</Th>
@@ -180,7 +182,9 @@ export default async function AdminViewsPage({
             <Th align="right">Aksi</Th>
           </tr>
         </thead>
-        <tbody>
+
+        {/* Tampilan Desktop */}
+        <tbody className="hidden md:table-row-group">
           {submissions.length === 0 ? (
             <TableEmptyRow
               colSpan={7}
@@ -223,6 +227,96 @@ export default async function AdminViewsPage({
             ))
           )}
         </tbody>
+
+        {/* Tampilan Mobile */}
+        <tbody className="md:hidden">
+          {submissions.length === 0 ? (
+            <TableEmptyRow
+              colSpan={7}
+              title="Tidak ada konten yang perlu disinkronkan"
+              description="Semua submission dalam pelacakan sudah diperbarui."
+            />
+          ) : (
+            submissions.map((submission, index) => (
+              <tr key={`mobile-${submission.id}`} className="border-b border-line last:border-b-0">
+                <td colSpan={7} className="p-4">
+                  {/* Header: No, Creator, Platform Badge & Link Eksternal */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="tabular text-xs font-semibold text-muted">
+                          #{rowNumber(index, page, pageSize)}
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {submission.creator.name}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted">
+                        Campaign: <span className="font-medium text-foreground">{submission.campaign.title}</span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="rounded-full bg-surface-muted border border-line px-2 py-0.5 text-[11px] font-medium text-foreground">
+                        {platformLabel[submission.platform]}
+                      </span>
+                      <a
+                        href={submission.contentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Buka konten di tab baru"
+                        className="text-brand-600 transition-colors hover:text-brand-700"
+                      >
+                        <IconExternal className="h-4 w-4" strokeWidth={2} />
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Grid Data 2 Kolom */}
+                  <div className="mt-3 grid grid-cols-2 gap-3 border-y border-line py-3 text-xs">
+                    <div>
+                      <p className="text-muted">Views Tercatat</p>
+                      <p className="tabular mt-0.5 text-sm font-semibold text-foreground">
+                        {formatCompact(submission.lastViews)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted">Terakhir Sinkron</p>
+                      <div className="mt-0.5">
+                        {submission.lastSyncedAt ? (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="tabular text-foreground">
+                              {formatDateTime(submission.lastSyncedAt)}
+                            </span>
+                            {isWithinCooldown(submission.lastSyncedAt) ? (
+                              <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                                Cooldown
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-muted">Belum pernah</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Aksi Mobile */}
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-muted">Aksi Sinkronisasi</span>
+                    <ViewsMobileActions
+                      submissionId={submission.id}
+                      currentViews={submission.lastViews}
+                      currentLikes={submission.lastLikes}
+                      currentComments={submission.lastComments}
+                      lastSyncedAt={submission.lastSyncedAt}
+                    />
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+
         {submissions.length > 0 ? (
           <tfoot>
             <TableCaptionRow colSpan={7} tone="danger">

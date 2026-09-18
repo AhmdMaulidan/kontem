@@ -51,14 +51,14 @@ export function CardHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-      <div>
+    <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="min-w-0">
         <h2 className="font-display text-lg font-semibold">{title}</h2>
         {description ? (
           <p className="mt-1 text-sm text-muted">{description}</p>
         ) : null}
       </div>
-      {action}
+      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   );
 }

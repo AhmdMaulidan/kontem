@@ -104,13 +104,16 @@ export default async function AdminTemplatesPage({
       <DataTable
         title="Template Brief per Kategori"
         summary={`${aktif} template aktif`}
+        tableClassName="w-full text-sm md:min-w-[52rem]"
         action={
           <div className="flex items-center gap-3">
-            <PageSizeSelect
-              basePath={BASE}
-              params={params}
-              pageSize={pageSize}
-            />
+            <div className="hidden sm:block">
+              <PageSizeSelect
+                basePath={BASE}
+                params={params}
+                pageSize={pageSize}
+              />
+            </div>
             <TemplateForm />
           </div>
         }
@@ -141,6 +144,15 @@ export default async function AdminTemplatesPage({
                 ],
               },
             ]}
+            action={
+              <div className="sm:hidden">
+                <PageSizeSelect
+                  basePath={BASE}
+                  params={params}
+                  pageSize={pageSize}
+                />
+              </div>
+            }
           />
         }
         footer={
@@ -153,7 +165,8 @@ export default async function AdminTemplatesPage({
           />
         }
       >
-        <thead>
+        {/* Tabel — desktop */}
+        <thead className="hidden md:table-header-group">
           <tr>
             <Th>No</Th>
             <Th>Nama Template</Th>
@@ -165,7 +178,7 @@ export default async function AdminTemplatesPage({
             <Th>Aksi</Th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="hidden md:table-row-group">
           {templates.length === 0 ? (
             <TableEmptyRow
               colSpan={8}
@@ -212,6 +225,101 @@ export default async function AdminTemplatesPage({
                     />
                   </div>
                 </Td>
+              </tr>
+            ))
+          )}
+        </tbody>
+
+        {/* Kartu — mobile */}
+        <tbody className="md:hidden">
+          {templates.length === 0 ? (
+            <TableEmptyRow
+              colSpan={8}
+              title="Belum ada template pada penyaringan ini"
+              description="Tambah template supaya vendor kategori ini punya titik mulai."
+            />
+          ) : (
+            templates.map((template, index) => (
+              <tr key={`m-${template.id}`} className="border-b border-line last:border-b-0">
+                <td colSpan={8} className="p-4">
+                  {/* Header: No, Template Name, Status */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="tabular text-xs font-semibold text-muted">
+                          #{rowNumber(index, page, pageSize)}
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {template.name}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted">
+                        Kategori:{" "}
+                        <span className="font-medium text-foreground">
+                          {categoryLabel[template.category]}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      <Badge tone={template.isActive ? "success" : "neutral"} icon>
+                        {template.isActive ? "Aktif" : "Arsip"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Grid Data 2x2 */}
+                  <div className="mt-3 grid grid-cols-2 gap-3 border-y border-line py-3 text-xs">
+                    <div>
+                      <p className="text-muted">Isi Field</p>
+                      <p className="mt-0.5 font-medium text-foreground">
+                        {ringkasField(template.fields)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted">Dipakai</p>
+                      <p className="tabular mt-0.5 font-medium text-foreground">
+                        {template._count.campaigns} campaign
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted">Terakhir Diubah</p>
+                      <p className="tabular mt-0.5 text-foreground">
+                        {formatDate(template.updatedAt)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted">Status Template</p>
+                      <p className="mt-0.5 text-foreground">
+                        {template.isActive ? "Tersedia untuk vendor" : "Diarsipkan"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Footer Aksi */}
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-muted">Aksi Template</span>
+                    <SimpleActionForm
+                      action={toggleBriefTemplateAction}
+                      hiddenField="templateId"
+                      hiddenValue={template.id}
+                      label={template.isActive ? "Arsipkan" : "Aktifkan"}
+                      pendingLabel={
+                        template.isActive
+                          ? "Mengarsipkan..."
+                          : "Mengaktifkan..."
+                      }
+                      variant={template.isActive ? "secondary" : "primary"}
+                      size="compact"
+                      icon={
+                        template.isActive ? (
+                          <IconArchive className="h-3.5 w-3.5" strokeWidth={2} />
+                        ) : (
+                          <IconRestore className="h-3.5 w-3.5" strokeWidth={2} />
+                        )
+                      }
+                    />
+                  </div>
+                </td>
               </tr>
             ))
           )}
