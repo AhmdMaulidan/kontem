@@ -238,7 +238,7 @@ export default async function AdminAnalyticsPage({
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Stat
           label="GMV"
           icon={IconChart}
@@ -355,7 +355,8 @@ export default async function AdminAnalyticsPage({
             />
           }
         >
-          <thead>
+          {/* Tabel — desktop */}
+          <thead className="hidden md:table-header-group">
             <tr>
               <Th>No</Th>
               <Th>Campaign</Th>
@@ -368,7 +369,7 @@ export default async function AdminAnalyticsPage({
               <Th>Aksi</Th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="hidden md:table-row-group">
             {peringkat.length === 0 ? (
               <TableEmptyRow
                 colSpan={9}
@@ -403,6 +404,45 @@ export default async function AdminAnalyticsPage({
                       <IconShieldCheck className="h-4 w-4" strokeWidth={2} />
                     </Link>
                   </Td>
+                </tr>
+              ))
+            )}
+          </tbody>
+
+          {/* Kartu — mobile */}
+          <tbody className="md:hidden">
+            {peringkat.length === 0 ? (
+              <TableEmptyRow colSpan={1} title="Belum ada campaign pada periode ini" description="Pilih rentang periode yang lebih panjang." />
+            ) : (
+              peringkat.map((campaign) => (
+                <tr key={`m-${campaign.id}`}>
+                  <td className="block px-4 py-3 border-b border-line last:border-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{campaign.title}</p>
+                        <p className="text-xs text-muted mt-0.5">{campaign.vendor}</p>
+                        <p className="tabular text-xs mt-0.5">
+                          {formatCompact(campaign.totalViews)} views · {campaign.creator} creator
+                        </p>
+                        <p className="tabular text-xs text-muted mt-0.5">
+                          CPM efektif: {campaign.cpmEfektif > 0 ? formatIDR(campaign.cpmEfektif) : "—"}
+                        </p>
+                      </div>
+                      <div className="shrink-0 flex flex-col items-end gap-1.5">
+                        <p className="tabular text-sm font-medium">{formatIDR(campaign.budget)}</p>
+                        <p className="text-xs text-muted">
+                          {campaign.status === "ACTIVE" ? "berjalan" : formatDate(campaign.endDate)}
+                        </p>
+                        <Link
+                          href={`/admin/campaigns?q=${encodeURIComponent(campaign.title)}&status=ALL`}
+                          className="text-brand-600 hover:text-brand-700 transition-colors"
+                          title="Lihat campaign"
+                        >
+                          <IconShieldCheck className="h-4 w-4" strokeWidth={2} />
+                        </Link>
+                      </div>
+                    </div>
+                  </td>
                 </tr>
               ))
             )}

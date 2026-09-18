@@ -156,7 +156,8 @@ export default async function AdminPayoutsPage({
           />
         }
       >
-        <thead>
+        {/* Tabel — desktop */}
+        <thead className="hidden md:table-header-group">
           <tr>
             <Th>No</Th>
             <Th>Creator</Th>
@@ -168,7 +169,7 @@ export default async function AdminPayoutsPage({
             <Th>Detail</Th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="hidden md:table-row-group">
           {payouts.length === 0 ? (
             <TableEmptyRow
               colSpan={8}
@@ -248,6 +249,72 @@ export default async function AdminPayoutsPage({
                     </dl>
                   </DetailDrawer>
                 </Td>
+              </tr>
+            ))
+          )}
+        </tbody>
+
+        {/* Kartu — mobile */}
+        <tbody className="md:hidden">
+          {payouts.length === 0 ? (
+            <TableEmptyRow
+              colSpan={1}
+              title="Belum ada payout"
+              description="Baris pertama muncul otomatis begitu campaign pertama selesai."
+            />
+          ) : (
+            payouts.map((payout) => (
+              <tr key={`m-${payout.id}`}>
+                <td className="block px-4 py-3 border-b border-line last:border-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm">{payout.creator.name}</p>
+                      <p className="text-xs text-muted mt-0.5 truncate">
+                        {payout.campaign.title} · {payout.campaign.vendor.vendorProfile?.businessName ?? "—"}
+                      </p>
+                      <p className="tabular text-xs mt-0.5">
+                        {formatCompact(payout.viewsCounted)} views · {payout.sharePercent.toFixed(1)}%
+                      </p>
+                    </div>
+                    <div className="shrink-0 flex flex-col items-end gap-1.5">
+                      <Badge tone={payoutStatusTone[payout.status]} icon>
+                        {payoutStatusLabel[payout.status]}
+                      </Badge>
+                      <p className="tabular text-sm font-medium">{formatIDR(payout.netAmount)}</p>
+                      <DetailDrawer
+                        label="Lihat"
+                        title={payout.creator.name}
+                        subtitle={`${payout.campaign.title} · ${payout.paidAt ? formatDateTime(payout.paidAt) : "belum dicairkan"}`}
+                        icon={<IconShieldCheck className="h-4 w-4" strokeWidth={2} />}
+                      >
+                        <dl className="space-y-3 text-sm">
+                          <div>
+                            <dt className="text-xs font-medium text-muted">Views dihitung</dt>
+                            <dd className="tabular mt-0.5">{formatCompact(payout.viewsCounted)} dari {formatCompact(payout.totalPoolViews)} total</dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-medium text-muted">Bruto / Fee / Bersih</dt>
+                            <dd className="tabular mt-0.5">{formatIDR(payout.grossAmount)} − {formatIDR(payout.platformFee)} = <span className="font-medium">{formatIDR(payout.netAmount)}</span></dd>
+                          </div>
+                          <div>
+                            <dt className="text-xs font-medium text-muted">Rekening</dt>
+                            <dd className="mt-0.5">
+                              {payout.creator.creatorProfile?.bankName
+                                ? `${payout.creator.creatorProfile.bankName} ${payout.creator.creatorProfile.bankAccountNumber ?? ""}`
+                                : "—"}
+                            </dd>
+                          </div>
+                          {payout.note ? (
+                            <div>
+                              <dt className="text-xs font-medium text-muted">Catatan</dt>
+                              <dd className="mt-0.5 text-muted">{payout.note}</dd>
+                            </div>
+                          ) : null}
+                        </dl>
+                      </DetailDrawer>
+                    </div>
+                  </div>
+                </td>
               </tr>
             ))
           )}

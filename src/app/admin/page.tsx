@@ -125,7 +125,7 @@ export default async function AdminDashboard({
         <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
           Antrean kerja
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {antrean.map(({ href, label, value, Ikon }) => {
             const perluDikerjakan = value > 0;
             return (
@@ -161,7 +161,7 @@ export default async function AdminDashboard({
         <h2 className="mb-3 text-xs font-semibold tracking-wide text-muted uppercase">
           Kesehatan platform
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat
             label="GMV berjalan"
             icon={IconBank}
@@ -196,7 +196,8 @@ export default async function AdminDashboard({
             />
           }
         >
-          <thead>
+          {/* Tabel — desktop */}
+          <thead className="hidden md:table-header-group">
             <tr>
               <Th>No</Th>
               <Th>Campaign</Th>
@@ -205,7 +206,7 @@ export default async function AdminDashboard({
               <Th>Status</Th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="hidden md:table-row-group">
             {campaignTerbaru.length === 0 ? (
               <TableEmptyRow
                 colSpan={5}
@@ -226,6 +227,40 @@ export default async function AdminDashboard({
                       {campaignStatusLabel[campaign.status]}
                     </Badge>
                   </Td>
+                </tr>
+              ))
+            )}
+          </tbody>
+
+          {/* Kartu — mobile */}
+          <tbody className="md:hidden">
+            {campaignTerbaru.length === 0 ? (
+              <TableEmptyRow
+                colSpan={1}
+                title="Belum ada campaign"
+                description="Campaign muncul di sini begitu vendor mengirimkannya."
+              />
+            ) : (
+              campaignTerbaru.map((campaign) => (
+                <tr key={campaign.id}>
+                  <td className="block px-4 py-3 border-b border-line last:border-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm truncate">{campaign.title}</p>
+                        <p className="text-xs text-muted mt-0.5">
+                          {campaign.vendor.vendorProfile?.businessName ?? "—"}
+                        </p>
+                      </div>
+                      <div className="shrink-0 flex flex-col items-end gap-1">
+                        <Badge tone={campaignStatusTone[campaign.status]} icon>
+                          {campaignStatusLabel[campaign.status]}
+                        </Badge>
+                        <span className="tabular text-xs font-medium">
+                          {formatCompact(campaign.budgetPool)}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
                 </tr>
               ))
             )}

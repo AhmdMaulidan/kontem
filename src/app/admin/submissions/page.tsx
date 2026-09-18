@@ -188,7 +188,8 @@ export default async function AdminSubmissionsPage({
             />
           }
         >
-          <thead>
+          {/* Tabel — desktop */}
+          <thead className="hidden md:table-header-group">
             <tr>
               <Th>No</Th>
               <Th>Creator</Th>
@@ -200,7 +201,7 @@ export default async function AdminSubmissionsPage({
               <Th>Aksi</Th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="hidden md:table-row-group">
             {antrean.length === 0 ? (
               <TableEmptyRow
                 colSpan={8}
@@ -287,6 +288,60 @@ export default async function AdminSubmissionsPage({
               ))
             )}
           </tbody>
+
+          {/* Kartu — mobile */}
+          <tbody className="md:hidden">
+            {antrean.length === 0 ? (
+              <TableEmptyRow colSpan={1} title="Tidak ada antrean" description="Semua submission sudah diputuskan vendornya masing-masing." />
+            ) : (
+              antrean.map((submission) => (
+                <tr key={`m-${submission.id}`}>
+                  <td className="block px-4 py-3 border-b border-line last:border-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm">{submission.creator.name}</p>
+                        <p className="text-xs text-muted mt-0.5 truncate">{submission.campaign.title}</p>
+                        <p className="text-xs text-muted mt-0.5">
+                          {platformLabel[submission.platform]} · {formatCompact(submission.lastViews)} views
+                        </p>
+                      </div>
+                      <div className="shrink-0">
+                        <DetailDrawer
+                          label="Review"
+                          icon={<IconShieldCheck className="h-4 w-4" strokeWidth={2} />}
+                          title={submission.creator.name}
+                          subtitle={`${submission.campaign.title} · ${platformLabel[submission.platform]}`}
+                        >
+                          <a href={submission.contentUrl} target="_blank" rel="noreferrer" className="block truncate text-sm text-brand">
+                            {submission.contentUrl}
+                          </a>
+                          {submission.caption ? <p className="text-sm text-muted">&ldquo;{submission.caption}&rdquo;</p> : null}
+                          <div>
+                            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">Cek terhadap brief</p>
+                            <ul className="space-y-1 text-sm">
+                              {submission.campaign.briefMustShow.map((item) => (
+                                <li key={item} className="flex gap-2 text-muted"><span>•</span>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div className="border-t border-line pt-4">
+                            <DecisionForm
+                              action={reviewSubmissionAction}
+                              hiddenField="submissionId"
+                              hiddenValue={submission.id}
+                              approveLabel="Terima"
+                              rejectLabel="Tolak"
+                              requireNoteOnApprove
+                            />
+                          </div>
+                        </DetailDrawer>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
         </DataTable>
       </div>
       ) : tab === "riwayat" ? (
@@ -305,7 +360,8 @@ export default async function AdminSubmissionsPage({
           />
         }
       >
-        <thead>
+        {/* Tabel — desktop */}
+        <thead className="hidden md:table-header-group">
           <tr>
             <Th>No</Th>
             <Th>Creator</Th>
@@ -314,7 +370,7 @@ export default async function AdminSubmissionsPage({
             <Th>Status</Th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="hidden md:table-row-group">
           {riwayat.length === 0 ? (
             <TableEmptyRow colSpan={5} title="Belum ada riwayat" />
           ) : (
@@ -351,6 +407,39 @@ export default async function AdminSubmissionsPage({
             ))
           )}
         </tbody>
+
+        {/* Kartu — mobile */}
+        <tbody className="md:hidden">
+          {riwayat.length === 0 ? (
+            <TableEmptyRow colSpan={1} title="Belum ada riwayat" />
+          ) : (
+            riwayat.map((submission) => (
+              <tr key={`m-${submission.id}`}>
+                <td className="block px-4 py-3 border-b border-line last:border-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm">{submission.creator.name}</p>
+                      <p className="text-xs text-muted mt-0.5 truncate">
+                        {submission.campaign.title} · {submission.campaign.vendor.vendorProfile?.businessName ?? "—"}
+                      </p>
+                      <p className="tabular text-xs text-muted mt-0.5">
+                        {formatCompact(submission.lastViews)} views
+                      </p>
+                      {submission.reviewNote ? (
+                        <p className="text-xs text-muted mt-0.5">Catatan: {submission.reviewNote}</p>
+                      ) : null}
+                    </div>
+                    <div className="shrink-0">
+                      <Badge tone={submissionStatusTone[submission.status]}>
+                        {submissionStatusLabel[submission.status]}
+                      </Badge>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
       </DataTable>
       ) : (
       <div className="space-y-6">
@@ -371,7 +460,8 @@ export default async function AdminSubmissionsPage({
             />
           ) : (
             <Table>
-              <thead>
+              {/* Tabel — desktop */}
+              <thead className="hidden md:table-header-group">
                 <tr>
                   <Th>Creator</Th>
                   <Th>Campaign</Th>
@@ -380,7 +470,7 @@ export default async function AdminSubmissionsPage({
                   <Th>Aksi</Th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="hidden md:table-row-group">
                 {withdrawalMenunggu.map((w) => (
                   <tr key={w.id}>
                     <Td className="font-medium">{w.creator.name}</Td>
@@ -400,39 +490,55 @@ export default async function AdminSubmissionsPage({
                         title={w.creator.name}
                         subtitle={`${w.campaign.title} · diajukan ${formatDateTime(w.requestedAt)}`}
                       >
-                        <a
-                          href={w.submission.contentUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block truncate text-sm text-brand"
-                        >
+                        <a href={w.submission.contentUrl} target="_blank" rel="noreferrer" className="block truncate text-sm text-brand">
                           {w.submission.contentUrl}
                         </a>
                         <div className="rounded-xl bg-surface-muted p-3 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-muted">Views dihitung</span>
-                            <span className="tabular">{formatCompact(w.viewsCounted)}</span>
-                          </div>
-                          <div className="mt-1 flex justify-between">
-                            <span className="text-muted">Fee penarikan</span>
-                            <span className="tabular">{formatIDR(w.feeAmount)}</span>
-                          </div>
-                          <div className="mt-1 flex justify-between font-medium">
-                            <span>Diterima creator</span>
-                            <span className="tabular">{formatIDR(w.netAmount)}</span>
-                          </div>
+                          <div className="flex justify-between"><span className="text-muted">Views dihitung</span><span className="tabular">{formatCompact(w.viewsCounted)}</span></div>
+                          <div className="mt-1 flex justify-between"><span className="text-muted">Fee penarikan</span><span className="tabular">{formatIDR(w.feeAmount)}</span></div>
+                          <div className="mt-1 flex justify-between font-medium"><span>Diterima creator</span><span className="tabular">{formatIDR(w.netAmount)}</span></div>
                         </div>
                         <div className="border-t border-line pt-4">
-                          <DecisionForm
-                            action={reviewWithdrawalAction}
-                            hiddenField="withdrawalId"
-                            hiddenValue={w.id}
-                            approveLabel="Setujui"
-                            rejectLabel="Tolak"
-                          />
+                          <DecisionForm action={reviewWithdrawalAction} hiddenField="withdrawalId" hiddenValue={w.id} approveLabel="Setujui" rejectLabel="Tolak" />
                         </div>
                       </DetailDrawer>
                     </Td>
+                  </tr>
+                ))}
+              </tbody>
+
+              {/* Kartu — mobile */}
+              <tbody className="md:hidden">
+                {withdrawalMenunggu.map((w) => (
+                  <tr key={`m-${w.id}`}>
+                    <td className="block px-4 py-3 border-b border-line last:border-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm">{w.creator.name}</p>
+                          <p className="text-xs text-muted mt-0.5 truncate">{w.campaign.title}</p>
+                          <p className="tabular text-xs mt-0.5">{formatCompact(w.viewsCounted)} views</p>
+                        </div>
+                        <div className="shrink-0 flex flex-col items-end gap-1.5">
+                          <p className="tabular text-sm font-medium">{formatIDR(w.netAmount)}</p>
+                          <DetailDrawer
+                            label="Review"
+                            icon={<IconWallet className="h-4 w-4" strokeWidth={2} />}
+                            title={w.creator.name}
+                            subtitle={`${w.campaign.title} · diajukan ${formatDateTime(w.requestedAt)}`}
+                          >
+                            <a href={w.submission.contentUrl} target="_blank" rel="noreferrer" className="block truncate text-sm text-brand">{w.submission.contentUrl}</a>
+                            <div className="rounded-xl bg-surface-muted p-3 text-sm">
+                              <div className="flex justify-between"><span className="text-muted">Views dihitung</span><span className="tabular">{formatCompact(w.viewsCounted)}</span></div>
+                              <div className="mt-1 flex justify-between"><span className="text-muted">Fee penarikan</span><span className="tabular">{formatIDR(w.feeAmount)}</span></div>
+                              <div className="mt-1 flex justify-between font-medium"><span>Diterima creator</span><span className="tabular">{formatIDR(w.netAmount)}</span></div>
+                            </div>
+                            <div className="border-t border-line pt-4">
+                              <DecisionForm action={reviewWithdrawalAction} hiddenField="withdrawalId" hiddenValue={w.id} approveLabel="Setujui" rejectLabel="Tolak" />
+                            </div>
+                          </DetailDrawer>
+                        </div>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -456,7 +562,8 @@ export default async function AdminSubmissionsPage({
             />
           ) : (
             <Table>
-              <thead>
+              {/* Tabel — desktop */}
+              <thead className="hidden md:table-header-group">
                 <tr>
                   <Th>Creator</Th>
                   <Th>Campaign</Th>
@@ -464,7 +571,7 @@ export default async function AdminSubmissionsPage({
                   <Th>Aksi</Th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="hidden md:table-row-group">
                 {withdrawalDisetujui.map((w) => (
                   <tr key={w.id}>
                     <Td className="font-medium">{w.creator.name}</Td>
@@ -481,6 +588,32 @@ export default async function AdminSubmissionsPage({
                         size="sm"
                       />
                     </Td>
+                  </tr>
+                ))}
+              </tbody>
+
+              {/* Kartu — mobile */}
+              <tbody className="md:hidden">
+                {withdrawalDisetujui.map((w) => (
+                  <tr key={`m-${w.id}`}>
+                    <td className="block px-4 py-3 border-b border-line last:border-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm">{w.creator.name}</p>
+                          <p className="text-xs text-muted mt-0.5 truncate">{w.campaign.title}</p>
+                          <p className="tabular text-sm font-medium mt-0.5">{formatIDR(w.netAmount)}</p>
+                        </div>
+                        <div className="shrink-0">
+                          <SimpleActionForm
+                            action={markWithdrawalPaidAction}
+                            hiddenField="withdrawalId"
+                            hiddenValue={w.id}
+                            label="Tandai ditransfer"
+                            size="sm"
+                          />
+                        </div>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
