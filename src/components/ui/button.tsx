@@ -67,7 +67,7 @@ export type ButtonVariant = keyof typeof buttonVariants;
 export type ButtonSize = keyof typeof buttonSizes;
 export type ButtonShape = "pill" | "block";
 
-function buttonClass(
+export function buttonClass(
   variant: ButtonVariant,
   size: ButtonSize,
   shape: ButtonShape,

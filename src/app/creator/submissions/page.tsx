@@ -26,7 +26,6 @@ export default async function CreatorSubmissionsPage() {
     where: { creatorId: user.id },
     include: {
       campaign: { include: { vendor: { include: { vendorProfile: true } } } },
-      disputes: { orderBy: { createdAt: "desc" }, take: 1 },
       withdrawal: true,
       payout: true,
     },
@@ -130,7 +129,6 @@ export default async function CreatorSubmissionsPage() {
                         contentUrl={submission.contentUrl}
                         status={submission.status}
                         reviewNote={submission.reviewNote}
-                        dispute={submission.disputes[0] || null}
                         canDelete={canDelete}
                         deleteDisabledReason={deleteDisabledReason}
                       />

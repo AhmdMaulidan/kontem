@@ -16,8 +16,8 @@ export {
 export { cn } from "./utils";
 export { toneClasses, toneIcons } from "./tone";
 
-export { Button, ButtonLink, buttonVariants, buttonSizes } from "./button";
-export type { ButtonVariant, ButtonSize } from "./button";
+export { Button, ButtonLink, buttonVariants, buttonSizes, buttonClass } from "./button";
+export type { ButtonVariant, ButtonSize, ButtonShape } from "./button";
 export { SubmitButton } from "./submit-button";
 
 export { Accordion } from "./accordion";

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { verifyContentOwnership, verifyAuthorOwnership } from "@/domain/social-url";
+import { verifyContentOwnership } from "@/domain/social-url";
 import { isWithinCooldown, VIEW_SYNC_COOLDOWN_MS } from "@/domain/views";
 import { fetchVideoMetrics } from "@/lib/video-metrics";
 import { COUNTABLE_STATUSES } from "@/domain/campaign";
@@ -386,8 +386,6 @@ export async function refreshCreatorSubmissionViewsAction(
     };
   }
 
-  const mencurigakan = metrics.views < submission.lastViews;
-
   // 3. Simpan perubahan secara atomik
   await db.$transaction(async (tx) => {
     await tx.submission.update({
@@ -409,39 +407,6 @@ export async function refreshCreatorSubmissionViewsAction(
         source: "API",
       },
     });
-
-    if (mencurigakan) {
-      await tx.fraudFlag.create({
-        data: {
-          submissionId,
-          flaggedUserId: submission.creatorId,
-          type: "INFLATED_VIEWS",
-          severity: 2,
-          detail: `Views otomatis dari API (${metrics.views}) lebih rendah dari views tercatat sebelumnya (${submission.lastViews}).`,
-        },
-      });
-    }
-
-    const registeredAccount = submission.creator.socialAccounts.find(
-      (a) => a.platform === submission.platform,
-    );
-    if (registeredAccount && metrics.author) {
-      const isAuthorMatch = verifyAuthorOwnership({
-        author: metrics.author,
-        registeredHandle: registeredAccount.handle,
-      });
-      if (!isAuthorMatch) {
-        await tx.fraudFlag.create({
-          data: {
-            submissionId,
-            flaggedUserId: submission.creatorId,
-            type: "REUSED_CONTENT",
-            severity: 2,
-            detail: `Penarikan metrik mendeteksi video diunggah oleh akun @${metrics.author}, berbeda dengan akun ${submission.platform} terdaftar kreator (@${registeredAccount.handle}).`,
-          },
-        });
-      }
-    }
 
     await tx.auditLog.create({
       data: {
