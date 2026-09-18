@@ -116,6 +116,7 @@ export default async function AdminPayoutsPage({
       <DataTable
         title="Riwayat payout"
         summary={`${total} payout`}
+        tableClassName="w-full text-sm md:min-w-[52rem]"
         action={
           <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
         }
@@ -258,61 +259,119 @@ export default async function AdminPayoutsPage({
         <tbody className="md:hidden">
           {payouts.length === 0 ? (
             <TableEmptyRow
-              colSpan={1}
+              colSpan={8}
               title="Belum ada payout"
-              description="Baris pertama muncul otomatis begitu campaign pertama selesai."
+              description="Baris pertama muncul otomatis begitu campaign pertama selesai masa pelacakan views."
             />
           ) : (
-            payouts.map((payout) => (
-              <tr key={`m-${payout.id}`}>
-                <td className="block px-4 py-3 border-b border-line last:border-0">
+            payouts.map((payout, index) => (
+              <tr key={`m-${payout.id}`} className="border-b border-line last:border-b-0">
+                <td colSpan={8} className="p-4">
+                  {/* Header: No, Creator, Status */}
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm">{payout.creator.name}</p>
-                      <p className="text-xs text-muted mt-0.5 truncate">
-                        {payout.campaign.title} · {payout.campaign.vendor.vendorProfile?.businessName ?? "—"}
-                      </p>
-                      <p className="tabular text-xs mt-0.5">
-                        {formatCompact(payout.viewsCounted)} views · {payout.sharePercent.toFixed(1)}%
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="tabular text-xs font-semibold text-muted">
+                          #{rowNumber(index, page, pageSize)}
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {payout.creator.name}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted">
+                        {payout.campaign.title} ·{" "}
+                        <span className="font-medium text-foreground">
+                          {payout.campaign.vendor.vendorProfile?.businessName ?? "—"}
+                        </span>
                       </p>
                     </div>
-                    <div className="shrink-0 flex flex-col items-end gap-1.5">
+                    <div className="shrink-0">
                       <Badge tone={payoutStatusTone[payout.status]} icon>
                         {payoutStatusLabel[payout.status]}
                       </Badge>
-                      <p className="tabular text-sm font-medium">{formatIDR(payout.netAmount)}</p>
-                      <DetailDrawer
-                        label="Lihat"
-                        title={payout.creator.name}
-                        subtitle={`${payout.campaign.title} · ${payout.paidAt ? formatDateTime(payout.paidAt) : "belum dicairkan"}`}
-                        icon={<IconShieldCheck className="h-4 w-4" strokeWidth={2} />}
-                      >
-                        <dl className="space-y-3 text-sm">
-                          <div>
-                            <dt className="text-xs font-medium text-muted">Views dihitung</dt>
-                            <dd className="tabular mt-0.5">{formatCompact(payout.viewsCounted)} dari {formatCompact(payout.totalPoolViews)} total</dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs font-medium text-muted">Bruto / Fee / Bersih</dt>
-                            <dd className="tabular mt-0.5">{formatIDR(payout.grossAmount)} − {formatIDR(payout.platformFee)} = <span className="font-medium">{formatIDR(payout.netAmount)}</span></dd>
-                          </div>
-                          <div>
-                            <dt className="text-xs font-medium text-muted">Rekening</dt>
-                            <dd className="mt-0.5">
-                              {payout.creator.creatorProfile?.bankName
-                                ? `${payout.creator.creatorProfile.bankName} ${payout.creator.creatorProfile.bankAccountNumber ?? ""}`
-                                : "—"}
-                            </dd>
-                          </div>
-                          {payout.note ? (
-                            <div>
-                              <dt className="text-xs font-medium text-muted">Catatan</dt>
-                              <dd className="mt-0.5 text-muted">{payout.note}</dd>
-                            </div>
-                          ) : null}
-                        </dl>
-                      </DetailDrawer>
                     </div>
+                  </div>
+
+                  {/* Grid Data 2 Kolom */}
+                  <div className="mt-3 grid grid-cols-2 gap-3 border-y border-line py-3 text-xs">
+                    <div>
+                      <p className="text-muted">Views & Porsi</p>
+                      <p className="tabular mt-0.5 font-medium text-foreground">
+                        {formatCompact(payout.viewsCounted)} ({payout.sharePercent.toFixed(1)}%)
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted">Payout Bersih</p>
+                      <p className="tabular mt-0.5 text-sm font-semibold text-foreground">
+                        {formatIDR(payout.netAmount)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Footer: Rekening & Action Drawer */}
+                  <div className="mt-3 flex items-center justify-between gap-2 text-xs">
+                    <div className="min-w-0 truncate text-muted">
+                      <span>Rek: </span>
+                      <span className="font-medium text-foreground">
+                        {payout.creator.creatorProfile?.bankName
+                          ? `${payout.creator.creatorProfile.bankName} ${payout.creator.creatorProfile.bankAccountNumber ?? ""}`
+                          : "—"}
+                      </span>
+                    </div>
+
+                    <DetailDrawer
+                      label="Lihat Detail"
+                      title={payout.creator.name}
+                      subtitle={`${payout.campaign.title} · ${payout.paidAt ? formatDateTime(payout.paidAt) : "belum dicairkan"}`}
+                      icon={
+                        <span className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:border-brand/40 hover:bg-brand/10 hover:text-brand">
+                          <IconShieldCheck className="h-3.5 w-3.5 text-brand" strokeWidth={2} />
+                          <span>Lihat Detail</span>
+                        </span>
+                      }
+                    >
+                      <dl className="space-y-3 text-sm">
+                        <div>
+                          <dt className="text-xs font-medium text-muted">
+                            Views dihitung
+                          </dt>
+                          <dd className="tabular mt-0.5">
+                            {formatCompact(payout.viewsCounted)} dari{" "}
+                            {formatCompact(payout.totalPoolViews)} total
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-muted">
+                            Bruto / Fee / Bersih
+                          </dt>
+                          <dd className="tabular mt-0.5">
+                            {formatIDR(payout.grossAmount)} −{" "}
+                            {formatIDR(payout.platformFee)} ={" "}
+                            <span className="font-medium">
+                              {formatIDR(payout.netAmount)}
+                            </span>
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-medium text-muted">
+                            Rekening
+                          </dt>
+                          <dd className="mt-0.5">
+                            {payout.creator.creatorProfile?.bankName
+                              ? `${payout.creator.creatorProfile.bankName} ${payout.creator.creatorProfile.bankAccountNumber ?? ""}`
+                              : "—"}
+                          </dd>
+                        </div>
+                        {payout.note ? (
+                          <div>
+                            <dt className="text-xs font-medium text-muted">
+                              Catatan
+                            </dt>
+                            <dd className="mt-0.5 text-muted">{payout.note}</dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                    </DetailDrawer>
                   </div>
                 </td>
               </tr>

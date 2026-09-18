@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { IconChevronLeft, IconChevronRight, IconSearch } from "./icon";
 import { Input, Select } from "./form";
 import { ENTRY_SIZE_OPTIONS } from "./pagination-utils";
+import { cn } from "./utils";
 
 export type ToolbarFilter = {
   name: string;
@@ -78,9 +79,9 @@ export function TableToolbar({
   return (
     <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2.5">
       {searchPlaceholder ? (
-        <div className="relative col-span-1 w-full sm:w-56 sm:shrink-0 xl:w-72">
+        <div className="relative col-span-2 w-full sm:col-span-1 sm:w-56 sm:shrink-0 xl:w-72">
           <IconSearch
-            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted sm:left-3.5 sm:h-4 sm:w-4"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted sm:left-3.5"
             aria-hidden
           />
           <Input
@@ -88,13 +89,23 @@ export function TableToolbar({
             onChange={(event) => setTerm(event.target.value)}
             placeholder={searchPlaceholder}
             aria-label={searchPlaceholder}
-            className="pl-8 text-xs py-2 sm:pl-10 sm:text-sm sm:py-2.5"
+            className="pl-9 text-xs py-2 sm:pl-10 sm:text-sm sm:py-2.5"
           />
         </div>
       ) : null}
 
-      {filters.map((filter) => (
-        <div key={filter.name} className="col-span-1 w-full sm:w-36 sm:shrink-0 xl:w-44">
+      {filters.map((filter, idx) => (
+        <div
+          key={filter.name}
+          className={cn(
+            filters.length === 1
+              ? "col-span-2 w-full"
+              : filters.length === 3 && idx === 2
+                ? "col-span-1 col-start-2 w-full"
+                : "col-span-1 w-full",
+            "sm:w-36 sm:shrink-0 xl:w-44",
+          )}
+        >
           <Select
             aria-label={filter.label}
             value={params[filter.name] ?? ""}
@@ -131,7 +142,11 @@ export function TableToolbar({
         );
       })}
 
-      {action ? <div className="col-span-2 sm:col-span-1 sm:ml-auto">{action}</div> : null}
+      {action ? (
+        <div className="col-span-1 col-start-2 flex items-center justify-end sm:col-auto sm:col-start-auto sm:ml-auto">
+          {action}
+        </div>
+      ) : null}
     </div>
   );
 }

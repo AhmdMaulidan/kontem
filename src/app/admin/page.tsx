@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { formatCompact, formatIDR } from "@/lib/format";
+import { formatCompact, formatDate, formatIDR } from "@/lib/format";
 import {
   Badge,
   Card,
@@ -9,6 +9,7 @@ import {
   IconBank,
   IconBusiness,
   IconMegaphone,
+  IconShieldCheck,
   IconTrend,
   IconUsers,
   IconVideo,
@@ -183,25 +184,22 @@ export default async function AdminDashboard({
       <div className="mt-8">
         <DataTable
           title="Campaign terbaru"
+          action={
+            <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
+          }
           tableClassName="w-full text-xs sm:text-sm"
           footer={
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex-1 flex justify-center sm:justify-start">
-                <Pagination
-                  basePath={BASE}
-                  params={params}
-                  page={page}
-                  pageSize={pageSize}
-                  total={campaignTerbaruTotal}
-                />
-              </div>
-              <div className="flex justify-end">
-                <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
-              </div>
-            </div>
+            <Pagination
+              basePath={BASE}
+              params={params}
+              page={page}
+              pageSize={pageSize}
+              total={campaignTerbaruTotal}
+            />
           }
         >
-          <thead>
+          {/* Tabel — desktop */}
+          <thead className="hidden md:table-header-group">
             <tr>
               <Th className="w-8 px-2 py-2 text-center text-xs">No</Th>
               <Th className="px-2 py-2 text-xs">Campaign</Th>
@@ -210,7 +208,7 @@ export default async function AdminDashboard({
               <Th className="px-2 py-2 text-xs">Status</Th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="hidden md:table-row-group">
             {campaignTerbaru.length === 0 ? (
               <TableEmptyRow
                 colSpan={5}
@@ -239,6 +237,81 @@ export default async function AdminDashboard({
                       {campaignStatusLabel[campaign.status]}
                     </Badge>
                   </Td>
+                </tr>
+              ))
+            )}
+          </tbody>
+
+          {/* Kartu — mobile */}
+          <tbody className="md:hidden">
+            {campaignTerbaru.length === 0 ? (
+              <TableEmptyRow
+                colSpan={5}
+                title="Belum ada campaign"
+                description="Campaign muncul di sini begitu vendor mengirimkannya."
+              />
+            ) : (
+              campaignTerbaru.map((campaign, index) => (
+                <tr
+                  key={`m-${campaign.id}`}
+                  className="border-b border-line last:border-b-0"
+                >
+                  <td colSpan={5} className="p-4">
+                    {/* Header: No, Campaign Title, Status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="tabular text-xs font-semibold text-muted">
+                            #{rowNumber(index, page, pageSize)}
+                          </span>
+                          <span className="font-medium text-foreground">
+                            {campaign.title}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted">
+                          Vendor:{" "}
+                          <span className="font-medium text-foreground">
+                            {campaign.vendor.vendorProfile?.businessName ?? "—"}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="shrink-0">
+                        <Badge tone={campaignStatusTone[campaign.status]} icon>
+                          {campaignStatusLabel[campaign.status]}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Grid Data 2 Kolom */}
+                    <div className="mt-3 grid grid-cols-2 gap-3 border-y border-line py-3 text-xs">
+                      <div>
+                        <p className="text-muted">Budget Pool</p>
+                        <p className="tabular mt-0.5 font-medium text-foreground">
+                          {formatIDR(campaign.budgetPool)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted">Tanggal Dibuat</p>
+                        <p className="tabular mt-0.5 text-foreground">
+                          {formatDate(campaign.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Footer: Action Link */}
+                    <div className="mt-3 flex items-center justify-end">
+                      <Link
+                        href={`/admin/campaigns?q=${encodeURIComponent(campaign.title)}&status=ALL`}
+                        className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/10"
+                      >
+                        <IconShieldCheck
+                          className="h-3.5 w-3.5"
+                          strokeWidth={2}
+                        />
+                        <span>Lihat Campaign</span>
+                      </Link>
+                    </div>
+                  </td>
                 </tr>
               ))
             )}

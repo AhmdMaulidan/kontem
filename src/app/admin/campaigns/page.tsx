@@ -151,27 +151,16 @@ export default async function AdminCampaignsPage({
       <DataTable
         title="Approval & Monitoring Campaign"
         summary={`${menunggu} menunggu approval`}
-        action={
-          <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
-        }
+        tableClassName="w-full text-sm md:min-w-[52rem]"
         toolbar={
           <TableToolbar
             basePath={BASE}
             params={params}
             searchPlaceholder="Cari judul / vendor..."
+            action={
+              <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
+            }
             filters={[
-              {
-                name: "status",
-                label: "Status",
-                options: [
-                  { value: "PENDING_REVIEW", label: "Menunggu" },
-                  { value: "ACTIVE", label: "Berjalan" },
-                  { value: "ENDED", label: "Periode selesai" },
-                  { value: "SETTLED", label: "Selesai" },
-                  { value: "REJECTED", label: "Ditolak" },
-                  { value: "ALL", label: "Semua status" },
-                ],
-              },
               {
                 name: "kategori",
                 label: "Kategori",
@@ -192,6 +181,18 @@ export default async function AdminCampaignsPage({
                     value: row.city,
                     label: row.city,
                   })),
+                ],
+              },
+              {
+                name: "status",
+                label: "Status",
+                options: [
+                  { value: "PENDING_REVIEW", label: "Menunggu" },
+                  { value: "ACTIVE", label: "Berjalan" },
+                  { value: "ENDED", label: "Periode selesai" },
+                  { value: "SETTLED", label: "Selesai" },
+                  { value: "REJECTED", label: "Ditolak" },
+                  { value: "ALL", label: "Semua status" },
                 ],
               },
               {
@@ -501,7 +502,7 @@ export default async function AdminCampaignsPage({
               description="Ubah kata kunci atau pilih status lain."
             />
           ) : (
-            campaigns.map((campaign) => {
+            campaigns.map((campaign, index) => {
               const deposit = campaign.escrow.find((trx) => trx.type === "DEPOSIT");
               const depositLunas = deposit?.status === "COMPLETED";
               const vendorTerverifikasi = campaign.vendor.status === "VERIFIED";
@@ -516,30 +517,87 @@ export default async function AdminCampaignsPage({
               );
 
               return (
-                <tr key={`m-${campaign.id}`}>
-                  <td className="block px-4 py-3 border-b border-line last:border-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm truncate">{campaign.title}</p>
-                        <p className="text-xs text-muted mt-0.5">
-                          {campaign.vendor.vendorProfile?.businessName ?? "—"} · {categoryLabel[campaign.category]}
+                <tr key={`m-${campaign.id}`} className="border-b border-line last:border-0">
+                  <td className="block w-full p-4">
+                    {/* Header item */}
+                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-line">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="tabular text-xs font-semibold text-muted shrink-0">
+                          #{rowNumber(index, page, pageSize)}
+                        </span>
+                        <h3 className="font-semibold text-sm truncate text-foreground">
+                          {campaign.title}
+                        </h3>
+                      </div>
+                      <Badge tone={campaignStatusTone[campaign.status]} icon>
+                        {campaignStatusLabel[campaign.status]}
+                      </Badge>
+                    </div>
+
+                    {/* Grid data 2 kolom */}
+                    <div className="grid grid-cols-2 gap-3 py-3 text-xs border-b border-line">
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Vendor & Kategori
+                        </span>
+                        <span className="font-medium text-foreground mt-0.5 block truncate">
+                          {campaign.vendor.vendorProfile?.businessName ?? "—"}
+                        </span>
+                        <p className="text-muted text-xs mt-0.5">
+                          {categoryLabel[campaign.category]}
+                          {campaign.vendor.vendorProfile?.city ? ` · ${campaign.vendor.vendorProfile.city}` : ""}
                         </p>
-                        <p className="tabular text-xs font-medium mt-0.5">
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Budget Pool
+                        </span>
+                        <span className="font-semibold text-foreground mt-0.5 block tabular">
                           {formatIDR(campaign.budgetPool)}
+                        </span>
+                        {performance ? (
+                          <p className="tabular text-muted text-xs mt-0.5">
+                            Serapan: {formatIDR(performance.totalDistributed)}
+                          </p>
+                        ) : (
+                          <p className="tabular text-muted text-xs mt-0.5">
+                            {formatIDR(campaign.cpmRate)}/cpm
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Periode & Durasi
+                        </span>
+                        <span className="font-medium text-foreground mt-0.5 block text-xs">
+                          {formatDate(campaign.startDate)} – {formatDate(campaign.endDate)}
+                        </span>
+                        <p className="text-muted text-xs mt-0.5">
+                          {durasiHari} Hari {daysUntil(campaign.endDate) > 0 ? `· Sisa ${daysUntil(campaign.endDate)} hari` : ""}
                         </p>
-                        <div className="flex items-center gap-2 mt-1.5">
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Deposit Escrow
+                        </span>
+                        <div className="mt-1">
                           <Badge tone={depositLunas ? "success" : "warning"} icon>
-                            {depositLunas ? "Lunas" : "Belum"}
-                          </Badge>
-                          <Badge tone={campaignStatusTone[campaign.status]} icon>
-                            {campaignStatusLabel[campaign.status]}
+                            {depositLunas ? "Lunas" : "Belum Lunas"}
                           </Badge>
                         </div>
                       </div>
-                      <div className="shrink-0 flex flex-col items-end gap-2">
+                    </div>
+
+                    {/* Footer baris: Partisipan & Aksi */}
+                    <div className="flex items-center justify-between pt-2.5">
+                      <div className="text-xs text-muted">
+                        <span className="font-medium text-foreground">{campaign._count.participations} Partisipan</span>
+                        <span className="text-[11px] block">{campaign._count.submissions} Submission</span>
+                      </div>
+                      <div>
                         <DetailDrawer
                           label={menungguApproval ? "Periksa" : "Pantau"}
-                          icon={<IconShieldCheck className="h-4 w-4" strokeWidth={2} />}
+                          icon={<IconShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />}
                           title={campaign.title}
                           subtitle={`${campaign.vendor.vendorProfile?.businessName ?? "—"} · ${categoryLabel[campaign.category]}`}
                         >

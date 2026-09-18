@@ -178,6 +178,7 @@ export default async function AdminSubmissionsPage({
           action={
             <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
           }
+          tableClassName="w-full text-sm md:min-w-[52rem]"
           footer={
             <Pagination
               basePath={BASE}
@@ -289,53 +290,111 @@ export default async function AdminSubmissionsPage({
             )}
           </tbody>
 
-          {/* Kartu — mobile */}
+          {/* Isi Tabel — Mobile (Baris dengan Grid 2 Kolom) */}
           <tbody className="md:hidden">
             {antrean.length === 0 ? (
-              <TableEmptyRow colSpan={1} title="Tidak ada antrean" description="Semua submission sudah diputuskan vendornya masing-masing." />
+              <TableEmptyRow
+                colSpan={1}
+                title="Tidak ada antrean"
+                description="Semua submission sudah diputuskan vendornya masing-masing."
+              />
             ) : (
-              antrean.map((submission) => (
-                <tr key={`m-${submission.id}`}>
-                  <td className="block px-4 py-3 border-b border-line last:border-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm">{submission.creator.name}</p>
-                        <p className="text-xs text-muted mt-0.5 truncate">{submission.campaign.title}</p>
-                        <p className="text-xs text-muted mt-0.5">
-                          {platformLabel[submission.platform]} · {formatCompact(submission.lastViews)} views
+              antrean.map((submission, index) => (
+                <tr key={`m-${submission.id}`} className="border-b border-line last:border-0">
+                  <td className="block w-full p-4">
+                    {/* Header item */}
+                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-line">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="tabular text-xs font-semibold text-muted shrink-0">
+                          #{rowNumber(index, page, pageSize)}
+                        </span>
+                        <h3 className="font-semibold text-sm truncate text-foreground">
+                          {submission.creator.name}
+                        </h3>
+                      </div>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-surface-muted text-muted">
+                        {platformLabel[submission.platform]}
+                      </span>
+                    </div>
+
+                    {/* Grid data 2 kolom */}
+                    <div className="grid grid-cols-2 gap-3 py-3 text-xs border-b border-line">
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Campaign & Vendor
+                        </span>
+                        <span className="font-medium text-foreground mt-0.5 block truncate">
+                          {submission.campaign.title}
+                        </span>
+                        <p className="text-muted text-xs mt-0.5 truncate">
+                          {submission.campaign.vendor.vendorProfile?.businessName ?? "—"}
                         </p>
                       </div>
-                      <div className="shrink-0">
-                        <DetailDrawer
-                          label="Review"
-                          icon={<IconShieldCheck className="h-4 w-4" strokeWidth={2} />}
-                          title={submission.creator.name}
-                          subtitle={`${submission.campaign.title} · ${platformLabel[submission.platform]}`}
-                        >
-                          <a href={submission.contentUrl} target="_blank" rel="noreferrer" className="block truncate text-sm text-brand">
-                            {submission.contentUrl}
-                          </a>
-                          {submission.caption ? <p className="text-sm text-muted">&ldquo;{submission.caption}&rdquo;</p> : null}
-                          <div>
-                            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">Cek terhadap brief</p>
-                            <ul className="space-y-1 text-sm">
-                              {submission.campaign.briefMustShow.map((item) => (
-                                <li key={item} className="flex gap-2 text-muted"><span>•</span>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div className="border-t border-line pt-4">
-                            <DecisionForm
-                              action={reviewSubmissionAction}
-                              hiddenField="submissionId"
-                              hiddenValue={submission.id}
-                              approveLabel="Terima"
-                              rejectLabel="Tolak"
-                              requireNoteOnApprove
-                            />
-                          </div>
-                        </DetailDrawer>
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Views Tercatat
+                        </span>
+                        <span className="font-semibold text-foreground mt-0.5 block tabular">
+                          {formatCompact(submission.lastViews)} Views
+                        </span>
                       </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Trust Score
+                        </span>
+                        <span className="font-medium text-foreground mt-0.5 block">
+                          {submission.creator.creatorProfile?.trustScore ?? "—"} / 100
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                          Disubmit
+                        </span>
+                        <span className="font-medium text-foreground mt-0.5 block">
+                          {formatDateTime(submission.submittedAt)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Footer baris: Video link & Aksi */}
+                    <div className="flex items-center justify-between pt-2.5 gap-2">
+                      <a
+                        href={submission.contentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-brand hover:underline truncate max-w-[180px]"
+                      >
+                        {submission.contentUrl}
+                      </a>
+                      <DetailDrawer
+                        label="Review"
+                        icon={<IconShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />}
+                        title={submission.creator.name}
+                        subtitle={`${submission.campaign.title} · ${platformLabel[submission.platform]}`}
+                      >
+                        <a href={submission.contentUrl} target="_blank" rel="noreferrer" className="block truncate text-sm text-brand">
+                          {submission.contentUrl}
+                        </a>
+                        {submission.caption ? <p className="text-sm text-muted mt-2">&ldquo;{submission.caption}&rdquo;</p> : null}
+                        <div className="mt-3">
+                          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">Cek terhadap brief</p>
+                          <ul className="space-y-1 text-sm">
+                            {submission.campaign.briefMustShow.map((item) => (
+                              <li key={item} className="flex gap-2 text-muted"><span>•</span>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="border-t border-line pt-4 mt-4">
+                          <DecisionForm
+                            action={reviewSubmissionAction}
+                            hiddenField="submissionId"
+                            hiddenValue={submission.id}
+                            approveLabel="Terima"
+                            rejectLabel="Tolak"
+                            requireNoteOnApprove
+                          />
+                        </div>
+                      </DetailDrawer>
                     </div>
                   </td>
                 </tr>
@@ -350,6 +409,7 @@ export default async function AdminSubmissionsPage({
         action={
           <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
         }
+        tableClassName="w-full text-sm md:min-w-[52rem]"
         footer={
           <Pagination
             basePath={BASE}
@@ -408,32 +468,56 @@ export default async function AdminSubmissionsPage({
           )}
         </tbody>
 
-        {/* Kartu — mobile */}
+        {/* Isi Tabel — Mobile (Baris dengan Grid 2 Kolom) */}
         <tbody className="md:hidden">
           {riwayat.length === 0 ? (
             <TableEmptyRow colSpan={1} title="Belum ada riwayat" />
           ) : (
-            riwayat.map((submission) => (
-              <tr key={`m-${submission.id}`}>
-                <td className="block px-4 py-3 border-b border-line last:border-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm">{submission.creator.name}</p>
-                      <p className="text-xs text-muted mt-0.5 truncate">
-                        {submission.campaign.title} · {submission.campaign.vendor.vendorProfile?.businessName ?? "—"}
-                      </p>
-                      <p className="tabular text-xs text-muted mt-0.5">
-                        {formatCompact(submission.lastViews)} views
-                      </p>
-                      {submission.reviewNote ? (
-                        <p className="text-xs text-muted mt-0.5">Catatan: {submission.reviewNote}</p>
-                      ) : null}
+            riwayat.map((submission, index) => (
+              <tr key={`m-${submission.id}`} className="border-b border-line last:border-0">
+                <td className="block w-full p-4">
+                  {/* Header item */}
+                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-line">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="tabular text-xs font-semibold text-muted shrink-0">
+                        #{rowNumber(index, page, pageSize)}
+                      </span>
+                      <h3 className="font-semibold text-sm truncate text-foreground">
+                        {submission.creator.name}
+                      </h3>
                     </div>
-                    <div className="shrink-0">
-                      <Badge tone={submissionStatusTone[submission.status]}>
-                        {submissionStatusLabel[submission.status]}
-                      </Badge>
+                    <Badge tone={submissionStatusTone[submission.status]}>
+                      {submissionStatusLabel[submission.status]}
+                    </Badge>
+                  </div>
+
+                  {/* Grid data 2 kolom */}
+                  <div className="grid grid-cols-2 gap-3 py-3 text-xs">
+                    <div>
+                      <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                        Campaign & Vendor
+                      </span>
+                      <span className="font-medium text-foreground mt-0.5 block truncate">
+                        {submission.campaign.title}
+                      </span>
+                      <p className="text-muted text-xs mt-0.5 truncate">
+                        {submission.campaign.vendor.vendorProfile?.businessName ?? "—"}
+                      </p>
                     </div>
+                    <div>
+                      <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                        Views Tercatat
+                      </span>
+                      <span className="font-semibold text-foreground mt-0.5 block tabular">
+                        {formatCompact(submission.lastViews)} Views
+                      </span>
+                    </div>
+                    {submission.reviewNote ? (
+                      <div className="col-span-2 pt-1 border-t border-line">
+                        <span className="text-[11px] font-medium text-muted block">Catatan Review:</span>
+                        <p className="text-foreground mt-0.5">{submission.reviewNote}</p>
+                      </div>
+                    ) : null}
                   </div>
                 </td>
               </tr>
@@ -507,36 +591,80 @@ export default async function AdminSubmissionsPage({
                 ))}
               </tbody>
 
-              {/* Kartu — mobile */}
+              {/* Isi Tabel — Mobile (Baris dengan Grid 2 Kolom) */}
               <tbody className="md:hidden">
-                {withdrawalMenunggu.map((w) => (
-                  <tr key={`m-${w.id}`}>
-                    <td className="block px-4 py-3 border-b border-line last:border-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm">{w.creator.name}</p>
-                          <p className="text-xs text-muted mt-0.5 truncate">{w.campaign.title}</p>
-                          <p className="tabular text-xs mt-0.5">{formatCompact(w.viewsCounted)} views</p>
+                {withdrawalMenunggu.map((w, index) => (
+                  <tr key={`m-${w.id}`} className="border-b border-line last:border-0">
+                    <td className="block w-full p-4">
+                      {/* Header item */}
+                      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-line">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="tabular text-xs font-semibold text-muted shrink-0">
+                            #{index + 1}
+                          </span>
+                          <h3 className="font-semibold text-sm truncate text-foreground">
+                            {w.creator.name}
+                          </h3>
                         </div>
-                        <div className="shrink-0 flex flex-col items-end gap-1.5">
-                          <p className="tabular text-sm font-medium">{formatIDR(w.netAmount)}</p>
-                          <DetailDrawer
-                            label="Review"
-                            icon={<IconWallet className="h-4 w-4" strokeWidth={2} />}
-                            title={w.creator.name}
-                            subtitle={`${w.campaign.title} · diajukan ${formatDateTime(w.requestedAt)}`}
-                          >
-                            <a href={w.submission.contentUrl} target="_blank" rel="noreferrer" className="block truncate text-sm text-brand">{w.submission.contentUrl}</a>
-                            <div className="rounded-xl bg-surface-muted p-3 text-sm">
-                              <div className="flex justify-between"><span className="text-muted">Views dihitung</span><span className="tabular">{formatCompact(w.viewsCounted)}</span></div>
-                              <div className="mt-1 flex justify-between"><span className="text-muted">Fee penarikan</span><span className="tabular">{formatIDR(w.feeAmount)}</span></div>
-                              <div className="mt-1 flex justify-between font-medium"><span>Diterima creator</span><span className="tabular">{formatIDR(w.netAmount)}</span></div>
-                            </div>
-                            <div className="border-t border-line pt-4">
-                              <DecisionForm action={reviewWithdrawalAction} hiddenField="withdrawalId" hiddenValue={w.id} approveLabel="Setujui" rejectLabel="Tolak" />
-                            </div>
-                          </DetailDrawer>
+                        <span className="tabular text-sm font-semibold text-foreground">
+                          {formatIDR(w.netAmount)}
+                        </span>
+                      </div>
+
+                      {/* Grid data 2 kolom */}
+                      <div className="grid grid-cols-2 gap-3 py-3 text-xs border-b border-line">
+                        <div>
+                          <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                            Campaign
+                          </span>
+                          <span className="font-medium text-foreground mt-0.5 block truncate">
+                            {w.campaign.title}
+                          </span>
                         </div>
+                        <div>
+                          <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                            Views Dihitung
+                          </span>
+                          <span className="font-medium text-foreground mt-0.5 block tabular">
+                            {formatCompact(w.viewsCounted)} Views
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                            Diajukan
+                          </span>
+                          <span className="font-medium text-foreground mt-0.5 block">
+                            {formatDateTime(w.requestedAt)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                            Fee Penarikan
+                          </span>
+                          <span className="font-medium text-foreground mt-0.5 block tabular">
+                            {formatIDR(w.feeAmount)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Footer baris: Aksi */}
+                      <div className="flex items-center justify-end pt-2.5">
+                        <DetailDrawer
+                          label="Review Penarikan"
+                          icon={<IconWallet className="h-3.5 w-3.5" strokeWidth={2} />}
+                          title={w.creator.name}
+                          subtitle={`${w.campaign.title} · diajukan ${formatDateTime(w.requestedAt)}`}
+                        >
+                          <a href={w.submission.contentUrl} target="_blank" rel="noreferrer" className="block truncate text-sm text-brand">{w.submission.contentUrl}</a>
+                          <div className="rounded-xl bg-surface-muted p-3 text-sm mt-3">
+                            <div className="flex justify-between"><span className="text-muted">Views dihitung</span><span className="tabular">{formatCompact(w.viewsCounted)}</span></div>
+                            <div className="mt-1 flex justify-between"><span className="text-muted">Fee penarikan</span><span className="tabular">{formatIDR(w.feeAmount)}</span></div>
+                            <div className="mt-1 flex justify-between font-medium"><span>Diterima creator</span><span className="tabular">{formatIDR(w.netAmount)}</span></div>
+                          </div>
+                          <div className="border-t border-line pt-4 mt-4">
+                            <DecisionForm action={reviewWithdrawalAction} hiddenField="withdrawalId" hiddenValue={w.id} approveLabel="Setujui" rejectLabel="Tolak" />
+                          </div>
+                        </DetailDrawer>
                       </div>
                     </td>
                   </tr>
@@ -592,26 +720,55 @@ export default async function AdminSubmissionsPage({
                 ))}
               </tbody>
 
-              {/* Kartu — mobile */}
+              {/* Isi Tabel — Mobile (Baris dengan Grid 2 Kolom) */}
               <tbody className="md:hidden">
-                {withdrawalDisetujui.map((w) => (
-                  <tr key={`m-${w.id}`}>
-                    <td className="block px-4 py-3 border-b border-line last:border-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm">{w.creator.name}</p>
-                          <p className="text-xs text-muted mt-0.5 truncate">{w.campaign.title}</p>
-                          <p className="tabular text-sm font-medium mt-0.5">{formatIDR(w.netAmount)}</p>
+                {withdrawalDisetujui.map((w, index) => (
+                  <tr key={`m-${w.id}`} className="border-b border-line last:border-0">
+                    <td className="block w-full p-4">
+                      {/* Header item */}
+                      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-line">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="tabular text-xs font-semibold text-muted shrink-0">
+                            #{index + 1}
+                          </span>
+                          <h3 className="font-semibold text-sm truncate text-foreground">
+                            {w.creator.name}
+                          </h3>
                         </div>
-                        <div className="shrink-0">
-                          <SimpleActionForm
-                            action={markWithdrawalPaidAction}
-                            hiddenField="withdrawalId"
-                            hiddenValue={w.id}
-                            label="Tandai ditransfer"
-                            size="sm"
-                          />
+                        <span className="tabular text-sm font-semibold text-foreground">
+                          {formatIDR(w.netAmount)}
+                        </span>
+                      </div>
+
+                      {/* Grid data 2 kolom */}
+                      <div className="grid grid-cols-2 gap-3 py-3 text-xs border-b border-line">
+                        <div>
+                          <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                            Campaign
+                          </span>
+                          <span className="font-medium text-foreground mt-0.5 block truncate">
+                            {w.campaign.title}
+                          </span>
                         </div>
+                        <div>
+                          <span className="text-[11px] font-medium text-muted uppercase tracking-wider block">
+                            Status
+                          </span>
+                          <span className="font-medium text-warning mt-0.5 block">
+                            Menunggu Transfer
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Footer baris: Aksi */}
+                      <div className="flex items-center justify-end pt-2.5">
+                        <SimpleActionForm
+                          action={markWithdrawalPaidAction}
+                          hiddenField="withdrawalId"
+                          hiddenValue={w.id}
+                          label="Tandai ditransfer"
+                          size="sm"
+                        />
                       </div>
                     </td>
                   </tr>

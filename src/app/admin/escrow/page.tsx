@@ -174,6 +174,7 @@ export default async function AdminEscrowPage({
       <DataTable
         title="Escrow & Dana Tertahan"
         summary={`Saldo dikelola ${formatIDR(terkunci)}`}
+        tableClassName="w-full text-sm md:min-w-[52rem]"
         action={
           <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
         }
@@ -481,77 +482,229 @@ export default async function AdminEscrowPage({
         <tbody className="md:hidden">
           {transaksi.length === 0 ? (
             <TableEmptyRow
-              colSpan={1}
+              colSpan={9}
               title="Belum ada mutasi escrow pada periode ini"
               description="Baris pertama muncul saat vendor menyetor deposit campaign."
             />
           ) : (
-            transaksi.map((trx) => (
-              <tr key={`m-${trx.id}`}>
-                <td className="block px-4 py-3 border-b border-line last:border-0">
+            transaksi.map((trx, index) => (
+              <tr key={`m-${trx.id}`} className="border-b border-line last:border-b-0">
+                <td colSpan={9} className="p-4">
+                  {/* Header: No, Campaign, Badges */}
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm truncate">{trx.campaign.title}</p>
-                      <p className="text-xs text-muted mt-0.5">
-                        {trx.campaign.vendor.vendorProfile?.businessName ?? "—"} · {jenisLabel[trx.type]}
-                      </p>
-                      <p className="tabular text-xs text-muted mt-0.5">
-                        {formatDateTime(trx.createdAt)}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="tabular text-xs font-semibold text-muted">
+                          #{rowNumber(index, page, pageSize)}
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {trx.campaign.title}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted">
+                        Vendor:{" "}
+                        <span className="font-medium text-foreground">
+                          {trx.campaign.vendor.vendorProfile?.businessName ?? "—"}
+                        </span>
                       </p>
                     </div>
-                    <div className="shrink-0 flex flex-col items-end gap-1.5">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="rounded-full bg-surface-muted border border-line px-2 py-0.5 text-[11px] font-medium text-foreground">
+                        {jenisLabel[trx.type]}
+                      </span>
                       <Badge tone={statusTone[trx.status]} icon>
                         {statusLabel[trx.status]}
                       </Badge>
-                      <p className="tabular text-sm font-medium">{formatIDR(trx.amount)}</p>
+                    </div>
+                  </div>
+
+                  {/* Grid Data 2x2 */}
+                  <div className="mt-3 grid grid-cols-2 gap-3 border-y border-line py-3 text-xs">
+                    <div>
+                      <p className="text-muted">Nominal</p>
+                      <p className="tabular mt-0.5 text-sm font-semibold text-foreground">
+                        {formatIDR(trx.amount)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted">Waktu</p>
+                      <p className="tabular mt-0.5 text-foreground">
+                        {formatDateTime(trx.createdAt)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted">Referensi</p>
+                      <p className="tabular mt-0.5 text-foreground truncate">
+                        {trx.reference ?? "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted">
+                        {trx.type === "REFUND" ? "Rekening Refund" : "Info / Catatan"}
+                      </p>
+                      <p className="mt-0.5 text-foreground truncate">
+                        {trx.type === "REFUND" && trx.campaign.vendor.vendorProfile?.bankName
+                          ? `${trx.campaign.vendor.vendorProfile.bankName} ${trx.campaign.vendor.vendorProfile.bankAccountNumber ?? ""}`
+                          : trx.note ?? "—"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Footer Aksi */}
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-muted">Aksi Escrow</span>
+                    <div className="flex items-center gap-2">
                       {trx.type === "DEPOSIT" && trx.status === "PENDING" ? (
-                        <div className="flex items-center gap-2">
+                        <>
+                          <DetailDrawer
+                            label="Detail"
+                            title={`${jenisLabel[trx.type]} — ${formatIDR(trx.amount)}`}
+                            subtitle={`${trx.campaign.title} · ${formatDateTime(trx.createdAt)}`}
+                            icon={
+                              <span className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:border-brand/40 hover:bg-brand/10 hover:text-brand">
+                                <IconShieldCheck className="h-3.5 w-3.5 text-brand" strokeWidth={2} />
+                                <span>Detail</span>
+                              </span>
+                            }
+                          >
+                            <dl className="space-y-3 text-sm">
+                              <div>
+                                <dt className="text-xs font-medium text-muted">Vendor</dt>
+                                <dd className="mt-0.5">{trx.campaign.vendor.vendorProfile?.businessName ?? "—"}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs font-medium text-muted">Status</dt>
+                                <dd className="mt-0.5">{statusLabel[trx.status]}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs font-medium text-muted">Info Transfer / Catatan</dt>
+                                <dd className="mt-0.5 font-medium text-foreground">{trx.note ?? "Belum ada konfirmasi transfer dari vendor."}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs font-medium text-muted">Referensi</dt>
+                                <dd className="tabular mt-0.5">{trx.reference ?? "—"}</dd>
+                              </div>
+                            </dl>
+                          </DetailDrawer>
                           <SimpleActionForm
                             action={confirmDepositAction}
                             hiddenField="campaignId"
                             hiddenValue={trx.campaignId}
                             label="Konfirmasi"
-                            variant="secondary"
+                            variant="primary"
                             size="compact"
                             icon={<IconBank className="h-4 w-4" strokeWidth={2} />}
                           />
+                        </>
+                      ) : trx.type === "REFUND" && trx.status === "PENDING" ? (
+                        <>
                           <DetailDrawer
                             label="Detail"
                             title={`${jenisLabel[trx.type]} — ${formatIDR(trx.amount)}`}
                             subtitle={`${trx.campaign.title} · ${formatDateTime(trx.createdAt)}`}
-                            icon={<IconShieldCheck className="h-4 w-4" strokeWidth={2} />}
+                            icon={
+                              <span className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:border-brand/40 hover:bg-brand/10 hover:text-brand">
+                                <IconShieldCheck className="h-3.5 w-3.5 text-brand" strokeWidth={2} />
+                                <span>Detail</span>
+                              </span>
+                            }
                           >
                             <dl className="space-y-3 text-sm">
-                              <div><dt className="text-xs font-medium text-muted">Vendor</dt><dd className="mt-0.5">{trx.campaign.vendor.vendorProfile?.businessName ?? "—"}</dd></div>
-                              <div><dt className="text-xs font-medium text-muted">Info Transfer / Catatan</dt><dd className="mt-0.5 font-medium text-foreground">{trx.note ?? "Belum ada konfirmasi transfer dari vendor."}</dd></div>
-                              <div><dt className="text-xs font-medium text-muted">Referensi</dt><dd className="tabular mt-0.5">{trx.reference ?? "—"}</dd></div>
+                              <div>
+                                <dt className="text-xs font-medium text-muted">Vendor</dt>
+                                <dd className="mt-0.5">{trx.campaign.vendor.vendorProfile?.businessName ?? "—"}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs font-medium text-muted">Rekening Tujuan Refund</dt>
+                                <dd className="mt-0.5 font-medium text-foreground">
+                                  {trx.campaign.vendor.vendorProfile?.bankName &&
+                                  trx.campaign.vendor.vendorProfile?.bankAccountNumber ? (
+                                    <span>
+                                      {trx.campaign.vendor.vendorProfile.bankName}{" "}
+                                      <span className="tabular">
+                                        {trx.campaign.vendor.vendorProfile.bankAccountNumber}
+                                      </span>{" "}
+                                      a.n.{" "}
+                                      {trx.campaign.vendor.vendorProfile.bankAccountName ?? "—"}
+                                    </span>
+                                  ) : (
+                                    <span className="text-amber-500 font-normal">
+                                      Vendor belum mengatur rekening bank di profil.
+                                    </span>
+                                  )}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs font-medium text-muted">Status</dt>
+                                <dd className="mt-0.5">{statusLabel[trx.status]}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs font-medium text-muted">Catatan</dt>
+                                <dd className="mt-0.5 text-muted">{trx.note ?? "—"}</dd>
+                              </div>
                             </dl>
                           </DetailDrawer>
-                        </div>
-                      ) : trx.type === "REFUND" && trx.status === "PENDING" ? (
-                        <div className="flex items-center gap-2">
                           <SimpleActionForm
                             action={confirmRefundAction}
                             hiddenField="transactionId"
                             hiddenValue={trx.id}
                             label="Konfirmasi Refund"
-                            variant="secondary"
+                            variant="primary"
                             size="compact"
                             icon={<IconWallet className="h-4 w-4" strokeWidth={2} />}
                           />
-                        </div>
+                        </>
                       ) : (
                         <DetailDrawer
-                          label="Lihat"
+                          label="Lihat detail"
                           title={`${jenisLabel[trx.type]} — ${formatIDR(trx.amount)}`}
                           subtitle={`${trx.campaign.title} · ${formatDateTime(trx.createdAt)}`}
-                          icon={<IconShieldCheck className="h-4 w-4" strokeWidth={2} />}
+                          icon={
+                            <span className="inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:border-brand/40 hover:bg-brand/10 hover:text-brand">
+                              <IconShieldCheck className="h-3.5 w-3.5 text-brand" strokeWidth={2} />
+                              <span>Lihat Detail</span>
+                            </span>
+                          }
                         >
                           <dl className="space-y-3 text-sm">
-                            <div><dt className="text-xs font-medium text-muted">Vendor</dt><dd className="mt-0.5">{trx.campaign.vendor.vendorProfile?.businessName ?? "—"}</dd></div>
-                            <div><dt className="text-xs font-medium text-muted">Referensi</dt><dd className="tabular mt-0.5">{trx.reference ?? "—"}</dd></div>
-                            <div><dt className="text-xs font-medium text-muted">Status</dt><dd className="mt-0.5">{statusLabel[trx.status]}{trx.completedAt ? ` · ${formatDateTime(trx.completedAt)}` : ""}</dd></div>
-                            <div><dt className="text-xs font-medium text-muted">Catatan</dt><dd className="mt-0.5 text-muted">{trx.note ?? "—"}</dd></div>
+                            <div>
+                              <dt className="text-xs font-medium text-muted">Vendor</dt>
+                              <dd className="mt-0.5">{trx.campaign.vendor.vendorProfile?.businessName ?? "—"}</dd>
+                            </div>
+                            {trx.type === "REFUND" && (
+                              <div>
+                                <dt className="text-xs font-medium text-muted">Rekening Tujuan Refund</dt>
+                                <dd className="mt-0.5 font-medium text-foreground">
+                                  {trx.campaign.vendor.vendorProfile?.bankName ? (
+                                    <span>
+                                      {trx.campaign.vendor.vendorProfile.bankName}{" "}
+                                      <span className="tabular">
+                                        {trx.campaign.vendor.vendorProfile.bankAccountNumber}
+                                      </span>{" "}
+                                      a.n.{" "}
+                                      {trx.campaign.vendor.vendorProfile.bankAccountName ?? "—"}
+                                    </span>
+                                  ) : (
+                                    "—"
+                                  )}
+                                </dd>
+                              </div>
+                            )}
+                            <div>
+                              <dt className="text-xs font-medium text-muted">Referensi</dt>
+                              <dd className="tabular mt-0.5">{trx.reference ?? "—"}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs font-medium text-muted">Status</dt>
+                              <dd className="mt-0.5">
+                                {statusLabel[trx.status]}
+                                {trx.completedAt ? ` · ${formatDateTime(trx.completedAt)}` : ""}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs font-medium text-muted">Catatan</dt>
+                              <dd className="mt-0.5 text-muted">{trx.note ?? "—"}</dd>
+                            </div>
                           </dl>
                         </DetailDrawer>
                       )}

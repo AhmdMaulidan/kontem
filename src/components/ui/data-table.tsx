@@ -29,7 +29,12 @@ export function DataTable({
     <section className="rounded-2xl border border-line bg-surface shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 sm:px-5 sm:pt-5">
         <h2 className="font-display text-base font-semibold sm:text-lg">{title}</h2>
-        <div className="flex items-center gap-3">
+        <div
+          className={cn(
+            "flex w-full items-center gap-3 sm:w-auto sm:justify-end",
+            summary ? "justify-between" : "justify-end",
+          )}
+        >
           {summary ? <p className="text-xs text-muted sm:text-sm">{summary}</p> : null}
           {action}
         </div>
