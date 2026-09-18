@@ -9,6 +9,7 @@ import {
   SocialPlatform,
   SubmissionStatus,
   VerificationStatus,
+  WithdrawalStatus,
 } from "@/generated/prisma/enums";
 
 export const roleLabel: Record<Role, string> = {
@@ -46,8 +47,6 @@ export const submissionStatusLabel: Record<SubmissionStatus, string> = {
 };
 
 export const participationStatusLabel: Record<ParticipationStatus, string> = {
-  JOINED: "Slot Diambil",
-  VISITED: "Sudah Berkunjung",
   SUBMITTED: "Konten Dikirim",
   COMPLETED: "Selesai",
   CANCELLED: "Dibatalkan",
@@ -59,6 +58,13 @@ export const payoutStatusLabel: Record<PayoutStatus, string> = {
   PAID: "Cair",
   HELD: "Ditahan",
   CANCELLED: "Dibatalkan",
+};
+
+export const withdrawalStatusLabel: Record<WithdrawalStatus, string> = {
+  PENDING_ADMIN_APPROVAL: "Menunggu Approval Admin",
+  APPROVED: "Disetujui, Menunggu Transfer",
+  REJECTED: "Ditolak",
+  PAID: "Cair",
 };
 
 export const verificationStatusLabel: Record<VerificationStatus, string> = {
@@ -137,10 +143,7 @@ export const submissionStatusTone: Record<SubmissionStatus, BadgeTone> = {
   ADMIN_REJECTED: "danger",
 };
 
-/** Tahapan kunjungan creator: menunggu datang -> hadir -> kirim konten. */
 export const participationStatusTone: Record<ParticipationStatus, BadgeTone> = {
-  JOINED: "warning",
-  VISITED: "sky",
   SUBMITTED: "info",
   COMPLETED: "success",
   CANCELLED: "neutral",
@@ -152,6 +155,13 @@ export const payoutStatusTone: Record<PayoutStatus, BadgeTone> = {
   PAID: "teal",
   HELD: "danger",
   CANCELLED: "neutral",
+};
+
+export const withdrawalStatusTone: Record<WithdrawalStatus, BadgeTone> = {
+  PENDING_ADMIN_APPROVAL: "warning",
+  APPROVED: "info",
+  REJECTED: "danger",
+  PAID: "teal",
 };
 
 /** Warna per kategori usaha, dipakai badge di kartu campaign. */

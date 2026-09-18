@@ -74,7 +74,6 @@ export async function GET(req: NextRequest) {
           description: true,
           budgetPool: true,
           cpmRate: true,
-          maxCreators: true,
           maxViewsPerCreator: true,
           complimentType: true,
           complimentValue: true,
@@ -112,9 +111,7 @@ export async function GET(req: NextRequest) {
       description: c.description,
       budgetPool: c.budgetPool,
       cpmRate: c.cpmRate,
-      maxCreators: c.maxCreators,
-      filledSlots: c._count.participations,
-      remainingSlots: Math.max(0, c.maxCreators - c._count.participations),
+      participantsCount: c._count.participations,
       compliment: {
         type: c.complimentType,
         value: c.complimentValue,

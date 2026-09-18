@@ -15,13 +15,16 @@ export type SessionPayload = {
   name: string;
 };
 
-function secret() {
+/** Diekspor supaya `google-auth.ts` bisa menandatangani cookie sementara
+ * dengan kunci yang sama, tanpa menduplikasi pembacaan env var. */
+export function authSecret() {
   const value = process.env.AUTH_SECRET;
   if (!value || value.length < 32) {
     throw new Error("AUTH_SECRET wajib diisi minimal 32 karakter.");
   }
   return new TextEncoder().encode(value);
 }
+const secret = authSecret;
 
 export function hashPassword(plain: string) {
   return bcrypt.hash(plain, 10);

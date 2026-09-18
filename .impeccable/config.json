@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-09-17T17:24:49.219Z",
+        "reason": "design.md section 2.2 specifies Inter + DM Sans as the typography system; pre-existing, unrelated to this task's changes"
+      }
+    ]
+  }
+}

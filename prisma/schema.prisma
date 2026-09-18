@@ -51,17 +51,9 @@ enum CampaignStatus {
 }
 
 enum ParticipationStatus {
-  JOINED // slot diklaim, belum datang
-  VISITED // redeem code sudah dipakai di lokasi
   SUBMITTED // konten sudah dikirim
   COMPLETED // submission disetujui, ikut hitungan payout
   CANCELLED // creator mundur / slot dicabut
-}
-
-enum RedeemCodeStatus {
-  UNUSED
-  USED
-  EXPIRED
 }
 
 enum SubmissionStatus {
@@ -89,8 +81,16 @@ enum DisputeStatus {
 enum EscrowType {
   DEPOSIT // vendor menyetor budget pool
   PAYOUT // dana keluar ke creator
-  PLATFORM_FEE // komisi platform
+  PLATFORM_FEE // komisi platform dari settlement
   REFUND // sisa dana kembali ke vendor
+  WITHDRAWAL_FEE // komisi platform dari penarikan dini per video
+}
+
+enum WithdrawalStatus {
+  PENDING_ADMIN_APPROVAL // menunggu admin approve di halaman review submission
+  APPROVED // admin sudah setuju, menunggu transfer manual
+  REJECTED
+  PAID
 }
 
 enum EscrowStatus {
@@ -165,6 +165,8 @@ model User {
   raisedFlags     FraudFlag[]             @relation("FlagReporter")
   flaggedAgainst  FraudFlag[]             @relation("FlaggedUser")
   auditLogs       AuditLog[]
+  withdrawals         Withdrawal[]        @relation("WithdrawalCreator")
+  approvedWithdrawals Withdrawal[]        @relation("WithdrawalApprover")
 
   @@index([role, status])
 }
@@ -202,8 +204,10 @@ model VendorProfile {
   address      String
   city         String
   province     String
-  latitude     Float
-  longitude    Float
+  // Nullable: registrasi sekarang cukup lewat link Google Maps (mapsUrl).
+  // Lat/long dipertahankan sebagai fallback untuk data lama.
+  latitude     Float?
+  longitude    Float?
   photos       String[] // URL foto tempat untuk verifikasi manual admin
   mapsUrl      String?
 
@@ -273,6 +277,7 @@ model Campaign {
   title       String
   category    BusinessCategory
   description String
+  imageUrl    String? // URL gambar campaign, diisi vendor saat pembuatan
 
   // --- brief konten
   templateId       String?
@@ -287,12 +292,16 @@ model Campaign {
   budgetPool         Int // total pool yang disetor vendor (rupiah)
   cpmRate            Int // rupiah per 1.000 views
   platformFeeRate    Int @default(3) // persen komisi platform
-  maxCreators        Int
   maxViewsPerCreator Int? // batas views maksimal per creator yang dibayar
+  // Ditentukan vendor: creator baru boleh menarik dini kalau earning per video
+  // sudah mencapai nilai ini. Null = tidak ada minimum.
+  minWithdrawalAmount Int?
 
-  // --- komplimen yang disediakan vendor di lokasi
-  complimentType  String // mis. "Gratis 1 menu utama"
-  complimentValue Int // nilai rupiah
+  // --- komplimen yang disediakan vendor di lokasi (opsional sejak vendor
+  // tidak lagi mengisinya lewat wizard; field lama dibiarkan nullable
+  // supaya data campaign lama tetap tampil)
+  complimentType  String? // mis. "Gratis 1 menu utama"
+  complimentValue Int? // nilai rupiah
   complimentTerms String?
 
   startDate DateTime
@@ -311,10 +320,10 @@ model Campaign {
   updatedAt DateTime @updatedAt
 
   participations CampaignParticipation[]
-  redeemCodes    RedeemCode[]
   submissions    Submission[]
   payouts        Payout[]
   escrow         EscrowTransaction[]
+  withdrawals    Withdrawal[]
 
   @@index([status, category])
   @@index([vendorId])
@@ -327,35 +336,14 @@ model CampaignParticipation {
   creatorId  String
   creator    User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
-  status   ParticipationStatus @default(JOINED)
+  status   ParticipationStatus @default(SUBMITTED)
   joinedAt DateTime            @default(now())
 
-  redeemCode RedeemCode?
   submission Submission?
 
   // Satu creator hanya boleh satu slot per campaign.
   @@unique([campaignId, creatorId])
   @@index([creatorId, status])
-}
-
-model RedeemCode {
-  id         String   @id @default(cuid())
-  campaignId String
-  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-
-  participationId String                @unique
-  participation   CampaignParticipation @relation(fields: [participationId], references: [id], onDelete: Cascade)
-
-  code       String           @unique
-  status     RedeemCodeStatus @default(UNUSED)
-  redeemedAt DateTime?
-  // Vendor yang menandai kode terpakai saat creator hadir di lokasi.
-  redeemedBy String?
-  expiresAt  DateTime
-
-  createdAt DateTime @default(now())
-
-  @@index([campaignId, status])
 }
 
 // ---------------------------------------------------------------- submission
@@ -396,6 +384,7 @@ model Submission {
   disputes      Dispute[]
   fraudFlags    FraudFlag[]
   payout        Payout?
+  withdrawal    Withdrawal?
 
   @@index([campaignId, status])
   @@index([creatorId])
@@ -526,6 +515,44 @@ model Payout {
 
   @@unique([campaignId, creatorId])
   @@index([status])
+}
+
+/**
+ * Penarikan dini per video, sebelum campaign settle — first-come-first-served,
+ * independen dari kalkulasi proporsional `Payout`/`calculatePayouts`.
+ * Begitu `status` bukan lagi PENDING_ADMIN_APPROVAL/APPROVED/PAID (mis. REJECTED),
+ * reservasinya terhadap budget pool otomatis lepas.
+ */
+model Withdrawal {
+  id         String @id @default(cuid())
+  creatorId  String
+  creator    User   @relation("WithdrawalCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  submissionId String     @unique // satu video = satu withdrawal
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  viewsCounted Int // views dipakai, sudah dipotong maxViewsPerCreator
+  grossAmount  Int // views/1000 * cpmRate, dipotong platformFeeRate campaign
+  feeAmount    Int // fee penarikan (persentase, terpisah dari platformFeeRate)
+  netAmount    Int // yang benar-benar diterima creator
+
+  status          WithdrawalStatus @default(PENDING_ADMIN_APPROVAL)
+  requestedAt     DateTime         @default(now())
+  approvedAt      DateTime?
+  approvedById    String?
+  approvedBy      User?            @relation("WithdrawalApprover", fields: [approvedById], references: [id])
+  rejectionReason String?
+  paidAt          DateTime?
+
+  // Snapshot rekening saat request — rekening creator bisa berubah setelahnya.
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountName   String?
+
+  @@index([campaignId, status])
+  @@index([creatorId])
 }
 
 // ---------------------------------------------------------------- operasional

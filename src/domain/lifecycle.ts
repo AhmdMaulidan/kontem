@@ -1,18 +1,9 @@
-import type {
-  CampaignStatus,
-  ParticipationStatus,
-  RedeemCodeStatus,
-} from "@/generated/prisma/enums";
+import type { CampaignStatus } from "@/generated/prisma/enums";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { notifyParticipantsCampaignEndingSoon } from "./notification";
 
 export interface CampaignTransitionEval {
   shouldEnd: boolean;
-  reason?: string;
-}
-
-export interface RedeemCodeExpiryEval {
-  shouldExpire: boolean;
   reason?: string;
 }
 
@@ -41,28 +32,6 @@ export function evaluateCampaignTransitionToEnd(
   }
 
   return { shouldEnd: false, reason: "Periode campaign masih berlangsung" };
-}
-
-/**
- * Evaluasi apakah kode redeem UNUSED telah melewati batas kedaluwarsa (expiresAt).
- */
-export function evaluateRedeemCodeExpiry(
-  code: { status: RedeemCodeStatus; expiresAt: Date | string },
-  now: Date = new Date(),
-): RedeemCodeExpiryEval {
-  if (code.status !== "UNUSED") {
-    return { shouldExpire: false, reason: "Status kode bukan UNUSED" };
-  }
-
-  const exp = new Date(code.expiresAt);
-  if (now.getTime() >= exp.getTime()) {
-    return {
-      shouldExpire: true,
-      reason: `Batas waktu penukaran telah habis pada ${exp.toISOString()}`,
-    };
-  }
-
-  return { shouldExpire: false, reason: "Kode masih berlaku" };
 }
 
 /**
@@ -153,8 +122,6 @@ export function evaluateCampaignEndingSoon(
 
 export interface LifecycleSyncResult {
   campaignsEnded: number;
-  codesExpired: number;
-  participationsCancelled: number;
   settleAlertsSent: number;
   endingSoonAlertsSent: number;
   timestamp: string;
@@ -163,17 +130,14 @@ export interface LifecycleSyncResult {
 /**
  * Menjalankan siklus hidup kampanye secara menyeluruh:
  * 1. Menutup kampanye ACTIVE yang sudah melewati endDate -> status ENDED.
- * 2. Membatalkan partisipasi JOINED yang tidak pernah mengunjungi lokasi dan kedaluwarsa-kan kode redeem-nya -> CANCELLED & EXPIRED.
- * 3. Menandai kode redeem UNUSED yang melewati expiresAt -> EXPIRED.
- * 4. Mengirim notifikasi kesiapan settle untuk kampanye ENDED yang melewati trackingEndsAt.
+ * 2. Mengirim notifikasi kesiapan settle untuk kampanye ENDED yang melewati trackingEndsAt.
+ * 3. Mengirim notifikasi H-2/H-1 untuk kampanye ACTIVE yang akan berakhir.
  */
 export async function runCampaignLifecycleSync(
   db: PrismaClient,
   now: Date = new Date(),
 ): Promise<LifecycleSyncResult> {
   let campaignsEnded = 0;
-  let codesExpired = 0;
-  let participationsCancelled = 0;
   let settleAlertsSent = 0;
   let endingSoonAlertsSent = 0;
 
@@ -184,10 +148,6 @@ export async function runCampaignLifecycleSync(
       endDate: { lte: now },
     },
     include: {
-      participations: {
-        where: { status: "JOINED" },
-        include: { redeemCode: true },
-      },
       vendor: true,
     },
   });
@@ -204,23 +164,6 @@ export async function runCampaignLifecycleSync(
         where: { id: campaign.id },
         data: { status: "ENDED" },
       });
-
-      // Batalkan partisipasi kreator yang belum pernah berkunjung fisik (status: JOINED)
-      for (const p of campaign.participations) {
-        await tx.campaignParticipation.update({
-          where: { id: p.id },
-          data: { status: "CANCELLED" as ParticipationStatus },
-        });
-        participationsCancelled++;
-
-        if (p.redeemCode && p.redeemCode.status === "UNUSED") {
-          await tx.redeemCode.update({
-            where: { id: p.redeemCode.id },
-            data: { status: "EXPIRED" as RedeemCodeStatus },
-          });
-          codesExpired++;
-        }
-      }
 
       // Notifikasi vendor
       await tx.notification.create({
@@ -255,7 +198,6 @@ export async function runCampaignLifecycleSync(
           metadata: {
             alasan: "Periode kampanye selesai (endDate terlewati)",
             waktuSelesai: campaign.endDate,
-            partisipasiDibatalkan: campaign.participations.length,
           },
         },
       });
@@ -264,66 +206,7 @@ export async function runCampaignLifecycleSync(
     campaignsEnded++;
   }
 
-  // 2. Ambil kode redeem UNUSED yang melewati expiresAt
-  const expiredCodes = await db.redeemCode.findMany({
-    where: {
-      status: "UNUSED",
-      expiresAt: { lte: now },
-    },
-    include: {
-      participation: {
-        include: {
-          campaign: true,
-        },
-      },
-    },
-  });
-
-  for (const code of expiredCodes) {
-    await db.$transaction(async (tx) => {
-      await tx.redeemCode.update({
-        where: { id: code.id },
-        data: { status: "EXPIRED" },
-      });
-
-      // Jika kreator belum berkunjung, batalkan partisipasinya
-      if (code.participation.status === "JOINED") {
-        await tx.campaignParticipation.update({
-          where: { id: code.participationId },
-          data: { status: "CANCELLED" },
-        });
-        participationsCancelled++;
-      }
-
-      // Notifikasi ke kreator
-      await tx.notification.create({
-        data: {
-          userId: code.participation.creatorId,
-          type: "GENERAL",
-          title: "Kode kunjungan kedaluwarsa",
-          body: `Kode redeem kunjungan untuk campaign "${code.participation.campaign.title}" telah kedaluwarsa karena melewati batas waktu kunjungan.`,
-          link: `/creator/campaigns/${code.participation.campaignId}`,
-        },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          action: "redeem.expired",
-          entity: "RedeemCode",
-          entityId: code.id,
-          metadata: {
-            campaignId: code.participation.campaignId,
-            creatorId: code.participation.creatorId,
-            expiresAt: code.expiresAt,
-          },
-        },
-      });
-    });
-
-    codesExpired++;
-  }
-
-  // 3. Ambil campaign ENDED yang telah melewati masa pelacakan trackingEndsAt
+  // 2. Ambil campaign ENDED yang telah melewati masa pelacakan trackingEndsAt
   const trackingOverCampaigns = await db.campaign.findMany({
     where: {
       status: "ENDED",
@@ -370,7 +253,7 @@ export async function runCampaignLifecycleSync(
     }
   }
 
-  // 4. Ambil campaign ACTIVE yang akan berakhir dalam 48 jam ke depan (H-2 / H-1)
+  // 3. Ambil campaign ACTIVE yang akan berakhir dalam 48 jam ke depan (H-2 / H-1)
   const thresholdEndingSoon = new Date(now.getTime() + 48 * 60 * 60 * 1000);
   const endingSoonCampaigns = await db.campaign.findMany({
     where: {
@@ -399,8 +282,6 @@ export async function runCampaignLifecycleSync(
 
   return {
     campaignsEnded,
-    codesExpired,
-    participationsCancelled,
     settleAlertsSent,
     endingSoonAlertsSent,
     timestamp: now.toISOString(),

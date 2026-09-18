@@ -2,7 +2,6 @@ import "dotenv/config";
 import assert from "node:assert/strict";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { generateRedeemCode } from "../src/domain/codes";
 import { calculatePayouts } from "../src/domain/payout";
 import { calculateCampaignSettlementSummary } from "../src/domain/campaign";
 import { evaluateCampaignEndingSoon } from "../src/domain/lifecycle";
@@ -80,14 +79,13 @@ async function runAllBusinessFlowsE2E() {
   logSuccess(`Kreator 3: ${creator3.name} (@${creator3.socialAccounts[0]?.handle ?? "creator3"})`);
 
   // --------------------------------------------------------------------------
-  // ALUR 2: Vendor Membuat Campaign Baru dengan Kuota & Escrow Deposit
+  // ALUR 2: Vendor Membuat Campaign Baru & Escrow Deposit
   // --------------------------------------------------------------------------
   logStep(2, "Vendor Membuat Campaign & Escrow Deposit Terbentuk");
 
   const campaignTitle = `E2E Full Flow Test Campaign - ${Date.now()}`;
   const budgetPool = 1_500_000; // Rp 1.500.000
   const cpmRate = 25_000; // Rp 25.000 per 1k views
-  const maxCreators = 2; // Kuota 2 kreator agar bisa menguji batas kuota
   const startDate = new Date();
   const endDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 hari
   const trackingEndsAt = new Date(endDate.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -105,7 +103,6 @@ async function runAllBusinessFlowsE2E() {
       allowedPlatforms: ["TIKTOK", "INSTAGRAM", "YOUTUBE"],
       budgetPool,
       cpmRate,
-      maxCreators,
       complimentType: "1 Porsi Nasi Goreng Spesial + Es Teh",
       complimentValue: 45_000,
       complimentTerms: "Wajib datang saat jam operasional 11.00 - 21.00 WIB",
@@ -191,117 +188,17 @@ async function runAllBusinessFlowsE2E() {
   assert.ok(activeCampaign.approvedAt);
   logSuccess("Admin menyetujui campaign -> status beralih ke ACTIVE & notifikasi terkirim ke vendor.");
 
-  // --------------------------------------------------------------------------
-  // ALUR 4: Kreator Klaim Slot (Join Campaign) & Penerbitan Voucher Redeem
-  // --------------------------------------------------------------------------
-  logStep(4, "Kreator Bergabung (Join) & Penerbitan Kode Redeem Unik");
-
-  // 4a. Kreator 1 join
-  const part1 = await db.campaignParticipation.create({
-    data: {
-      campaignId: campaign.id,
-      creatorId: creator1.id,
-      status: "JOINED",
-    },
-  });
-  const code1 = generateRedeemCode();
-  const redeemRecord1 = await db.redeemCode.create({
-    data: {
-      campaignId: campaign.id,
-      participationId: part1.id,
-      code: code1,
-      expiresAt: campaign.endDate,
-    },
-  });
-  assert.equal(part1.status, "JOINED");
-  assert.equal(redeemRecord1.status, "UNUSED");
-  assert.match(redeemRecord1.code, /^KTM-[A-Z0-9]{4}-[A-Z0-9]{4}$/);
-  logSuccess(`Kreator 1 (${creator1.name}) bergabung, kode voucher: ${code1}`);
-
-  // 4b. Kreator 2 join
-  const part2 = await db.campaignParticipation.create({
-    data: {
-      campaignId: campaign.id,
-      creatorId: creator2.id,
-      status: "JOINED",
-    },
-  });
-  const code2 = generateRedeemCode();
-  const redeemRecord2 = await db.redeemCode.create({
-    data: {
-      campaignId: campaign.id,
-      participationId: part2.id,
-      code: code2,
-      expiresAt: campaign.endDate,
-    },
-  });
-  logSuccess(`Kreator 2 (${creator2.name}) bergabung, kode voucher: ${code2}`);
-
-  // 4c. Verifikasi pembatasan kuota (Kreator 3 tidak boleh join karena maxCreators = 2)
+  // Belum ada participation yang dibuat -- di alur baru (tanpa kuota),
+  // participation lahir bersamaan dengan submission, siapa pun boleh ikut.
   const currentCount = await db.campaignParticipation.count({
     where: { campaignId: campaign.id, status: { not: "CANCELLED" } },
   });
-  assert.equal(currentCount, 2);
-  const isSlotFull = currentCount >= activeCampaign.maxCreators;
-  assert.equal(isSlotFull, true, "Kuota kampanye seharusnya sudah penuh.");
-  logSuccess("Validasi kuota berhasil: batas 2/2 tercapai, kreator baru ditolak bergabung.");
+  assert.equal(currentCount, 0);
 
   // --------------------------------------------------------------------------
-  // ALUR 5: Kunjungan Fisik & Penukaran Voucher di Kasir Vendor
+  // ALUR 4: Kreator Mengunggah Konten & Guardrail Validasi URL Multi-Platform
   // --------------------------------------------------------------------------
-  logStep(5, "Verifikasi Kehadiran Fisik & Penukaran Kode Redeem di Lokasi");
-
-  // 5a. Vendor verifikasi kode Kreator 1
-  await db.$transaction([
-    db.redeemCode.update({
-      where: { id: redeemRecord1.id },
-      data: {
-        status: "USED",
-        redeemedAt: new Date(),
-        redeemedBy: vendor.id,
-      },
-    }),
-    db.campaignParticipation.update({
-      where: { id: part1.id },
-      data: { status: "VISITED" },
-    }),
-    db.notification.create({
-      data: {
-        userId: creator1.id,
-        type: "GENERAL",
-        title: "Kunjungan terkonfirmasi",
-        body: `Kode redeem ${code1} telah diverifikasi vendor. Kamu sekarang bisa mengirim konten.`,
-      },
-    }),
-  ]);
-  logSuccess(`Kode voucher Kreator 1 (${code1}) diverifikasi vendor -> status VISITED.`);
-
-  // 5b. Vendor verifikasi kode Kreator 2
-  await db.$transaction([
-    db.redeemCode.update({
-      where: { id: redeemRecord2.id },
-      data: {
-        status: "USED",
-        redeemedAt: new Date(),
-        redeemedBy: vendor.id,
-      },
-    }),
-    db.campaignParticipation.update({
-      where: { id: part2.id },
-      data: { status: "VISITED" },
-    }),
-  ]);
-  logSuccess(`Kode voucher Kreator 2 (${code2}) diverifikasi vendor -> status VISITED.`);
-
-  // 5c. Negatif: Penukaran ulang kode yang sama harus ditolak
-  const checkReused = await db.redeemCode.findUniqueOrThrow({ where: { code: code1 } });
-  assert.equal(checkReused.status, "USED");
-  logSuccess("Validasi anti-double-redeem: kode yang sudah USED tidak dapat ditukarkan lagi.");
-
-  // --------------------------------------------------------------------------
-  // ALUR 6: Kreator Mengunggah Konten & Guardrail Validasi URL Multi-Platform
-  // --------------------------------------------------------------------------
-  logStep(6, "Pengiriman Konten (TikTok, Instagram Reels, YouTube Shorts)");
+  logStep(4, "Pengiriman Konten (TikTok, Instagram Reels, YouTube Shorts)");
 
   // Gunakan atau buat akun media sosial untuk kreator 1 & 2
   let c1Account = await db.socialAccount.findFirst({
@@ -347,7 +244,11 @@ async function runAllBusinessFlowsE2E() {
   assert.equal(ownership1.isValid, true);
   logSuccess(`Validasi URL TikTok lolos untuk @${c1TikTokHandle}: ${tiktokUrl}`);
 
-  // Simpan submission Kreator 1
+  // Submit konten langsung membuat participation & submission sekaligus --
+  // tidak ada lagi tahap klaim slot terpisah.
+  const part1 = await db.campaignParticipation.create({
+    data: { campaignId: campaign.id, creatorId: creator1.id, status: "SUBMITTED" },
+  });
   const sub1 = await db.submission.create({
     data: {
       campaignId: campaign.id,
@@ -360,11 +261,7 @@ async function runAllBusinessFlowsE2E() {
       lastViews: 0,
     },
   });
-  await db.campaignParticipation.update({
-    where: { id: part1.id },
-    data: { status: "SUBMITTED" },
-  });
-  logSuccess(`Submission Kreator 1 tersimpan (ID: ${sub1.id}) -> status PENDING_REVIEW.`);
+  logSuccess(`Kreator 1 (${creator1.name}) submit konten (ID: ${sub1.id}) -> status PENDING_REVIEW.`);
 
   // Validasi kepemilikan URL kreator 2 (Instagram Reels)
   const igUrl = `https://www.instagram.com/reel/C9testReel123/?igsh=abcdef`;
@@ -376,7 +273,10 @@ async function runAllBusinessFlowsE2E() {
   assert.equal(ownership2.isValid, true);
   logSuccess(`Validasi URL Instagram Reels lolos untuk @${c2IGHandle}: ${igUrl}`);
 
-  // Simpan submission Kreator 2
+  // Submit konten Kreator 2 -- participation & submission sekaligus.
+  const part2 = await db.campaignParticipation.create({
+    data: { campaignId: campaign.id, creatorId: creator2.id, status: "SUBMITTED" },
+  });
   const sub2 = await db.submission.create({
     data: {
       campaignId: campaign.id,
@@ -389,24 +289,27 @@ async function runAllBusinessFlowsE2E() {
       lastViews: 0,
     },
   });
-  await db.campaignParticipation.update({
-    where: { id: part2.id },
-    data: { status: "SUBMITTED" },
+  logSuccess(`Kreator 2 (${creator2.name}) submit konten (ID: ${sub2.id}) -> status PENDING_REVIEW.`);
+
+  // Tanpa kuota, dua creator bebas berpartisipasi di campaign yang sama.
+  const filledCount = await db.campaignParticipation.count({
+    where: { campaignId: campaign.id, status: { not: "CANCELLED" } },
   });
-  logSuccess(`Submission Kreator 2 tersimpan (ID: ${sub2.id}) -> status PENDING_REVIEW.`);
+  assert.equal(filledCount, 2);
+  logSuccess(`Dua submission masuk tanpa batas kuota (${filledCount} creator berpartisipasi).`);
 
   // --------------------------------------------------------------------------
-  // ALUR 7: Vendor Review Submission (Approval vs Rejection)
+  // ALUR 5: Admin Review Submission (Approval vs Rejection)
   // --------------------------------------------------------------------------
-  logStep(7, "Review Submission oleh Vendor (Approve & Reject)");
+  logStep(5, "Review Submission oleh Admin (Approve & Reject)");
 
-  // 7a. Vendor menyetujui submission Kreator 1
+  // 6a. Admin menyetujui submission Kreator 1
   await db.$transaction([
     db.submission.update({
       where: { id: sub1.id },
       data: {
         status: "APPROVED",
-        reviewedById: vendor.id,
+        reviewedById: admin.id,
         reviewedAt: new Date(),
         reviewNote: "Konten sangat bagus dan sesuai brief.",
       },
@@ -429,16 +332,16 @@ async function runAllBusinessFlowsE2E() {
       },
     }),
   ]);
-  logSuccess(`Vendor menyetujui konten Kreator 1 -> status APPROVED, Trust Score +2.`);
+  logSuccess(`Admin menyetujui konten Kreator 1 -> status APPROVED, Trust Score +2.`);
 
-  // 7b. Vendor menolak submission Kreator 2 dengan alasan wajib
+  // 6b. Admin menolak submission Kreator 2 dengan alasan wajib
   const rejectionReason = "Suasana tempat tidak ditampilkan dan durasi kurang dari 15 detik.";
   await db.$transaction([
     db.submission.update({
       where: { id: sub2.id },
       data: {
         status: "REJECTED",
-        reviewedById: vendor.id,
+        reviewedById: admin.id,
         reviewedAt: new Date(),
         reviewNote: rejectionReason,
       },
@@ -448,17 +351,17 @@ async function runAllBusinessFlowsE2E() {
         userId: creator2.id,
         type: "SUBMISSION_REJECTED",
         title: "Konten ditolak",
-        body: `Vendor menolak kontenmu: ${rejectionReason}`,
+        body: `Admin menolak kontenmu: ${rejectionReason}`,
         link: "/creator/submissions",
       },
     }),
   ]);
-  logSuccess(`Vendor menolak konten Kreator 2 dengan alasan: "${rejectionReason}".`);
+  logSuccess(`Admin menolak konten Kreator 2 dengan alasan: "${rejectionReason}".`);
 
   // --------------------------------------------------------------------------
-  // ALUR 8: Banding Kreator (Dispute) & Resolusi Arbitrase oleh Admin
+  // ALUR 6: Banding Kreator (Dispute) & Resolusi Arbitrase oleh Admin
   // --------------------------------------------------------------------------
-  logStep(8, "Banding Kreator (Dispute) & Penyelesaian oleh Admin");
+  logStep(6, "Banding Kreator (Dispute) & Penyelesaian oleh Admin");
 
   const appealReason = "Di video detik 0:05 sampai 0:10 sudah ditampilkan suasana indoor dan outdoor secara jelas.";
   assert.ok(appealReason.length >= 20, "Alasan banding harus minimal 20 karakter.");
@@ -526,9 +429,9 @@ async function runAllBusinessFlowsE2E() {
   logSuccess("Admin memenangkan banding kreator (RESOLVED_OVERTURNED) -> status ADMIN_APPROVED, partisipasi COMPLETED.");
 
   // --------------------------------------------------------------------------
-  // ALUR 9: Pelacakan Metrik Views & Guardrail Anti-Fraud
+  // ALUR 7: Pelacakan Metrik Views & Guardrail Anti-Fraud
   // --------------------------------------------------------------------------
-  logStep(9, "Pembaruan Snapshot Metrik Views & Evaluasi Indikasi Fraud");
+  logStep(7, "Pembaruan Snapshot Metrik Views & Evaluasi Indikasi Fraud");
 
   // Input snapshot views untuk Kreator 1 (32.000 views, 1.200 likes)
   const views1 = 32_000;
@@ -592,9 +495,9 @@ async function runAllBusinessFlowsE2E() {
   logSuccess(`Guardrail Fraud teruji: mendeteksi anomali ${fraudCheck.reason}`);
 
   // --------------------------------------------------------------------------
-  // ALUR 10: Lifecycle Kampanye (Ending Soon, Expired, Tracking Ends)
+  // ALUR 8: Lifecycle Kampanye (Ending Soon, Expired, Tracking Ends)
   // --------------------------------------------------------------------------
-  logStep(10, "Evaluasi Siklus Hidup Kampanye (Lifecycle & Ending Soon Alert)");
+  logStep(8, "Evaluasi Siklus Hidup Kampanye (Lifecycle & Ending Soon Alert)");
 
   // 10a. Uji evaluasi ending soon (H-2)
   const twoDaysBeforeEnd = new Date(endDate.getTime() - 36 * 60 * 60 * 1000);
@@ -614,9 +517,9 @@ async function runAllBusinessFlowsE2E() {
   logSuccess(`Notifikasi Siklus Hidup: Sistem mengevaluasi pengiriman alert ke kreator (${notifyResult.count} notifikasi baru).`);
 
   // --------------------------------------------------------------------------
-  // ALUR 11: Settlement Kampanye, Pembagian Pool Payout, & Platform Fee
+  // ALUR 9: Settlement Kampanye, Pembagian Pool Payout, & Platform Fee
   // --------------------------------------------------------------------------
-  logStep(11, "Penyelesaian (Settlement) Kampanye & Perhitungan Payout Pool");
+  logStep(9, "Penyelesaian (Settlement) Kampanye & Perhitungan Payout Pool");
 
   // Ubah status ke ENDED untuk simulasi settle
   await db.campaign.update({
@@ -716,9 +619,9 @@ async function runAllBusinessFlowsE2E() {
   logSuccess("Transaksi Settlement berhasil dicatat di database -> Campaign status SETTLING.");
 
   // --------------------------------------------------------------------------
-  // ALUR 12: Pencairan Dana (Release Payouts) & Pengembalian Sisa Escrow Refund
+  // ALUR 10: Pencairan Dana (Release Payouts) & Pengembalian Sisa Escrow Refund
   // --------------------------------------------------------------------------
-  logStep(12, "Pencairan Payout Kreator (Release) & Konfirmasi Refund Vendor");
+  logStep(10, "Pencairan Payout Kreator (Release) & Konfirmasi Refund Vendor");
 
   // 12a. Admin mencairkan seluruh payout kreator
   const pendingPayouts = await db.payout.findMany({
@@ -783,9 +686,9 @@ async function runAllBusinessFlowsE2E() {
   logSuccess(`Rekonsiliasi Escrow Sempurna: Total Masuk (Rp ${totalIn.toLocaleString("id-ID")}) == Total Keluar (Rp ${totalOut.toLocaleString("id-ID")}). Selisih = Rp 0.`);
 
   // --------------------------------------------------------------------------
-  // ALUR 13: Settlement Summary & Analytics Metrics
+  // ALUR 11: Settlement Summary & Analytics Metrics
   // --------------------------------------------------------------------------
-  logStep(13, "Analitik Ringkasan Kampanye (Realized CPM & Performa)");
+  logStep(11, "Analitik Ringkasan Kampanye (Realized CPM & Performa)");
 
   const summary = calculateCampaignSettlementSummary({
     campaign: {
@@ -828,7 +731,7 @@ async function runAllBusinessFlowsE2E() {
   logSuccess(`Top Performer #1: ${summary.topPerformers[0].creatorName} (${summary.topPerformers[0].views.toLocaleString("id-ID")} views)`);
 
   console.log(`\n${colors.bold}${colors.green}========================================================================`);
-  console.log(` SEMUA 13 TAHAPAN ALUR BISNIS E2E BERHASIL 100% TANPA KESALAHAN!`);
+  console.log(` SEMUA 11 TAHAPAN ALUR BISNIS E2E BERHASIL 100% TANPA KESALAHAN!`);
   console.log(`========================================================================${colors.reset}\n`);
 }
 

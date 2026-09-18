@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -32,7 +33,6 @@ export default async function CreatorDashboard() {
       include: {
         campaign: { include: { vendor: { include: { vendorProfile: true } } } },
         submission: true,
-        redeemCode: true,
       },
       orderBy: { joinedAt: "desc" },
     }),
@@ -123,12 +123,12 @@ export default async function CreatorDashboard() {
           <Card>
             <CardHeader
               title="Campaign yang kamu ikuti"
-              description="Status tiap slot yang sudah kamu klaim."
+              description="Status tiap konten yang sudah kamu kirim."
             />
             {participations.length === 0 ? (
               <EmptyState
                 title="Belum ikut campaign apa pun"
-                description="Cari campaign di kotamu dan klaim slotnya."
+                description="Cari campaign di kotamu dan kirim kontenmu."
                 action={
                   <ButtonLink href="/creator/campaigns">Lihat campaign</ButtonLink>
                 }
@@ -136,14 +136,24 @@ export default async function CreatorDashboard() {
             ) : (
               <ul className="divide-y divide-line">
                 {participations.map((p) => {
-                  const estimasiRow = estimasi.find(
-                    (e) => e.participation.id === p.id,
-                  );
                   const sisaHari = daysUntil(p.campaign.endDate);
+                  const foto = p.campaign.vendor.vendorProfile?.photos[0];
                   return (
                     <li key={p.id} className="py-3 first:pt-0 last:pb-0">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-3">
+                        {foto ? (
+                          <Image
+                            src={foto}
+                            alt=""
+                            width={112}
+                            height={112}
+                            className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="h-14 w-14 shrink-0 rounded-lg bg-brand-50" />
+                        )}
+
+                        <div className="min-w-0 flex-1">
                           <Link
                             href={`/creator/campaigns/${p.campaignId}`}
                             className="font-medium hover:text-brand"
@@ -158,11 +168,6 @@ export default async function CreatorDashboard() {
                             <Badge tone={participationStatusTone[p.status]}>
                               {participationStatusLabel[p.status]}
                             </Badge>
-                            {p.status === "JOINED" && p.redeemCode ? (
-                              <span className="rounded-md border border-line bg-surface-muted px-2 py-0.5 font-mono text-xs font-semibold text-foreground">
-                                Kode: {p.redeemCode.code}
-                              </span>
-                            ) : null}
                             {p.submission ? (
                               <Badge tone={submissionStatusTone[p.submission.status]}>
                                 {submissionStatusLabel[p.submission.status]}
@@ -175,16 +180,15 @@ export default async function CreatorDashboard() {
                             ) : null}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="tabular text-sm font-medium">
-                            {formatCompact(p.submission?.lastViews ?? 0)} views
-                          </p>
-                          {estimasiRow && estimasiRow.netAmount > 0 ? (
-                            <p className="tabular mt-0.5 text-sm text-brand">
-                              ≈ {formatIDR(estimasiRow.netAmount)}
-                            </p>
-                          ) : null}
-                        </div>
+
+                        <ButtonLink
+                          href={`/creator/campaigns/${p.campaignId}`}
+                          variant="secondary"
+                          size="sm"
+                          className="shrink-0"
+                        >
+                          Lihat Detail
+                        </ButtonLink>
                       </div>
                     </li>
                   );

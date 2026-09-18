@@ -4,17 +4,18 @@ import { db } from "@/lib/db";
 import { formatDate, formatIDR, daysUntil } from "@/lib/format";
 import {
   Badge,
-  Button,
   Card,
   EmptyState,
   IconArrowRight,
-  Input,
   PageHeader,
-  ProgressBar,
-  Select,
 } from "@/components/ui";
 import { categoryLabel, categoryTone } from "@/lib/labels";
 import type { BusinessCategory } from "@/generated/prisma/enums";
+import { CampaignFilters } from "./campaign-filters";
+
+/** Sentinel di URL untuk "Semua kota" — beda dengan string kosong supaya
+ * bisa dibedakan dari "belum diisi" (yang jatuh ke kota domisili creator). */
+const SEMUA_KOTA = "all";
 
 export default async function BrowseCampaignPage({
   searchParams,
@@ -24,8 +25,16 @@ export default async function BrowseCampaignPage({
   const user = await requireRole("CREATOR");
   const params = await searchParams;
 
-  // Default ke kota domisili creator — inti dari "campaign terdekat".
-  const kota = params.kota ?? user.creatorProfile?.city ?? "";
+  // Kota belum pernah diisi (param tidak ada sama sekali) -> default ke kota
+  // domisili creator, inti dari "campaign terdekat". Begitu creator memilih
+  // "Semua kota", param ditulis eksplisit sebagai SEMUA_KOTA supaya tidak
+  // jatuh balik ke default ini (lihat campaign-filters.tsx).
+  const kota =
+    params.kota === undefined
+      ? (user.creatorProfile?.city ?? "")
+      : params.kota === SEMUA_KOTA
+        ? ""
+        : params.kota;
   const kategori = params.kategori ?? "";
   const q = params.q ?? "";
 
@@ -48,12 +57,21 @@ export default async function BrowseCampaignPage({
     orderBy: { createdAt: "desc" },
   });
 
-  const kotaTersedia = await db.vendorProfile.findMany({
+  const kotaAktif = await db.vendorProfile.findMany({
     where: { user: { campaigns: { some: { status: "ACTIVE" } } } },
     select: { city: true },
     distinct: ["city"],
     orderBy: { city: "asc" },
   });
+  // Kota domisili creator tetap muncul di pilihan walau belum ada campaign
+  // aktif di sana — supaya <select> selalu punya opsi yang cocok dengan nilai
+  // filter yang sedang aktif (default-nya memang kota domisili).
+  const kotaTersedia = Array.from(
+    new Set([
+      ...kotaAktif.map((item) => item.city),
+      ...(user.creatorProfile?.city ? [user.creatorProfile.city] : []),
+    ]),
+  ).sort((a, b) => a.localeCompare(b));
 
   return (
     <div>
@@ -62,30 +80,12 @@ export default async function BrowseCampaignPage({
         description="Campaign yang sedang berjalan dan masih membuka slot."
       />
 
-      <Card className="mb-6">
-        <form className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto]">
-          <Input name="q" placeholder="Cari nama campaign..." defaultValue={q} />
-          <Select name="kota" defaultValue={kota}>
-            <option value="">Semua kota</option>
-            {kotaTersedia.map((item) => (
-              <option key={item.city} value={item.city}>
-                {item.city}
-              </option>
-            ))}
-          </Select>
-          <Select name="kategori" defaultValue={kategori}>
-            <option value="">Semua kategori</option>
-            {Object.entries(categoryLabel).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-          <Button type="submit" variant="primary">
-            Filter
-          </Button>
-        </form>
-      </Card>
+      <CampaignFilters
+        kota={kota}
+        kategori={kategori}
+        q={q}
+        kotaTersedia={kotaTersedia}
+      />
 
       {campaigns.length === 0 ? (
         <EmptyState
@@ -93,18 +93,36 @@ export default async function BrowseCampaignPage({
           description="Coba longgarkan filter kota atau kategori."
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {campaigns.map((campaign) => {
             const terisi = campaign.participations.length;
-            const penuh = terisi >= campaign.maxCreators;
             const sudahIkut = campaign.participations.some(
               (p) => p.creatorId === user.id,
             );
             const sisaHari = daysUntil(campaign.endDate);
 
+            // Foto campaign (diunggah vendor saat membuat campaign) lebih
+            // relevan daripada foto outlet umum — dipakai duluan kalau ada.
+            const foto =
+              campaign.imageUrl ?? campaign.vendor.vendorProfile?.photos[0];
+
             return (
               <Card key={campaign.id} hover>
-                <div className="flex items-start justify-between gap-3">
+                {foto ? (
+                  // Data URI (campaign.imageUrl) tidak bisa dioptimasi next/image
+                  // tanpa konfigurasi tambahan — img biasa dipakai di sini,
+                  // konsisten dengan pola yang sama di /vendor/campaigns.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={foto}
+                    alt=""
+                    className="aspect-video w-full rounded-md object-cover"
+                  />
+                ) : (
+                  <div className="aspect-video w-full rounded-md bg-brand-50" />
+                )}
+
+                <div className="mt-4 flex items-start justify-between gap-3">
                   <div>
                     <Badge tone={categoryTone[campaign.category]}>
                       {categoryLabel[campaign.category]}
@@ -146,24 +164,12 @@ export default async function BrowseCampaignPage({
                   </div>
                 </div>
 
-                <div className="mt-4">
-                  <div className="mb-1 flex justify-between text-xs text-muted">
-                    <span>
-                      Slot {terisi}/{campaign.maxCreators}
-                    </span>
-                    <span>{sisaHari >= 0 ? `sisa ${sisaHari} hari` : "berakhir"}</span>
-                  </div>
-                  <ProgressBar
-                    value={terisi}
-                    max={campaign.maxCreators}
-                    tone={penuh ? "warning" : "brand"}
-                  />
+                <div className="mt-4 flex items-center justify-between text-xs text-muted">
+                  <span>
+                    {terisi > 0 ? `${terisi} creator ikut` : "Baru dibuka"}
+                  </span>
+                  <span>{sisaHari >= 0 ? `sisa ${sisaHari} hari` : "berakhir"}</span>
                 </div>
-
-                <p className="mt-4 rounded-xl bg-brand-soft px-3 py-2 text-sm text-brand">
-                  Komplimen: {campaign.complimentType} (
-                  {formatIDR(campaign.complimentValue)})
-                </p>
 
                 <div className="mt-4 flex items-center justify-between">
                   <span className="text-xs text-muted">
