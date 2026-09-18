@@ -39,6 +39,17 @@ const campaignSchema = z.object({
     .min(1000, "Batas views minimal 1.000.")
     .max(100_000_000, "Batas views maksimal 100.000.000.")
     .optional(),
+  // Preprocess dulu: input kosong tetap terkirim sebagai string "" di
+  // FormData, bukan hilang dari object-nya — tanpa ini z.coerce akan
+  // membacanya sebagai 0, bukan "tidak diisi".
+  minWithdrawalAmount: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce
+      .number()
+      .int("Minimum penarikan harus bilangan bulat.")
+      .min(0, "Minimum penarikan tidak boleh negatif.")
+      .optional(),
+  ),
   startDate: z.string().min(1, "Tanggal mulai wajib diisi."),
   endDate: z.string().min(1, "Tanggal selesai wajib diisi."),
 });
@@ -151,6 +162,7 @@ export async function createCampaignAction(
         budgetPool: data.budgetPool,
         cpmRate: data.cpmRate,
         maxViewsPerCreator: data.maxViewsPerCreator ?? null,
+        minWithdrawalAmount: data.minWithdrawalAmount ?? null,
         startDate,
         endDate,
         // Views masih dilacak seminggu setelah campaign tutup sebelum payout final.

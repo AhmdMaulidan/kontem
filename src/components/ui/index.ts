@@ -10,6 +10,7 @@ export {
   LogoTikTok,
   LogoInstagram,
   LogoYouTube,
+  LogoGoogle,
   socialBrandColor,
 } from "./social-logo";
 export { cn } from "./utils";

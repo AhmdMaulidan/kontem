@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { Card, Input, Select } from "@/components/ui";
 import { categoryLabel } from "@/lib/labels";
 
+/** Harus sama persis dengan sentinel di page.tsx. */
+const SEMUA_KOTA = "all";
+
 /**
  * Toolbar pencarian campaign creator — menyaring langsung saat mengetik atau
  * memilih, tanpa tombol "Filter" terpisah (design.md bagian 5.2 & 6.6).
@@ -19,6 +22,7 @@ export function CampaignFilters({
   q,
   kotaTersedia,
 }: {
+  /** String kosong berarti "semua kota" — sudah diresolusi oleh page.tsx. */
   kota: string;
   kategori: string;
   q: string;
@@ -43,13 +47,13 @@ export function CampaignFilters({
   function pindah(patch: { kota?: string; kategori?: string; q?: string }) {
     const next = { kota, kategori, q, ...patch };
     const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(next)) {
-      if (value) params.set(key, value);
-    }
-    const query = params.toString();
-    router.replace(
-      query ? `/creator/campaigns?${query}` : "/creator/campaigns",
-    );
+    // Kota SELALU ditulis eksplisit (memakai sentinel SEMUA_KOTA kalau
+    // kosong) — kalau tidak ditulis sama sekali, page.tsx akan jatuh balik
+    // ke kota domisili creator dan filter "Semua kota" terasa tidak berfungsi.
+    params.set("kota", next.kota || SEMUA_KOTA);
+    if (next.kategori) params.set("kategori", next.kategori);
+    if (next.q) params.set("q", next.q);
+    router.replace(`/creator/campaigns?${params.toString()}`);
   }
 
   return (
@@ -61,10 +65,10 @@ export function CampaignFilters({
           onChange={(event) => setTerm(event.target.value)}
         />
         <Select
-          value={kota}
+          value={kota || SEMUA_KOTA}
           onChange={(event) => pindah({ kota: event.target.value })}
         >
-          <option value="">Semua kota</option>
+          <option value={SEMUA_KOTA}>Semua kota</option>
           {kotaTersedia.map((item) => (
             <option key={item} value={item}>
               {item}

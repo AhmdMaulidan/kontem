@@ -168,7 +168,7 @@ export default async function CampaignDetailPage({
           </Card>
 
           <Card>
-            <CardHeader title="Lokasi & komplimen" />
+            <CardHeader title="Lokasi" />
             <DescriptionList
               items={[
                 {
@@ -177,38 +177,27 @@ export default async function CampaignDetailPage({
                 },
                 {
                   label: "Titik peta",
-                  value: campaign.vendor.vendorProfile ? (
-                    <a
-                      className="text-brand"
-                      href={
-                        campaign.vendor.vendorProfile.mapsUrl ??
-                        `https://maps.google.com/?q=${campaign.vendor.vendorProfile.latitude},${campaign.vendor.vendorProfile.longitude}`
-                      }
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Buka di Google Maps
-                    </a>
-                  ) : (
-                    "—"
-                  ),
+                  value: (() => {
+                    const profil = campaign.vendor.vendorProfile;
+                    const mapsUrl =
+                      profil?.mapsUrl ??
+                      (profil?.latitude && profil?.longitude
+                        ? `https://maps.google.com/?q=${profil.latitude},${profil.longitude}`
+                        : null);
+                    return mapsUrl ? (
+                      <a
+                        className="text-brand"
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Buka di Google Maps
+                      </a>
+                    ) : (
+                      "—"
+                    );
+                  })(),
                 },
-                ...(campaign.complimentType
-                  ? [
-                      {
-                        label: "Komplimen",
-                        value: `${campaign.complimentType}${
-                          campaign.complimentValue
-                            ? ` (${formatIDR(campaign.complimentValue)})`
-                            : ""
-                        }`,
-                      },
-                      {
-                        label: "Syarat komplimen",
-                        value: campaign.complimentTerms ?? "—",
-                      },
-                    ]
-                  : []),
               ]}
             />
           </Card>

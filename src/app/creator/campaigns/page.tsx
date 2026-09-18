@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -14,6 +13,10 @@ import { categoryLabel, categoryTone } from "@/lib/labels";
 import type { BusinessCategory } from "@/generated/prisma/enums";
 import { CampaignFilters } from "./campaign-filters";
 
+/** Sentinel di URL untuk "Semua kota" — beda dengan string kosong supaya
+ * bisa dibedakan dari "belum diisi" (yang jatuh ke kota domisili creator). */
+const SEMUA_KOTA = "all";
+
 export default async function BrowseCampaignPage({
   searchParams,
 }: {
@@ -22,8 +25,16 @@ export default async function BrowseCampaignPage({
   const user = await requireRole("CREATOR");
   const params = await searchParams;
 
-  // Default ke kota domisili creator — inti dari "campaign terdekat".
-  const kota = params.kota ?? user.creatorProfile?.city ?? "";
+  // Kota belum pernah diisi (param tidak ada sama sekali) -> default ke kota
+  // domisili creator, inti dari "campaign terdekat". Begitu creator memilih
+  // "Semua kota", param ditulis eksplisit sebagai SEMUA_KOTA supaya tidak
+  // jatuh balik ke default ini (lihat campaign-filters.tsx).
+  const kota =
+    params.kota === undefined
+      ? (user.creatorProfile?.city ?? "")
+      : params.kota === SEMUA_KOTA
+        ? ""
+        : params.kota;
   const kategori = params.kategori ?? "";
   const q = params.q ?? "";
 
@@ -46,12 +57,21 @@ export default async function BrowseCampaignPage({
     orderBy: { createdAt: "desc" },
   });
 
-  const kotaTersedia = await db.vendorProfile.findMany({
+  const kotaAktif = await db.vendorProfile.findMany({
     where: { user: { campaigns: { some: { status: "ACTIVE" } } } },
     select: { city: true },
     distinct: ["city"],
     orderBy: { city: "asc" },
   });
+  // Kota domisili creator tetap muncul di pilihan walau belum ada campaign
+  // aktif di sana — supaya <select> selalu punya opsi yang cocok dengan nilai
+  // filter yang sedang aktif (default-nya memang kota domisili).
+  const kotaTersedia = Array.from(
+    new Set([
+      ...kotaAktif.map((item) => item.city),
+      ...(user.creatorProfile?.city ? [user.creatorProfile.city] : []),
+    ]),
+  ).sort((a, b) => a.localeCompare(b));
 
   return (
     <div>
@@ -64,7 +84,7 @@ export default async function BrowseCampaignPage({
         kota={kota}
         kategori={kategori}
         q={q}
-        kotaTersedia={kotaTersedia.map((item) => item.city)}
+        kotaTersedia={kotaTersedia}
       />
 
       {campaigns.length === 0 ? (
@@ -73,7 +93,7 @@ export default async function BrowseCampaignPage({
           description="Coba longgarkan filter kota atau kategori."
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {campaigns.map((campaign) => {
             const terisi = campaign.participations.length;
             const sudahIkut = campaign.participations.some(
@@ -81,23 +101,28 @@ export default async function BrowseCampaignPage({
             );
             const sisaHari = daysUntil(campaign.endDate);
 
-            const foto = campaign.vendor.vendorProfile?.photos[0];
+            // Foto campaign (diunggah vendor saat membuat campaign) lebih
+            // relevan daripada foto outlet umum — dipakai duluan kalau ada.
+            const foto =
+              campaign.imageUrl ?? campaign.vendor.vendorProfile?.photos[0];
 
             return (
               <Card key={campaign.id} hover>
                 {foto ? (
-                  <Image
+                  // Data URI (campaign.imageUrl) tidak bisa dioptimasi next/image
+                  // tanpa konfigurasi tambahan — img biasa dipakai di sini,
+                  // konsisten dengan pola yang sama di /vendor/campaigns.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                     src={foto}
                     alt=""
-                    width={640}
-                    height={360}
-                    className="-mx-5 -mt-5 mb-4 aspect-video w-[calc(100%+2.5rem)] rounded-t-2xl object-cover"
+                    className="aspect-video w-full rounded-md object-cover"
                   />
                 ) : (
-                  <div className="-mx-5 -mt-5 mb-4 aspect-video w-[calc(100%+2.5rem)] rounded-t-2xl bg-brand-50" />
+                  <div className="aspect-video w-full rounded-md bg-brand-50" />
                 )}
 
-                <div className="flex items-start justify-between gap-3">
+                <div className="mt-4 flex items-start justify-between gap-3">
                   <div>
                     <Badge tone={categoryTone[campaign.category]}>
                       {categoryLabel[campaign.category]}

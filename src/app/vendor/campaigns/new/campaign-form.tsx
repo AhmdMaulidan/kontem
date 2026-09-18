@@ -283,6 +283,12 @@ export function CampaignForm({
                 }
               />
             </Field>
+            <Field
+              label="Minimum penarikan per video (Rp, opsional)"
+              hint="Creator baru bisa menarik dini penghasilan satu video setelah mencapai jumlah ini. Kosongkan kalau tidak ada minimum."
+            >
+              <Input name="minWithdrawalAmount" type="number" min={0} step={10000} />
+            </Field>
           </div>
         </Card>
 

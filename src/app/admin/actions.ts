@@ -16,6 +16,8 @@ import { fetchVideoMetrics } from "@/lib/video-metrics";
 import { runCampaignLifecycleSync } from "@/domain/lifecycle";
 import { verifyAuthorOwnership } from "@/domain/social-url";
 import { broadcastNewCampaignToNearbyCreators } from "@/domain/notification";
+import { calculateCreatorEarning } from "@/domain/withdrawal";
+import { formatIDR } from "@/lib/format";
 
 export type ActionState = { error?: string; success?: string };
 
@@ -986,7 +988,10 @@ export async function settleCampaignAction(
   const campaign = await db.campaign.findUnique({
     where: { id: campaignId },
     include: {
-      submissions: { where: { status: { in: COUNTABLE_STATUSES } } },
+      submissions: {
+        where: { status: { in: COUNTABLE_STATUSES } },
+        include: { withdrawal: true },
+      },
       payouts: true,
     },
   });
@@ -996,6 +1001,15 @@ export async function settleCampaignAction(
   }
   if (!["ACTIVE", "ENDED", "SETTLING"].includes(campaign.status)) {
     return { error: "Status campaign tidak memungkinkan untuk disettle." };
+  }
+
+  const withdrawalPending = await db.withdrawal.count({
+    where: { campaignId, status: { in: ["PENDING_ADMIN_APPROVAL", "APPROVED"] } },
+  });
+  if (withdrawalPending > 0) {
+    return {
+      error: `Masih ada ${withdrawalPending} permintaan penarikan dini yang belum diputuskan/dicairkan. Selesaikan dulu sebelum settle.`,
+    };
   }
 
   // Sengketa yang belum diputus harus selesai dulu, kalau tidak angka
@@ -1019,14 +1033,29 @@ export async function settleCampaignAction(
     return { error: `Masih ada ${menungguReview} submission yang belum direview vendor.` };
   }
 
-  const entries = campaign.submissions.map((submission) => ({
+  // Video yang sudah dicairkan lewat penarikan dini dikeluarkan dari batch
+  // proporsional — jatahnya sudah final dan tidak boleh dihitung ulang.
+  // Sisa pool untuk creator yang belum menarik pun dikurangi sebesar itu,
+  // supaya vendor tetap tidak pernah membayar lebih dari budgetPool.
+  const submissionSudahDitarik = campaign.submissions.filter(
+    (s) => s.withdrawal?.status === "PAID",
+  );
+  const submissionBelumDitarik = campaign.submissions.filter(
+    (s) => s.withdrawal?.status !== "PAID",
+  );
+  const totalSudahDitarik = submissionSudahDitarik.reduce(
+    (sum, s) => sum + (s.withdrawal?.grossAmount ?? 0),
+    0,
+  );
+
+  const entries = submissionBelumDitarik.map((submission) => ({
     creatorId: submission.creatorId,
     submissionId: submission.id,
     views: submission.finalViews ?? submission.lastViews,
   }));
 
   const hasil = calculatePayouts(entries, {
-    budgetPool: campaign.budgetPool,
+    budgetPool: Math.max(0, campaign.budgetPool - totalSudahDitarik),
     cpmRate: campaign.cpmRate,
     platformFeeRate: campaign.platformFeeRate,
     maxViewsPerCreator: campaign.maxViewsPerCreator,
@@ -1038,6 +1067,33 @@ export async function settleCampaignAction(
         await tx.submission.update({
           where: { id: submission.id },
           data: { finalViews: submission.finalViews ?? submission.lastViews },
+        });
+      }
+
+      // Payout cermin untuk video yang sudah cair via penarikan dini — supaya
+      // "Riwayat payout" di /creator/earnings tetap satu sumber lengkap untuk
+      // semua uang yang pernah diterima, apa pun jalurnya. rawGrossAmount
+      // dihitung ulang (deterministik dari viewsCounted+cpmRate+platformFeeRate
+      // campaign, tidak berubah) supaya kolom grossAmount/platformFee/netAmount
+      // tetap konsisten secara aritmetika dengan baris Payout lainnya.
+      for (const submission of submissionSudahDitarik) {
+        const w = submission.withdrawal!;
+        const ulang = calculateCreatorEarning(w.viewsCounted, campaign);
+        await tx.payout.create({
+          data: {
+            campaignId,
+            creatorId: submission.creatorId,
+            submissionId: submission.id,
+            viewsCounted: w.viewsCounted,
+            totalPoolViews: w.viewsCounted,
+            sharePercent: 100,
+            grossAmount: ulang.rawGrossAmount,
+            platformFee: ulang.rawGrossAmount - ulang.grossAmount,
+            netAmount: w.netAmount,
+            status: "PAID",
+            paidAt: w.paidAt,
+            note: `Dicairkan lebih awal lewat penarikan dini (fee penarikan ${formatIDR(w.feeAmount)}).`,
+          },
         });
       }
 
@@ -1308,6 +1364,142 @@ export async function holdPayoutAction(
     console.error("[holdPayoutAction Error]", err);
     return { error: "Terjadi kesalahan sistem saat menahan payout." };
   }
+}
+
+// ---------------------------------------------------------------- penarikan dana
+
+/**
+ * Keputusan admin atas satu permintaan penarikan dini — dipasangkan ke
+ * `<DecisionForm>` yang sama seperti `reviewSubmissionAction`. Approve tidak
+ * langsung mencairkan dana; pencairan tetap langkah manual terpisah
+ * (`markWithdrawalPaidAction`), konsisten dengan pola deposit/payout lain di
+ * halaman ini.
+ */
+export async function reviewWithdrawalAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireRole("ADMIN");
+  const withdrawalId = String(formData.get("withdrawalId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+
+  if (decision === "reject" && note.length < 10) {
+    return { error: "Alasan penolakan wajib diisi minimal 10 karakter." };
+  }
+
+  const withdrawal = await db.withdrawal.findUnique({
+    where: { id: withdrawalId },
+    include: { campaign: true },
+  });
+  if (!withdrawal) return { error: "Permintaan penarikan tidak ditemukan." };
+  if (withdrawal.status !== "PENDING_ADMIN_APPROVAL") {
+    return { error: "Permintaan ini sudah diputuskan." };
+  }
+
+  const approved = decision === "approve";
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.withdrawal.update({
+        where: { id: withdrawalId },
+        data: approved
+          ? { status: "APPROVED", approvedAt: new Date(), approvedById: admin.id }
+          : { status: "REJECTED", rejectionReason: note },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: withdrawal.creatorId,
+          type: "GENERAL",
+          title: approved ? "Penarikan disetujui" : "Penarikan ditolak",
+          body: approved
+            ? `Penarikan ${formatIDR(withdrawal.netAmount)} dari campaign "${withdrawal.campaign.title}" disetujui, menunggu transfer.`
+            : `Penarikan dari campaign "${withdrawal.campaign.title}" ditolak: ${note}`,
+          link: "/creator/earnings",
+        },
+      });
+    });
+
+    await logAction(
+      admin.id,
+      approved ? "withdrawal.approve" : "withdrawal.reject",
+      "Withdrawal",
+      withdrawalId,
+      { catatan: note || null },
+    );
+  } catch (err) {
+    console.error("[reviewWithdrawalAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat memproses penarikan." };
+  }
+
+  revalidatePath("/admin/submissions");
+  return { success: approved ? "Penarikan disetujui." : "Penarikan ditolak." };
+}
+
+/** Tandai penarikan yang sudah disetujui sebagai selesai ditransfer manual. */
+export async function markWithdrawalPaidAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireRole("ADMIN");
+  const withdrawalId = String(formData.get("withdrawalId") ?? "");
+
+  const withdrawal = await db.withdrawal.findUnique({ where: { id: withdrawalId } });
+  if (!withdrawal) return { error: "Permintaan penarikan tidak ditemukan." };
+  if (withdrawal.status !== "APPROVED") {
+    return { error: "Penarikan ini belum disetujui atau sudah cair." };
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.withdrawal.update({
+        where: { id: withdrawalId },
+        data: { status: "PAID", paidAt: new Date() },
+      });
+
+      await tx.escrowTransaction.createMany({
+        data: [
+          {
+            campaignId: withdrawal.campaignId,
+            type: "PAYOUT",
+            amount: withdrawal.netAmount,
+            status: "COMPLETED",
+            reference: `WITHDRAW-${Date.now()}`,
+            completedAt: new Date(),
+          },
+          {
+            campaignId: withdrawal.campaignId,
+            type: "WITHDRAWAL_FEE",
+            amount: withdrawal.feeAmount,
+            status: "COMPLETED",
+            completedAt: new Date(),
+          },
+        ],
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: withdrawal.creatorId,
+          type: "PAYOUT_RELEASED",
+          title: "Penarikan cair",
+          body: `${formatIDR(withdrawal.netAmount)} sudah ditransfer ke rekening terdaftar.`,
+          link: "/creator/earnings",
+        },
+      });
+    });
+
+    await logAction(admin.id, "withdrawal.pay", "Withdrawal", withdrawalId, {
+      netAmount: withdrawal.netAmount,
+      feeAmount: withdrawal.feeAmount,
+    });
+  } catch (err) {
+    console.error("[markWithdrawalPaidAction Error]", err);
+    return { error: "Terjadi kesalahan sistem saat mencairkan penarikan." };
+  }
+
+  revalidatePath("/admin/submissions");
+  return { success: `Penarikan ${formatIDR(withdrawal.netAmount)} dicairkan.` };
 }
 
 // ---------------------------------------------------------------- brief template
