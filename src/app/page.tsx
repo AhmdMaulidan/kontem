@@ -771,7 +771,6 @@ export default async function LandingPage() {
                       budgetPool={campaign.budgetPool}
                       cpmRate={campaign.cpmRate}
                       creatorBergabung={campaign._count.participations}
-                      komplimen={campaign.complimentType}
                       sisaHari={daysUntil(campaign.endDate)}
                       foto={campaign.vendor.vendorProfile?.photos[0]}
                     />
