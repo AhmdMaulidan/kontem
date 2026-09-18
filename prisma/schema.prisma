@@ -59,23 +59,12 @@ enum ParticipationStatus {
 enum SubmissionStatus {
   PENDING_REVIEW // menunggu vendor
   APPROVED // disetujui, views dihitung untuk payout
-  REJECTED // ditolak vendor, masih bisa diajukan banding
-  APPEALED // creator mengajukan banding, menunggu admin
-  ADMIN_APPROVED // admin membatalkan penolakan vendor
-  ADMIN_REJECTED // admin menguatkan penolakan vendor (final)
+  REJECTED // ditolak vendor — keputusan final, tanpa jalur banding
 }
 
 enum ViewSource {
   MANUAL // diinput admin/creator (mode demo)
   API // ditarik otomatis dari platform
-}
-
-enum DisputeStatus {
-  OPEN
-  UNDER_REVIEW
-  RESOLVED_UPHELD // penolakan vendor dikuatkan
-  RESOLVED_OVERTURNED // submission creator dimenangkan
-  WITHDRAWN
 }
 
 enum EscrowType {
@@ -100,27 +89,8 @@ enum EscrowStatus {
 }
 
 enum PayoutStatus {
-  PENDING // sudah dihitung, belum dicairkan
-  PROCESSING
+  PENDING // sudah dihitung, belum dicairkan (jarang terlihat — settlement otomatis langsung PAID)
   PAID
-  HELD // ditahan karena sengketa/fraud
-  CANCELLED
-}
-
-enum FraudFlagType {
-  REUSED_CONTENT
-  INFLATED_VIEWS
-  DUPLICATE_ACCOUNT
-  OFF_BRIEF
-  FAKE_VISIT
-  OTHER
-}
-
-enum FraudFlagStatus {
-  OPEN
-  REVIEWING
-  CONFIRMED
-  DISMISSED
 }
 
 enum NotificationType {
@@ -130,7 +100,6 @@ enum NotificationType {
   SUBMISSION_REJECTED
   PAYOUT_RELEASED
   VENDOR_VERIFIED
-  DISPUTE_UPDATE
   GENERAL
 }
 
@@ -154,19 +123,14 @@ model User {
 
   socialAccounts  SocialAccount[]
   participations  CampaignParticipation[]
-  submissions     Submission[]
-  payouts         Payout[]
-  notifications   Notification[]
-  campaigns       Campaign[]              @relation("VendorCampaigns")
-  reviewedSubs    Submission[]            @relation("SubmissionReviewer")
-  openedDisputes  Dispute[]               @relation("DisputeOpener")
-  resolvedDispute Dispute[]               @relation("DisputeResolver")
-  disputeMessages DisputeMessage[]
-  raisedFlags     FraudFlag[]             @relation("FlagReporter")
-  flaggedAgainst  FraudFlag[]             @relation("FlaggedUser")
-  auditLogs       AuditLog[]
-  withdrawals         Withdrawal[]        @relation("WithdrawalCreator")
-  approvedWithdrawals Withdrawal[]        @relation("WithdrawalApprover")
+  submissions         Submission[]
+  payouts             Payout[]
+  notifications       Notification[]
+  campaigns           Campaign[]           @relation("VendorCampaigns")
+  reviewedSubs        Submission[]         @relation("SubmissionReviewer")
+  auditLogs           AuditLog[]
+  withdrawals         Withdrawal[]         @relation("WithdrawalCreator")
+  approvedWithdrawals Withdrawal[]         @relation("WithdrawalApprover")
 
   @@index([role, status])
 }
@@ -180,7 +144,7 @@ model CreatorProfile {
   province String
   bio      String?
 
-  // Nice-to-have di spec: naik saat konten disetujui, turun saat terbukti curang.
+  // Naik pelan-pelan tiap kali konten disetujui.
   trustScore Int @default(50)
 
   bankName          String?
@@ -381,8 +345,6 @@ model Submission {
   updatedAt   DateTime @updatedAt
 
   viewSnapshots ViewSnapshot[]
-  disputes      Dispute[]
-  fraudFlags    FraudFlag[]
   payout        Payout?
   withdrawal    Withdrawal?
 
@@ -402,69 +364,6 @@ model ViewSnapshot {
   capturedAt DateTime   @default(now())
 
   @@index([submissionId, capturedAt])
-}
-
-// ---------------------------------------------------------------- trust & safety
-
-model Dispute {
-  id           String     @id @default(cuid())
-  submissionId String
-  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  openedById String
-  openedBy   User   @relation("DisputeOpener", fields: [openedById], references: [id])
-  reason     String
-
-  status       DisputeStatus @default(OPEN)
-  resolution   String?
-  resolvedById String?
-  resolvedBy   User?         @relation("DisputeResolver", fields: [resolvedById], references: [id])
-  resolvedAt   DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  messages DisputeMessage[]
-
-  @@index([status])
-}
-
-model DisputeMessage {
-  id        String  @id @default(cuid())
-  disputeId String
-  dispute   Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
-
-  senderId String
-  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  body     String
-
-  createdAt DateTime @default(now())
-
-  @@index([disputeId, createdAt])
-}
-
-model FraudFlag {
-  id           String      @id @default(cuid())
-  submissionId String?
-  submission   Submission? @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-
-  flaggedUserId String?
-  flaggedUser   User?   @relation("FlaggedUser", fields: [flaggedUserId], references: [id], onDelete: Cascade)
-
-  // Null kalau flag dihasilkan otomatis oleh sistem.
-  reportedById String?
-  reportedBy   User?   @relation("FlagReporter", fields: [reportedById], references: [id])
-
-  type     FraudFlagType
-  severity Int             @default(1) // 1 rendah .. 3 tinggi
-  detail   String
-  status   FraudFlagStatus @default(OPEN)
-
-  resolutionNote String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@index([status, severity])
 }
 
 // ---------------------------------------------------------------- uang

@@ -17,7 +17,6 @@ import {
   Th,
 } from "@/components/ui";
 import { submissionStatusLabel, submissionStatusTone, platformLabel } from "@/lib/labels";
-import { AppealForm } from "./appeal-form";
 
 export default async function CreatorSubmissionsPage() {
   const user = await requireRole("CREATOR");
@@ -26,7 +25,6 @@ export default async function CreatorSubmissionsPage() {
     where: { creatorId: user.id },
     include: {
       campaign: { include: { vendor: { include: { vendorProfile: true } } } },
-      disputes: { orderBy: { createdAt: "desc" }, take: 1 },
     },
     orderBy: { submittedAt: "desc" },
   });
@@ -54,7 +52,7 @@ export default async function CreatorSubmissionsPage() {
                 <Th>Dikirim</Th>
                 <Th align="right">Views</Th>
                 <Th>Status</Th>
-                <Th>Catatan / Banding</Th>
+                <Th>Catatan</Th>
               </tr>
             </thead>
             <tbody>
@@ -107,17 +105,10 @@ export default async function CreatorSubmissionsPage() {
                         iconOnly
                         icon={<IconEye className="h-4 w-4" strokeWidth={2} />}
                       >
-                        {submission.disputes.length > 0 ? (
-                          <Callout tone="warning" title="Banding diproses">
-                            {submission.disputes[0].reason}
-                          </Callout>
-                        ) : null}
-
                         {submission.reviewNote ? (
                           <Callout
                             tone={
-                              submission.status === "APPROVED" ||
-                              submission.status === "ADMIN_APPROVED"
+                              submission.status === "APPROVED"
                                 ? "success"
                                 : "danger"
                             }
@@ -125,25 +116,11 @@ export default async function CreatorSubmissionsPage() {
                           >
                             {submission.reviewNote}
                           </Callout>
-                        ) : null}
-
-                        {submission.status === "REJECTED" &&
-                        submission.disputes.length === 0 ? (
-                          <div className="rounded-xl bg-surface-muted p-3">
-                            <p className="mb-2 text-xs text-muted">
-                              Jelaskan bagian konten yang sudah memenuhi brief.
-                            </p>
-                            <AppealForm submissionId={submission.id} />
-                          </div>
-                        ) : null}
-
-                        {!submission.reviewNote &&
-                        submission.disputes.length === 0 &&
-                        submission.status !== "REJECTED" ? (
+                        ) : (
                           <p className="text-sm text-muted">
                             Belum ada catatan dari reviewer.
                           </p>
-                        ) : null}
+                        )}
                       </DetailDrawer>
                     </div>
                   </Td>

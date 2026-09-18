@@ -55,7 +55,7 @@ export default async function CreatorDashboard() {
     .filter((p) => p.status === "PAID")
     .reduce((sum, p) => sum + p.netAmount, 0);
   const menungguCair = payouts
-    .filter((p) => p.status === "PENDING" || p.status === "PROCESSING")
+    .filter((p) => p.status === "PENDING")
     .reduce((sum, p) => sum + p.netAmount, 0);
 
   // Estimasi dari campaign yang masih berjalan: berapa yang akan diterima

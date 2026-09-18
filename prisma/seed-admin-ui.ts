@@ -59,14 +59,6 @@ const KATEGORI_BISNIS = [
   "LAINNYA",
 ] as const;
 const PLATFORM_SOSIAL = ["TIKTOK", "INSTAGRAM", "YOUTUBE"] as const;
-const JENIS_FRAUD = [
-  "REUSED_CONTENT",
-  "INFLATED_VIEWS",
-  "DUPLICATE_ACCOUNT",
-  "OFF_BRIEF",
-  "FAKE_VISIT",
-  "OTHER",
-] as const;
 const JENIS_NOTIF = [
   "CAMPAIGN_NEW_NEARBY",
   "CAMPAIGN_ENDING_SOON",
@@ -74,7 +66,6 @@ const JENIS_NOTIF = [
   "SUBMISSION_REJECTED",
   "PAYOUT_RELEASED",
   "VENDOR_VERIFIED",
-  "DISPUTE_UPDATE",
   "GENERAL",
 ] as const;
 
@@ -349,101 +340,7 @@ async function main() {
   }
 
   // ------------------------------------------------------------
-  // 5) Menu "Sengketa" — 80 dispute OPEN
-  // ------------------------------------------------------------
-  console.log("Membuat 80 sengketa terbuka...");
-  for (let i = 0; i < 80; i++) {
-    const vendor = vendorPool[(i + 2) % vendorPool.length];
-    const creator = creatorPool[(i + 7) % creatorPool.length];
-    const campaign = await db.campaign.create({
-      data: {
-        vendorId: vendor.id,
-        title: `Campaign Bersengketa ${i + 1}`,
-        category: "KULINER",
-        description:
-          "Campaign dengan submission yang ditolak vendor dan dibanding creator.",
-        briefAngle: "Tunjukkan menu andalan dan suasana tempat.",
-        briefMustShow: ["Nama tempat", "Menu andalan"],
-        briefProhibited: ["Review tanpa datang ke lokasi"],
-        minDurationSec: 15,
-        allowedPlatforms: ["TIKTOK"],
-        budgetPool: 1_200_000,
-        cpmRate: 11_000,
-        platformFeeRate: 15,
-        complimentType: "Gratis 1 menu",
-        complimentValue: 45_000,
-        startDate: daysFromNow(-15),
-        endDate: daysFromNow(5),
-        trackingEndsAt: daysFromNow(12),
-        status: "ACTIVE",
-        submittedAt: daysFromNow(-18),
-        approvedAt: daysFromNow(-17),
-        approvedById: admin.id,
-      },
-    });
-
-    const participation = await db.campaignParticipation.create({
-      data: {
-        campaignId: campaign.id,
-        creatorId: creator.id,
-        status: "SUBMITTED",
-        joinedAt: daysFromNow(-10),
-      },
-    });
-
-    const submission = await db.submission.create({
-      data: {
-        campaignId: campaign.id,
-        creatorId: creator.id,
-        participationId: participation.id,
-        contentUrl: `https://www.tiktok.com/@creatorbaru/video/sengketa${RUN_ID}${i + 1}`,
-        platform: "TIKTOK",
-        caption: `Konten yang disengketakan nomor ${i + 1}.`,
-        status: "APPEALED",
-        lastViews: 8_000 + i * 300,
-        lastLikes: 500 + i * 20,
-        lastComments: 30 + (i % 15),
-        lastSyncedAt: daysFromNow(-2),
-        submittedAt: daysFromNow(-8),
-        reviewedById: vendor.id,
-        reviewedAt: daysFromNow(-6),
-        reviewNote: "Konten dinilai tidak menampilkan menu andalan dengan jelas.",
-      },
-    });
-
-    await db.dispute.create({
-      data: {
-        submissionId: submission.id,
-        openedById: creator.id,
-        reason:
-          "Menu andalan sudah ditampilkan di detik ke-10, penolakan dirasa tidak beralasan.",
-        status: "OPEN",
-        createdAt: daysFromNow(-5),
-      },
-    });
-  }
-
-  // ------------------------------------------------------------
-  // 6) Menu "Fraud" — 80 fraud flag OPEN/REVIEWING
-  // ------------------------------------------------------------
-  console.log("Membuat 80 fraud flag terbuka...");
-  for (let i = 0; i < 80; i++) {
-    const creator = creatorPool[(i + 11) % creatorPool.length];
-    const jenis = JENIS_FRAUD[i % JENIS_FRAUD.length];
-    await db.fraudFlag.create({
-      data: {
-        flaggedUserId: creator.id,
-        reportedById: i % 4 === 0 ? admin.id : null,
-        type: jenis,
-        severity: 1 + (i % 3),
-        detail: `Indikasi ${jenis.toLowerCase().replace(/_/g, " ")} pada aktivitas creator #${i + 1}.`,
-        status: i % 5 === 0 ? "REVIEWING" : "OPEN",
-      },
-    });
-  }
-
-  // ------------------------------------------------------------
-  // 7) Menu "Payout" & "Escrow" — 20 campaign SETTLED, masing-masing
+  // 5) Menu "Payout" & "Escrow" — 20 campaign SETTLED, masing-masing
   //    4 payout & 4 mutasi escrow (80 + 80)
   // ------------------------------------------------------------
   console.log("Membuat 20 campaign settled dengan 80 payout & 80 mutasi escrow...");

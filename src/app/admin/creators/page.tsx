@@ -99,7 +99,6 @@ export default async function AdminCreatorsPage({
           select: {
             participations: true,
             submissions: true,
-            flaggedAgainst: true,
           },
         },
       },
@@ -198,7 +197,6 @@ export default async function AdminCreatorsPage({
             <Th align="right">Follower</Th>
             <Th align="right">Trust</Th>
             <Th align="right">Campaign</Th>
-            <Th align="right">Flag</Th>
             <Th>Status</Th>
             <Th>Aksi</Th>
           </tr>
@@ -241,17 +239,6 @@ export default async function AdminCreatorsPage({
                     {creator.creatorProfile?.trustScore ?? "—"}
                   </Td>
                   <Td align="right">{creator._count.participations}</Td>
-                  <Td align="right">
-                    <span
-                      className={
-                        creator._count.flaggedAgainst > 0
-                          ? "font-medium text-danger"
-                          : undefined
-                      }
-                    >
-                      {creator._count.flaggedAgainst}
-                    </span>
-                  </Td>
                   <Td>
                     <Badge tone={creatorAccountStatusTone[creator.status]} icon>
                       {creatorAccountStatusLabel[creator.status]}
@@ -319,8 +306,7 @@ export default async function AdminCreatorsPage({
                           </dt>
                           <dd className="mt-0.5">
                             {creator._count.participations} campaign ·{" "}
-                            {creator._count.submissions} submission ·{" "}
-                            {creator._count.flaggedAgainst} flag
+                            {creator._count.submissions} submission
                           </dd>
                         </div>
                         <div>

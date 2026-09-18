@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState, useState } from "react";
 import {
   updateViewsAction,
@@ -66,7 +65,7 @@ export function AutoSyncButton({
 /**
  * Kolom Aksi. Edit-nya dibuka lewat `DetailDrawer` supaya baris tabel tidak
  * berubah jadi form saat ikon edit ditekan — pola yang sama dengan halaman
- * admin lain (vendors, campaigns, fraud).
+ * admin lain (vendors, campaigns).
  */
 export function ViewsRowCells({
   submissionId,
@@ -170,14 +169,10 @@ function ViewsForm({
 
       {selisih !== null && selisih !== 0 ? (
         turun ? (
-          <Link
-            href="/admin/fraud"
-            className="tabular inline-flex items-center gap-1 text-sm font-medium text-danger"
-            title="Views turun — akan ditandai fraud"
-          >
+          <p className="tabular inline-flex items-center gap-1 text-sm font-medium text-danger">
             <IconAlert className="h-3.5 w-3.5 shrink-0" />
-            Selisih {angkaID.format(selisih)} — akan ditandai fraud
-          </Link>
+            Selisih {angkaID.format(selisih)} — views turun, pastikan ini benar
+          </p>
         ) : (
           <p className="tabular text-sm text-success">
             Selisih +{angkaID.format(selisih)}

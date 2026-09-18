@@ -1,16 +1,13 @@
-import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getCampaignPerformance } from "@/domain/campaign";
-import { formatCompact, formatDate, formatIDR } from "@/lib/format";
+import { formatCompact, formatDateTime, formatIDR } from "@/lib/format";
 import {
   Badge,
   ButtonLink,
   DataTable,
+  DetailDrawer,
   IconBank,
   IconBanknote,
-  IconCalculator,
-  IconClock,
   IconDownload,
   IconShieldCheck,
   PageHeader,
@@ -21,20 +18,19 @@ import {
   TableToolbar,
   Td,
   Th,
+  paginationArgs,
   resolvePageSize,
   rowNumber,
 } from "@/components/ui";
-import { settleCampaignAction } from "../actions";
-import { SimpleActionForm } from "../decision-form";
+import { payoutStatusLabel, payoutStatusTone } from "@/lib/labels";
 
 const BASE = "/admin/payouts";
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 15;
 
 export default async function AdminPayoutsPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    tab?: string;
     q?: string;
     campaign?: string;
     page?: string;
@@ -43,287 +39,112 @@ export default async function AdminPayoutsPage({
 }) {
   await requireRole("ADMIN");
   const params = await searchParams;
-  const tab = params.tab === "settle" ? "settle" : "siap";
   const page = Math.max(1, Number(params.page) || 1);
   const pageSize = resolvePageSize(params.ukuran, PAGE_SIZE);
 
-  const campaigns = await db.campaign.findMany({
-    where: { status: { in: ["ACTIVE", "ENDED", "SETTLING", "SETTLED"] } },
-    include: {
-      vendor: { include: { vendorProfile: true } },
-      payouts: {
-        include: {
-          creator: { include: { creatorProfile: true } },
-          submission: {
-            include: {
-              fraudFlags: { where: { status: { in: ["OPEN", "REVIEWING"] } } },
+  const where = {
+    ...(params.campaign ? { campaignId: params.campaign } : {}),
+    ...(params.q
+      ? {
+          OR: [
+            {
+              campaign: {
+                is: {
+                  title: { contains: params.q, mode: "insensitive" as const },
+                },
+              },
             },
-          },
-        },
-        orderBy: { netAmount: "desc" },
+            {
+              creator: {
+                is: { name: { contains: params.q, mode: "insensitive" as const } },
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+
+  const [payouts, total, ringkasan, campaignOptions] = await Promise.all([
+    db.payout.findMany({
+      where,
+      include: {
+        campaign: { include: { vendor: { include: { vendorProfile: true } } } },
+        creator: { include: { creatorProfile: true } },
       },
-      _count: { select: { submissions: true } },
-    },
-    orderBy: { endDate: "asc" },
-  });
-
-  const semuaPayout = campaigns.flatMap((campaign) => campaign.payouts);
-  const pending = semuaPayout.filter((payout) => payout.status === "PENDING");
-  const totalPending = pending.reduce((sum, payout) => sum + payout.netAmount, 0);
-  const totalPaid = semuaPayout
-    .filter((payout) => payout.status === "PAID")
-    .reduce((sum, payout) => sum + payout.netAmount, 0);
-  const totalFee = semuaPayout.reduce((sum, payout) => sum + payout.platformFee, 0);
-
-  // Penyaringan mempersempit campaign yang ditampilkan; kartu ringkasan di
-  // atas tetap memakai angka seluruh platform supaya penyaringan tidak
-  // terbaca seolah uangnya berkurang.
-  const terpilih = campaigns.filter((campaign) => {
-    if (params.campaign && campaign.id !== params.campaign) return false;
-    if (params.q) {
-      const kata = params.q.toLowerCase();
-      const cocok =
-        campaign.title.toLowerCase().includes(kata) ||
-        campaign.payouts.some((payout) =>
-          payout.creator.name.toLowerCase().includes(kata),
-        );
-      if (!cocok) return false;
-    }
-    return true;
-  });
-
-  const detail = await Promise.all(
-    terpilih.map(async (campaign) => {
-      const [performance, sengketaTerbuka, menungguReview] = await Promise.all([
-        getCampaignPerformance(campaign.id),
-        db.dispute.count({
-          where: {
-            submission: { campaignId: campaign.id },
-            status: { in: ["OPEN", "UNDER_REVIEW"] },
-          },
-        }),
-        db.submission.count({
-          where: { campaignId: campaign.id, status: "PENDING_REVIEW" },
-        }),
-      ]);
-      return { campaign, performance, sengketaTerbuka, menungguReview };
+      orderBy: { paidAt: "desc" },
+      ...paginationArgs(page, pageSize),
     }),
-  );
-
-  const seluruhSiapSettle = detail.filter(
-    ({ campaign }) => campaign.payouts.length === 0,
-  );
-  const siapSettleTotal = seluruhSiapSettle.length;
-  const siapSettle = Number.isFinite(pageSize)
-    ? seluruhSiapSettle.slice((page - 1) * pageSize, page * pageSize)
-    : seluruhSiapSettle;
-
-  const seluruhSudahSettle = detail.filter(
-    ({ campaign }) => campaign.payouts.length > 0,
-  );
-  const sudahSettleTotal = seluruhSudahSettle.length;
-  const sudahSettle = Number.isFinite(pageSize)
-    ? seluruhSudahSettle.slice((page - 1) * pageSize, page * pageSize)
-    : seluruhSudahSettle;
+    db.payout.count({ where }),
+    db.payout.aggregate({
+      _sum: { netAmount: true, platformFee: true },
+      _count: true,
+    }),
+    db.campaign.findMany({
+      where: { payouts: { some: {} } },
+      select: { id: true, title: true },
+      orderBy: { title: "asc" },
+    }),
+  ]);
 
   return (
     <div>
       <PageHeader
-        title="Settlement & payout"
-        description="Hitung pembagian pool saat campaign selesai, lalu cairkan ke creator. Pembulatan memakai metode largest remainder supaya total pembagian genap sampai rupiah terakhir."
+        title="Riwayat payout"
+        description="Settlement dihitung dan dicairkan otomatis oleh sistem begitu masa pelacakan views sebuah campaign selesai — tidak ada lagi langkah manual di sini. Halaman ini murni riwayat untuk audit."
       />
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <div className="mb-8 grid gap-4 sm:grid-cols-3">
         <Stat
-          label="Menunggu pencairan"
-          icon={IconClock}
-          value={formatIDR(totalPending)}
-          hint={`${pending.length} payout`}
-          tone={pending.length > 0 ? "danger" : undefined}
-        />
-        <Stat
-          label="Sudah dicairkan"
+          label="Total dicairkan"
           icon={IconBanknote}
-          value={formatIDR(totalPaid)}
+          value={formatIDR(ringkasan._sum.netAmount ?? 0)}
+          hint={`${ringkasan._count} payout`}
           tone="success"
         />
         <Stat
           label="Fee platform terkumpul"
           icon={IconBank}
-          value={formatIDR(totalFee)}
+          value={formatIDR(ringkasan._sum.platformFee ?? 0)}
+        />
+        <Stat
+          label="Campaign sudah settle"
+          icon={IconShieldCheck}
+          value={campaignOptions.length}
         />
       </div>
 
-      <div className="mb-8">
-        <TableToolbar
-          basePath={BASE}
-          params={params}
-          searchPlaceholder="Cari creator / campaign..."
-          filters={[
-            {
-              name: "campaign",
-              label: "Campaign",
-              options: [
-                { value: "", label: "Semua campaign" },
-                ...campaigns.map((campaign) => ({
-                  value: campaign.id,
-                  label: campaign.title,
-                })),
-              ],
-            },
-          ]}
-          action={
-            <ButtonLink
-              href="/api/admin/export?type=payouts"
-              variant="secondary"
-              size="sm"
-              title="Export CSV"
-            >
-              <IconDownload className="h-4 w-4" strokeWidth={2} />
-            </ButtonLink>
-          }
-        />
-      </div>
-
-      <div className="mb-6 inline-flex rounded-xl border border-line bg-surface-muted p-1">
-        <Link
-          href="/admin/payouts?tab=siap"
-          className={
-            tab === "siap"
-              ? "rounded-lg bg-surface px-5 py-2 text-sm font-semibold text-foreground shadow-card"
-              : "rounded-lg px-5 py-2 text-sm font-medium text-muted transition-colors hover:text-foreground"
-          }
-        >
-          Campaign siap settle
-        </Link>
-        <Link
-          href="/admin/payouts?tab=settle"
-          className={
-            tab === "settle"
-              ? "rounded-lg bg-surface px-5 py-2 text-sm font-semibold text-foreground shadow-card"
-              : "rounded-lg px-5 py-2 text-sm font-medium text-muted transition-colors hover:text-foreground"
-          }
-        >
-          Campaign sudah settle
-        </Link>
-      </div>
-
-      {tab === "siap" ? (
-      <div className="mb-8">
-        <DataTable
-          title="Campaign siap settle"
-          summary={`${siapSettleTotal} campaign`}
-          action={
-            <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
-          }
-          footer={
-            <Pagination
-              basePath={BASE}
-              params={params}
-              page={page}
-              pageSize={pageSize}
-              total={siapSettleTotal}
-            />
-          }
-        >
-          <thead>
-            <tr>
-              <Th>No</Th>
-              <Th>Campaign</Th>
-              <Th>Vendor</Th>
-              <Th>Berakhir</Th>
-              <Th align="right">Submission</Th>
-              <Th align="right">Views</Th>
-              <Th align="right">Terserap / Pool</Th>
-              <Th align="right">Refund</Th>
-              <Th>Aksi</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {siapSettle.length === 0 ? (
-              <TableEmptyRow
-                colSpan={9}
-                title="Tidak ada campaign yang menunggu dihitung"
-                description="Campaign muncul di sini setelah periodenya berjalan dan seluruh submission selesai direview."
-              />
-            ) : (
-              siapSettle.map(
-                (
-                  { campaign, performance, sengketaTerbuka, menungguReview },
-                  index,
-                ) => {
-                  const blokir = sengketaTerbuka > 0 || menungguReview > 0;
-                  const periodeSelesai = new Date() > campaign.endDate;
-                  const terserap = performance?.totalDistributed ?? 0;
-
-                  return (
-                    <tr key={campaign.id}>
-                      <Td className="tabular text-muted">
-                        {rowNumber(index, page, pageSize)}
-                      </Td>
-                      <Td className="font-medium">{campaign.title}</Td>
-                      <Td>{campaign.vendor.vendorProfile?.businessName ?? "—"}</Td>
-                      <Td className="whitespace-nowrap text-muted">
-                        {formatDate(campaign.endDate)}
-                        {!blokir && !periodeSelesai ? (
-                          <p className="text-xs">Periode belum berakhir</p>
-                        ) : null}
-                      </Td>
-                      <Td align="right">{campaign._count.submissions}</Td>
-                      <Td align="right">
-                        {formatCompact(performance?.totalViews ?? 0)}
-                      </Td>
-                      <Td align="right">
-                        <span className="font-medium">{formatIDR(terserap)}</span>
-                        <span className="text-muted"> / {formatIDR(campaign.budgetPool)}</span>
-                      </Td>
-                      <Td align="right">
-                        {formatIDR(campaign.budgetPool - terserap)}
-                      </Td>
-                      <Td>
-                        {blokir ? (
-                          <Badge tone="warning" icon>
-                            Belum bisa disettle
-                          </Badge>
-                        ) : (
-                          <SimpleActionForm
-                            action={settleCampaignAction}
-                            hiddenField="campaignId"
-                            hiddenValue={campaign.id}
-                            label="Hitung pembagian pool"
-                            icon={
-                              <IconCalculator
-                                className="h-4 w-4"
-                                strokeWidth={2}
-                              />
-                            }
-                          />
-                        )}
-                        {blokir ? (
-                          <p className="mt-1 text-xs text-danger">
-                            {sengketaTerbuka > 0
-                              ? `${sengketaTerbuka} sengketa masih terbuka. `
-                              : ""}
-                            {menungguReview > 0
-                              ? `${menungguReview} submission belum direview vendor.`
-                              : ""}
-                          </p>
-                        ) : null}
-                      </Td>
-                    </tr>
-                  );
-                },
-              )
-            )}
-          </tbody>
-        </DataTable>
-      </div>
-      ) : (
       <DataTable
-        title="Campaign sudah settle"
-        summary={`${sudahSettleTotal} campaign`}
+        title="Riwayat payout"
+        summary={`${total} payout`}
         action={
           <PageSizeSelect basePath={BASE} params={params} pageSize={pageSize} />
+        }
+        toolbar={
+          <TableToolbar
+            basePath={BASE}
+            params={params}
+            searchPlaceholder="Cari creator / campaign..."
+            filters={[
+              {
+                name: "campaign",
+                label: "Campaign",
+                options: [
+                  { value: "", label: "Semua campaign" },
+                  ...campaignOptions.map((c) => ({ value: c.id, label: c.title })),
+                ],
+              },
+            ]}
+            action={
+              <ButtonLink
+                href="/api/admin/export?type=payouts"
+                variant="secondary"
+                size="sm"
+                title="Export CSV"
+              >
+                <IconDownload className="h-4 w-4" strokeWidth={2} />
+              </ButtonLink>
+            }
+          />
         }
         footer={
           <Pagination
@@ -331,67 +152,107 @@ export default async function AdminPayoutsPage({
             params={params}
             page={page}
             pageSize={pageSize}
-            total={sudahSettleTotal}
+            total={total}
           />
         }
       >
-          <thead>
-            <tr>
-              <Th>No</Th>
-              <Th>Campaign</Th>
-              <Th>Vendor</Th>
-              <Th align="right">Creator</Th>
-              <Th align="right">Views</Th>
-              <Th align="right">Payout Bersih</Th>
-              <Th>Aksi</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {sudahSettle.length === 0 ? (
-              <TableEmptyRow
-                colSpan={7}
-                title="Belum ada campaign yang disettle"
-                description="Hitung pembagian pool dulu dari tabel di atas."
-              />
-            ) : (
-              sudahSettle.map(({ campaign }, index) => {
-                const totalViews = campaign.payouts.reduce(
-                  (sum, payout) => sum + payout.viewsCounted,
-                  0,
-                );
-                const totalNet = campaign.payouts.reduce(
-                  (sum, payout) => sum + payout.netAmount,
-                  0,
-                );
-
-                return (
-                  <tr key={campaign.id}>
-                    <Td className="tabular text-muted">
-                      {rowNumber(index, page, pageSize)}
-                    </Td>
-                    <Td className="font-medium">{campaign.title}</Td>
-                    <Td>{campaign.vendor.vendorProfile?.businessName ?? "—"}</Td>
-                    <Td align="right">{campaign.payouts.length}</Td>
-                    <Td align="right">{formatCompact(totalViews)}</Td>
-                    <Td align="right" className="font-medium">
-                      {formatIDR(totalNet)}
-                    </Td>
-                    <Td>
-                      <a
-                        href={`/admin/payouts/pratinjau?campaign=${campaign.id}`}
-                        title="Lihat pratinjau"
-                        className="text-brand-600 transition-colors hover:text-brand-700"
-                      >
-                        <IconShieldCheck className="h-4 w-4" strokeWidth={2} />
-                      </a>
-                    </Td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
+        <thead>
+          <tr>
+            <Th>No</Th>
+            <Th>Creator</Th>
+            <Th>Campaign</Th>
+            <Th align="right">Views</Th>
+            <Th align="right">Porsi</Th>
+            <Th align="right">Bersih</Th>
+            <Th>Status</Th>
+            <Th>Detail</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {payouts.length === 0 ? (
+            <TableEmptyRow
+              colSpan={8}
+              title="Belum ada payout"
+              description="Baris pertama muncul otomatis begitu campaign pertama selesai masa pelacakan views."
+            />
+          ) : (
+            payouts.map((payout, index) => (
+              <tr key={payout.id}>
+                <Td className="tabular text-muted">
+                  {rowNumber(index, page, pageSize)}
+                </Td>
+                <Td className="font-medium">{payout.creator.name}</Td>
+                <Td>
+                  <p>{payout.campaign.title}</p>
+                  <p className="text-xs text-muted">
+                    {payout.campaign.vendor.vendorProfile?.businessName ?? "—"}
+                  </p>
+                </Td>
+                <Td align="right">{formatCompact(payout.viewsCounted)}</Td>
+                <Td align="right">{payout.sharePercent.toFixed(1)}%</Td>
+                <Td align="right" className="font-medium">
+                  {formatIDR(payout.netAmount)}
+                </Td>
+                <Td>
+                  <Badge tone={payoutStatusTone[payout.status]} icon>
+                    {payoutStatusLabel[payout.status]}
+                  </Badge>
+                </Td>
+                <Td>
+                  <DetailDrawer
+                    label="Lihat"
+                    title={payout.creator.name}
+                    subtitle={`${payout.campaign.title} · ${payout.paidAt ? formatDateTime(payout.paidAt) : "belum dicairkan"}`}
+                    icon={<IconShieldCheck className="h-4 w-4" strokeWidth={2} />}
+                  >
+                    <dl className="space-y-3 text-sm">
+                      <div>
+                        <dt className="text-xs font-medium text-muted">
+                          Views dihitung
+                        </dt>
+                        <dd className="tabular mt-0.5">
+                          {formatCompact(payout.viewsCounted)} dari{" "}
+                          {formatCompact(payout.totalPoolViews)} total
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-medium text-muted">
+                          Bruto / Fee / Bersih
+                        </dt>
+                        <dd className="tabular mt-0.5">
+                          {formatIDR(payout.grossAmount)} −{" "}
+                          {formatIDR(payout.platformFee)} ={" "}
+                          <span className="font-medium">
+                            {formatIDR(payout.netAmount)}
+                          </span>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-medium text-muted">
+                          Rekening
+                        </dt>
+                        <dd className="mt-0.5">
+                          {payout.creator.creatorProfile?.bankName
+                            ? `${payout.creator.creatorProfile.bankName} ${payout.creator.creatorProfile.bankAccountNumber ?? ""}`
+                            : "—"}
+                        </dd>
+                      </div>
+                      {payout.note ? (
+                        <div>
+                          <dt className="text-xs font-medium text-muted">
+                            Catatan
+                          </dt>
+                          <dd className="mt-0.5 text-muted">{payout.note}</dd>
+                        </div>
+                      ) : null}
+                    </dl>
+                  </DetailDrawer>
+                </Td>
+              </tr>
+            ))
+          )}
+        </tbody>
       </DataTable>
-      )}
     </div>
   );
 }
