@@ -120,7 +120,7 @@ async function main() {
           latitude: -6.1953,
           longitude: 106.8854,
           mapsUrl: "https://maps.google.com/?q=Bakso+Malang+Enggal+Rawamangun",
-          photos: ["/demo/bakso-enggal-1.jpg"],
+          photos: ["/demo/kopi-senja-1.jpg"],
           picName: "H. Enggal Subagyo",
           picPhone: "081234567801",
           verifiedAt: daysFromNow(-30),
@@ -152,7 +152,7 @@ async function main() {
           latitude: -6.1873,
           longitude: 106.8322,
           mapsUrl: "https://maps.google.com/?q=Kopi+Toko+Djawa+Menteng",
-          photos: ["/demo/toko-djawa-1.jpg"],
+          photos: ["/demo/kopi-senja-2.jpg"],
           picName: "Rian Kurniawan",
           picPhone: "081234567802",
           verifiedAt: daysFromNow(-25),
@@ -184,7 +184,7 @@ async function main() {
           latitude: -6.1422,
           longitude: 106.8142,
           mapsUrl: "https://maps.google.com/?q=Petak+Enam+Glodok",
-          photos: ["/demo/petak-enam-1.jpg"],
+          photos: ["/demo/kafe-arsip-1.jpg"],
           picName: "Linda Wijaya",
           picPhone: "081234567803",
           verifiedAt: daysFromNow(-20),
@@ -216,7 +216,7 @@ async function main() {
           latitude: -7.8837,
           longitude: 112.4776,
           mapsUrl: "https://maps.google.com/?q=Coban+Rondo+Malang",
-          photos: ["/demo/coban-rondo-1.jpg"],
+          photos: ["/demo/coban-1.jpg"],
           picName: "Bambang Sutejo",
           picPhone: "081234567804",
           verifiedAt: daysFromNow(-15),
@@ -248,7 +248,7 @@ async function main() {
           latitude: -7.9421,
           longitude: 112.6178,
           mapsUrl: "https://maps.google.com/?q=Sego+Sambel+Marem+Malang",
-          photos: ["/demo/sego-sambel-1.jpg"],
+          photos: ["/demo/mbokdar-1.jpg"],
           picName: "Ibu Siti Mariyam",
           picPhone: "081234567805",
         },
@@ -740,6 +740,53 @@ async function main() {
     });
   }
 
+  // Early withdrawal demo: Byan Hardi SUDAH menarik dana untuk videonya —
+  // statusnya PAID, jadi tercatat juga di /admin/escrow (PAYOUT + WITHDRAWAL_FEE).
+  const earningByan = calculateCreatorEarning(1_253, {
+    cpmRate: campaignDjawa.cpmRate,
+    platformFeeRate: campaignDjawa.platformFeeRate,
+  });
+  const feeByan = calculateWithdrawalFee(earningByan.grossAmount);
+
+  await db.withdrawal.create({
+    data: {
+      creatorId: creatorByan.id,
+      campaignId: campaignDjawa.id,
+      submissionId: subByan.id,
+      viewsCounted: earningByan.viewsCounted,
+      grossAmount: earningByan.grossAmount,
+      feeAmount: feeByan.feeAmount,
+      netAmount: feeByan.netAmount,
+      status: "PAID",
+      bankName: "Mandiri",
+      bankAccountNumber: "1400019283741",
+      bankAccountName: "BYAN HARDI",
+      requestedAt: daysFromNow(-2),
+      approvedAt: daysFromNow(-1.5),
+      approvedById: admin.id,
+      paidAt: daysFromNow(-1),
+    },
+  });
+  await db.escrowTransaction.createMany({
+    data: [
+      {
+        campaignId: campaignDjawa.id,
+        type: "PAYOUT",
+        amount: feeByan.netAmount,
+        status: "COMPLETED",
+        reference: "WITHDRAW-BYAN-001",
+        completedAt: daysFromNow(-1),
+      },
+      {
+        campaignId: campaignDjawa.id,
+        type: "WITHDRAWAL_FEE",
+        amount: feeByan.feeAmount,
+        status: "COMPLETED",
+        completedAt: daysFromNow(-1),
+      },
+    ],
+  });
+
   // ================================================================
   // 7. CAMPAIGN 3: AKTIF (Petak Enam Glodok)
   // ================================================================
@@ -876,6 +923,33 @@ async function main() {
       },
     });
   }
+
+  // Early withdrawal demo: Raka Rekurae mengajukan penarikan tapi DITOLAK
+  // admin — muncul di riwayat penarikannya dengan badge "Ditolak".
+  const earningRekurae = calculateCreatorEarning(3_775, {
+    cpmRate: campaignPetakEnam.cpmRate,
+    platformFeeRate: campaignPetakEnam.platformFeeRate,
+  });
+  const feeRekurae = calculateWithdrawalFee(earningRekurae.grossAmount);
+
+  await db.withdrawal.create({
+    data: {
+      creatorId: creatorRekurae.id,
+      campaignId: campaignPetakEnam.id,
+      submissionId: subRekurae.id,
+      viewsCounted: earningRekurae.viewsCounted,
+      grossAmount: earningRekurae.grossAmount,
+      feeAmount: feeRekurae.feeAmount,
+      netAmount: feeRekurae.netAmount,
+      status: "REJECTED",
+      bankName: "BCA",
+      bankAccountNumber: "5410982341",
+      bankAccountName: "RAKA PRADANA",
+      requestedAt: daysFromNow(-3),
+      rejectionReason:
+        "Nomor rekening yang didaftarkan tidak sesuai dengan nama akun terdaftar di profil — mohon perbarui data rekening dulu.",
+    },
+  });
 
   // ================================================================
   // 8. CAMPAIGN 4: PENDING REVIEW (Wisata Coban Rondo Malang)

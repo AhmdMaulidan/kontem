@@ -3,7 +3,7 @@ import Link from "next/link";
 import { formatIDR, formatIDRCompact } from "@/lib/format";
 import { Badge } from "./badge";
 import { FactChip } from "./fact-chip";
-import { IconGift, IconPin } from "./icon";
+import { IconPin } from "./icon";
 import type { BadgeTone } from "@/lib/labels";
 
 /**
@@ -27,7 +27,6 @@ export function CatalogCard({
   budgetPool,
   cpmRate,
   creatorBergabung,
-  komplimen,
   sisaHari,
   foto,
   aksi = "Lihat detail",
@@ -42,7 +41,6 @@ export function CatalogCard({
   cpmRate: number;
   /** Berapa kreator yang sudah bergabung. Tidak ada kuota yang membatasinya. */
   creatorBergabung: number;
-  komplimen?: string | null;
   sisaHari: number;
   foto?: string | null;
   aksi?: string;
@@ -125,21 +123,10 @@ export function CatalogCard({
           </div>
           <FactChip>{sisaHari > 0 ? `${sisaHari} hari` : "Berakhir"}</FactChip>
         </li>
-        {komplimen ? (
-          <li className="flex items-start gap-1.5">
-            <IconGift
-              className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-600"
-              strokeWidth={2}
-            />
-            <p className="truncate text-[10px] text-body lg:text-[12px]">
-              {komplimen}
-            </p>
-          </li>
-        ) : null}
       </ul>
 
-      {/* mt-auto: tinggi kartu dalam satu baris grid tetap sama walau judul
-          atau komplimennya berbeda panjang. */}
+      {/* mt-auto: tinggi kartu dalam satu baris grid tetap sama walau
+          judulnya berbeda panjang. */}
       <div className="mt-auto pt-3">
         {tutup ? (
           <span className="mt-2.5 block w-full cursor-not-allowed rounded-lg bg-surface-muted py-2 text-center text-[13px] font-medium text-muted lg:text-sm">
