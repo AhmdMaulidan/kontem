@@ -1,16 +1,20 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { formatCompact, formatDateTime } from "@/lib/format";
+import { formatCompact, formatDateTime, formatIDR } from "@/lib/format";
 import {
   Badge,
   Callout,
+  Card,
   DataTable,
   DetailDrawer,
+  EmptyState,
   IconShieldCheck,
+  IconWallet,
   PageHeader,
   PageSizeSelect,
   Pagination,
+  Table,
   Td,
   Th,
   TableEmptyRow,
@@ -23,8 +27,12 @@ import {
   submissionStatusLabel,
   submissionStatusTone,
 } from "@/lib/labels";
-import { reviewSubmissionAction } from "../actions";
-import { DecisionForm } from "../decision-form";
+import {
+  markWithdrawalPaidAction,
+  reviewSubmissionAction,
+  reviewWithdrawalAction,
+} from "../actions";
+import { DecisionForm, SimpleActionForm } from "../decision-form";
 import { FlagForm } from "./review-form";
 
 /**
@@ -48,11 +56,23 @@ export default async function AdminSubmissionsPage({
 }) {
   await requireRole("ADMIN");
   const params = await searchParams;
-  const tab = params.tab === "riwayat" ? "riwayat" : "antrean";
+  const tab =
+    params.tab === "riwayat"
+      ? "riwayat"
+      : params.tab === "penarikan"
+        ? "penarikan"
+        : "antrean";
   const page = Math.max(1, Number(params.page) || 1);
   const pageSize = resolvePageSize(params.ukuran, PAGE_SIZE);
 
-  const [antreanCount, antrean, riwayat, riwayatTotal] = await Promise.all([
+  const [
+    antreanCount,
+    antrean,
+    riwayat,
+    riwayatTotal,
+    withdrawalMenunggu,
+    withdrawalDisetujui,
+  ] = await Promise.all([
     db.submission.count({ where: { status: "PENDING_REVIEW" } }),
     tab === "antrean"
       ? db.submission.findMany({
@@ -83,6 +103,24 @@ export default async function AdminSubmissionsPage({
     tab === "riwayat"
       ? db.submission.count({ where: { status: { not: "PENDING_REVIEW" } } })
       : Promise.resolve(0),
+    tab === "penarikan"
+      ? db.withdrawal.findMany({
+          where: { status: "PENDING_ADMIN_APPROVAL" },
+          include: {
+            campaign: true,
+            creator: true,
+            submission: true,
+          },
+          orderBy: { requestedAt: "asc" },
+        })
+      : Promise.resolve([]),
+    tab === "penarikan"
+      ? db.withdrawal.findMany({
+          where: { status: "APPROVED" },
+          include: { campaign: true, creator: true },
+          orderBy: { approvedAt: "asc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -120,6 +158,16 @@ export default async function AdminSubmissionsPage({
           }
         >
           Riwayat keputusan
+        </Link>
+        <Link
+          href="/admin/submissions?tab=penarikan"
+          className={
+            tab === "penarikan"
+              ? "rounded-lg bg-surface px-5 py-2 text-sm font-semibold text-foreground shadow-card"
+              : "rounded-lg px-5 py-2 text-sm font-medium text-muted transition-colors hover:text-foreground"
+          }
+        >
+          Penarikan Dana
         </Link>
       </div>
 
@@ -245,7 +293,7 @@ export default async function AdminSubmissionsPage({
           </tbody>
         </DataTable>
       </div>
-      ) : (
+      ) : tab === "riwayat" ? (
       <DataTable
         title="Riwayat keputusan"
         action={
@@ -308,6 +356,142 @@ export default async function AdminSubmissionsPage({
           )}
         </tbody>
       </DataTable>
+      ) : (
+      <div className="space-y-6">
+        <Card>
+          <div className="mb-4">
+            <h2 className="font-display text-lg font-semibold">
+              Menunggu approval
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Video sudah capai minimum penarikan campaign-nya. Cek video dan
+              brief sebelum menyetujui.
+            </p>
+          </div>
+          {withdrawalMenunggu.length === 0 ? (
+            <EmptyState
+              title="Tidak ada permintaan menunggu"
+              description="Semua permintaan penarikan sudah diputuskan."
+            />
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Creator</Th>
+                  <Th>Campaign</Th>
+                  <Th align="right">Views</Th>
+                  <Th align="right">Diajukan</Th>
+                  <Th>Aksi</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {withdrawalMenunggu.map((w) => (
+                  <tr key={w.id}>
+                    <Td className="font-medium">{w.creator.name}</Td>
+                    <Td>{w.campaign.title}</Td>
+                    <Td align="right" className="tabular">
+                      {formatCompact(w.viewsCounted)}
+                    </Td>
+                    <Td align="right" className="tabular font-medium">
+                      {formatIDR(w.netAmount)}
+                    </Td>
+                    <Td>
+                      <DetailDrawer
+                        label="Review"
+                        icon={
+                          <IconWallet className="h-4 w-4" strokeWidth={2} />
+                        }
+                        title={w.creator.name}
+                        subtitle={`${w.campaign.title} · diajukan ${formatDateTime(w.requestedAt)}`}
+                      >
+                        <a
+                          href={w.submission.contentUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block truncate text-sm text-brand"
+                        >
+                          {w.submission.contentUrl}
+                        </a>
+                        <div className="rounded-xl bg-surface-muted p-3 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted">Views dihitung</span>
+                            <span className="tabular">{formatCompact(w.viewsCounted)}</span>
+                          </div>
+                          <div className="mt-1 flex justify-between">
+                            <span className="text-muted">Fee penarikan</span>
+                            <span className="tabular">{formatIDR(w.feeAmount)}</span>
+                          </div>
+                          <div className="mt-1 flex justify-between font-medium">
+                            <span>Diterima creator</span>
+                            <span className="tabular">{formatIDR(w.netAmount)}</span>
+                          </div>
+                        </div>
+                        <div className="border-t border-line pt-4">
+                          <DecisionForm
+                            action={reviewWithdrawalAction}
+                            hiddenField="withdrawalId"
+                            hiddenValue={w.id}
+                            approveLabel="Setujui"
+                            rejectLabel="Tolak"
+                          />
+                        </div>
+                      </DetailDrawer>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Card>
+
+        <Card>
+          <div className="mb-4">
+            <h2 className="font-display text-lg font-semibold">
+              Disetujui, menunggu transfer
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Transfer manual ke rekening creator, lalu tandai selesai di sini.
+            </p>
+          </div>
+          {withdrawalDisetujui.length === 0 ? (
+            <EmptyState
+              title="Tidak ada yang menunggu transfer"
+              description="Semua penarikan yang disetujui sudah dicairkan."
+            />
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Creator</Th>
+                  <Th>Campaign</Th>
+                  <Th align="right">Jumlah</Th>
+                  <Th>Aksi</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {withdrawalDisetujui.map((w) => (
+                  <tr key={w.id}>
+                    <Td className="font-medium">{w.creator.name}</Td>
+                    <Td>{w.campaign.title}</Td>
+                    <Td align="right" className="tabular font-medium">
+                      {formatIDR(w.netAmount)}
+                    </Td>
+                    <Td>
+                      <SimpleActionForm
+                        action={markWithdrawalPaidAction}
+                        hiddenField="withdrawalId"
+                        hiddenValue={w.id}
+                        label="Tandai sudah ditransfer"
+                        size="sm"
+                      />
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Card>
+      </div>
       )}
     </div>
   );

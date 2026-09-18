@@ -1,75 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { generateRedeemCode } from "@/domain/codes";
 import { verifyContentOwnership } from "@/domain/social-url";
+import { COUNTABLE_STATUSES } from "@/domain/campaign";
+import { calculateCreatorEarning, calculateWithdrawalFee } from "@/domain/withdrawal";
+import { formatIDR } from "@/lib/format";
 
 export type ActionState = { error?: string; success?: string };
-
-/**
- * Klaim slot campaign. Kuota dicek di dalam transaksi supaya dua creator
- * yang menekan tombol bersamaan tidak sama-sama lolos saat slot tinggal satu.
- */
-export async function joinCampaignAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const user = await requireRole("CREATOR");
-  const campaignId = String(formData.get("campaignId") ?? "");
-
-  try {
-    await db.$transaction(async (tx) => {
-      const campaign = await tx.campaign.findUnique({
-        where: { id: campaignId },
-        include: {
-          _count: {
-            select: {
-              participations: { where: { status: { not: "CANCELLED" } } },
-            },
-          },
-        },
-      });
-
-      if (!campaign) throw new Error("Campaign tidak ditemukan.");
-      if (campaign.status !== "ACTIVE")
-        throw new Error("Campaign ini sedang tidak menerima peserta.");
-      if (new Date() > campaign.endDate)
-        throw new Error("Periode campaign sudah berakhir.");
-      if (campaign._count.participations >= campaign.maxCreators)
-        throw new Error("Slot campaign sudah penuh.");
-
-      const sudahIkut = await tx.campaignParticipation.findUnique({
-        where: {
-          campaignId_creatorId: { campaignId, creatorId: user.id },
-        },
-      });
-      if (sudahIkut) throw new Error("Kamu sudah bergabung di campaign ini.");
-
-      const participation = await tx.campaignParticipation.create({
-        data: { campaignId, creatorId: user.id, status: "JOINED" },
-      });
-
-      // Kode redeem dibuat saat join, ditunjukkan ke vendor di lokasi.
-      await tx.redeemCode.create({
-        data: {
-          campaignId,
-          participationId: participation.id,
-          code: generateRedeemCode(),
-          expiresAt: campaign.endDate,
-        },
-      });
-    });
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "Gagal bergabung." };
-  }
-
-  revalidatePath("/creator/campaigns");
-  redirect(`/creator/campaigns/${campaignId}`);
-}
 
 const submitSchema = z.object({
   campaignId: z.string().min(1),
@@ -78,6 +18,12 @@ const submitSchema = z.object({
   caption: z.string().optional(),
 });
 
+/**
+ * Kirim konten langsung untuk sebuah campaign. Tidak ada lagi tahap klaim
+ * slot maupun verifikasi kunjungan terpisah — participation dan submission
+ * dibuat sekaligus begitu creator submit link konten. Tidak ada batas kuota
+ * jumlah creator per campaign.
+ */
 export async function submitContentAction(
   _prev: ActionState,
   formData: FormData,
@@ -88,24 +34,22 @@ export async function submitContentAction(
 
   const { campaignId, contentUrl, platform, caption } = parsed.data;
 
-  const participation = await db.campaignParticipation.findUnique({
-    where: { campaignId_creatorId: { campaignId, creatorId: user.id } },
-    include: { campaign: true, redeemCode: true, submission: true },
-  });
-
-  if (!participation) return { error: "Kamu belum bergabung di campaign ini." };
-  if (participation.submission) return { error: "Konten sudah pernah dikirim." };
-  if (!participation.campaign.allowedPlatforms.includes(platform)) {
+  const campaign = await db.campaign.findUnique({ where: { id: campaignId } });
+  if (!campaign) return { error: "Campaign tidak ditemukan." };
+  if (campaign.status !== "ACTIVE") {
+    return { error: "Campaign ini sedang tidak menerima peserta." };
+  }
+  if (new Date() > campaign.endDate) {
+    return { error: "Periode campaign sudah berakhir." };
+  }
+  if (!campaign.allowedPlatforms.includes(platform)) {
     return { error: "Platform ini tidak diizinkan di campaign tersebut." };
   }
 
-  // Guardrail kepercayaan: konten hanya boleh dikirim setelah kehadiran terkonfirmasi di lokasi.
-  if (participation.status !== "VISITED" && participation.redeemCode?.status !== "USED") {
-    return {
-      error:
-        "Kamu harus datang ke lokasi vendor dan menukarkan kode redeem terlebih dahulu sebelum bisa mengirim konten.",
-    };
-  }
+  const sudahIkut = await db.campaignParticipation.findUnique({
+    where: { campaignId_creatorId: { campaignId, creatorId: user.id } },
+  });
+  if (sudahIkut) return { error: "Kamu sudah pernah mengirim konten untuk campaign ini." };
 
   // Guardrail akun tertaut: kreator wajib memiliki akun media sosial terdaftar untuk platform ini
   const socialAccount = await db.socialAccount.findFirst({
@@ -143,6 +87,10 @@ export async function submitContentAction(
 
   try {
     await db.$transaction(async (tx) => {
+      const participation = await tx.campaignParticipation.create({
+        data: { campaignId, creatorId: user.id, status: "SUBMITTED" },
+      });
+
       await tx.submission.create({
         data: {
           campaignId,
@@ -153,27 +101,30 @@ export async function submitContentAction(
           caption: caption || null,
         },
       });
-      await tx.campaignParticipation.update({
-        where: { id: participation.id },
-        data: { status: "SUBMITTED" },
-      });
+
       await tx.notification.create({
         data: {
-          userId: participation.campaign.vendorId,
+          userId: campaign.vendorId,
           type: "GENERAL",
           title: "Submission baru masuk",
-          body: `${user.name} mengirim konten untuk "${participation.campaign.title}".`,
+          body: `${user.name} mengirim konten untuk "${campaign.title}".`,
           link: `/vendor/campaigns/${campaignId}`,
         },
       });
     });
   } catch (err) {
     console.error("[submitContentAction Error]", err);
-    return { error: "Terjadi kesalahan sistem saat mengirim konten." };
+    return {
+      error:
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan sistem saat mengirim konten.",
+    };
   }
 
   revalidatePath("/creator/submissions");
-  return { success: "Konten terkirim, menunggu review vendor." };
+  revalidatePath(`/creator/campaigns/${campaignId}`);
+  return { success: "Konten terkirim, menunggu review admin." };
 }
 
 export async function appealAction(
@@ -304,4 +255,152 @@ export async function markNotificationsReadAction() {
     data: { readAt: new Date() },
   });
   revalidatePath("/creator/notifications");
+}
+
+const withdrawalSchema = z.object({
+  submissionId: z.string().min(1),
+});
+
+/**
+ * Ajukan penarikan dini untuk satu video, sebelum campaign settle.
+ *
+ * First-come-first-served: sisa budget pool dihitung ulang di dalam transaksi
+ * serializable supaya dua creator yang mengajukan bersamaan saat pool tinggal
+ * cukup untuk satu tidak sama-sama lolos (pola yang sama dengan guardrail
+ * kuota slot yang dulu dipakai di submitContentAction).
+ */
+export async function requestWithdrawalAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireRole("CREATOR");
+  const parsed = withdrawalSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const submission = await db.submission.findUnique({
+    where: { id: parsed.data.submissionId },
+    include: { campaign: true, withdrawal: true },
+  });
+
+  if (!submission || submission.creatorId !== user.id) {
+    return { error: "Submission tidak ditemukan." };
+  }
+  if (!COUNTABLE_STATUSES.includes(submission.status)) {
+    return { error: "Video ini belum disetujui, penghasilannya belum bisa ditarik." };
+  }
+  if (submission.campaign.status !== "ACTIVE") {
+    return { error: "Campaign ini sudah tidak aktif." };
+  }
+  if (submission.withdrawal) {
+    return { error: "Video ini sudah pernah diajukan penarikannya." };
+  }
+
+  const creatorProfile = await db.creatorProfile.findUnique({
+    where: { userId: user.id },
+  });
+  if (
+    !creatorProfile?.bankName ||
+    !creatorProfile.bankAccountNumber ||
+    !creatorProfile.bankAccountName
+  ) {
+    return {
+      error: "Lengkapi rekening bank di halaman Penghasilan sebelum menarik dana.",
+    };
+  }
+
+  const campaign = submission.campaign;
+  const earning = calculateCreatorEarning(submission.lastViews, campaign);
+
+  if (
+    typeof campaign.minWithdrawalAmount === "number" &&
+    earning.grossAmount < campaign.minWithdrawalAmount
+  ) {
+    return {
+      error: `Penghasilan video ini belum mencapai minimum penarikan (${formatIDR(campaign.minWithdrawalAmount)}).`,
+    };
+  }
+  if (earning.grossAmount <= 0) {
+    return { error: "Belum ada penghasilan yang bisa ditarik dari video ini." };
+  }
+
+  const fee = calculateWithdrawalFee(earning.grossAmount);
+
+  try {
+    await db.$transaction(
+      async (tx) => {
+        // Reservasi FCFS: penarikan yang masih menunggu approval pun ikut
+        // dihitung sebagai "sudah dipakai" — supaya sisa pool tidak jebol
+        // kalau ada beberapa request menunggu bersamaan.
+        const sudahDitarik = await tx.withdrawal.aggregate({
+          where: {
+            campaignId: campaign.id,
+            status: { in: ["PENDING_ADMIN_APPROVAL", "APPROVED", "PAID"] },
+          },
+          _sum: { grossAmount: true },
+        });
+        const sisaPool = campaign.budgetPool - (sudahDitarik._sum.grossAmount ?? 0);
+        if (earning.grossAmount > sisaPool) {
+          throw new Error(
+            "Sisa budget pool campaign ini tidak cukup untuk menarik sebesar itu.",
+          );
+        }
+
+        await tx.withdrawal.create({
+          data: {
+            creatorId: user.id,
+            campaignId: campaign.id,
+            submissionId: submission.id,
+            viewsCounted: earning.viewsCounted,
+            grossAmount: earning.grossAmount,
+            feeAmount: fee.feeAmount,
+            netAmount: fee.netAmount,
+            bankName: creatorProfile.bankName,
+            bankAccountNumber: creatorProfile.bankAccountNumber,
+            bankAccountName: creatorProfile.bankAccountName,
+          },
+        });
+
+        const admins = await tx.user.findMany({
+          where: { role: "ADMIN" },
+          select: { id: true },
+        });
+        if (admins.length > 0) {
+          await tx.notification.createMany({
+            data: admins.map((admin) => ({
+              userId: admin.id,
+              type: "GENERAL",
+              title: "Permintaan penarikan dana baru",
+              body: `${user.name} mengajukan penarikan ${formatIDR(fee.netAmount)} dari campaign "${campaign.title}".`,
+              link: "/admin/submissions?tab=penarikan",
+            })),
+          });
+        }
+
+        await tx.auditLog.create({
+          data: {
+            actorId: user.id,
+            action: "withdrawal.request",
+            entity: "Submission",
+            entityId: submission.id,
+            metadata: { grossAmount: earning.grossAmount, netAmount: fee.netAmount },
+          },
+        });
+      },
+      { isolationLevel: "Serializable" },
+    );
+  } catch (err) {
+    console.error("[requestWithdrawalAction Error]", err);
+    return {
+      error:
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan sistem saat mengajukan penarikan.",
+    };
+  }
+
+  revalidatePath("/creator/earnings");
+  revalidatePath("/admin/submissions");
+  return {
+    success: "Penarikan diajukan. Menunggu approval admin sebelum dana ditransfer.",
+  };
 }

@@ -1,59 +1,23 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import {
-  joinCampaignAction,
-  submitContentAction,
-  type ActionState,
-} from "../../actions";
+import { submitContentAction, type ActionState } from "../../actions";
 import { SubmitButton } from "@/components/ui";
 import { Callout, Field, FormError, Input, Select, Textarea } from "@/components/ui";
 import { platformLabel } from "@/lib/labels";
 import type { SocialPlatform } from "@/generated/prisma/enums";
 
-export function JoinForm({
-  campaignId,
-  disabled,
-  disabledReason,
-}: {
-  campaignId: string;
-  disabled?: boolean;
-  disabledReason?: string;
-}) {
-  const [state, formAction] = useActionState<ActionState, FormData>(
-    joinCampaignAction,
-    {},
-  );
-
-  return (
-    <form action={formAction} className="space-y-3">
-      <input type="hidden" name="campaignId" value={campaignId} />
-      <FormError message={state.error} />
-      <SubmitButton
-        className="w-full"
-        disabled={disabled}
-        pendingLabel="Memproses slot..."
-      >
-        Klaim slot campaign
-      </SubmitButton>
-      {disabledReason ? (
-        <p className="text-xs text-muted">{disabledReason}</p>
-      ) : null}
-    </form>
-  );
-}
-
 export function SubmitContentForm({
   campaignId,
   allowedPlatforms,
-  locked = false,
-  lockedReason,
+  disabled = false,
+  disabledReason,
   registeredAccounts = [],
 }: {
   campaignId: string;
   allowedPlatforms: SocialPlatform[];
-  locked?: boolean;
-  lockedReason?: string;
+  disabled?: boolean;
+  disabledReason?: string;
   registeredAccounts?: Array<{ platform: SocialPlatform; handle: string }>;
 }) {
   const [selectedPlatform, setSelectedPlatform] = useState<SocialPlatform>(
@@ -64,8 +28,8 @@ export function SubmitContentForm({
     {},
   );
 
-  if (locked) {
-    return <Callout tone="warning">{lockedReason}</Callout>;
+  if (disabled) {
+    return <Callout tone="warning">{disabledReason}</Callout>;
   }
 
   const currentAccount = registeredAccounts.find(

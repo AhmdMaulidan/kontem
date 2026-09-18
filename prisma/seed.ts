@@ -2,7 +2,6 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { generateRedeemCode } from "../src/domain/codes";
 import { calculatePayouts } from "../src/domain/payout";
 
 // Seed menulis ribuan baris dalam satu sesi panjang, jadi memakai koneksi
@@ -34,7 +33,6 @@ async function main() {
   await db.fraudFlag.deleteMany();
   await db.viewSnapshot.deleteMany();
   await db.submission.deleteMany();
-  await db.redeemCode.deleteMany();
   await db.campaignParticipation.deleteMany();
   await db.campaign.deleteMany();
   await db.briefTemplate.deleteMany();
@@ -408,7 +406,6 @@ async function main() {
       budgetPool: 2_500_000,
       cpmRate: 15_000,
       platformFeeRate: 3,
-      maxCreators: 8,
       complimentType: "Gratis 1 menu kopi + 1 snack",
       complimentValue: 65_000,
       complimentTerms:
@@ -449,18 +446,6 @@ async function main() {
         creatorId: peserta.creator.id,
         status: peserta.status === "APPROVED" ? "COMPLETED" : "SUBMITTED",
         joinedAt: daysFromNow(-9),
-      },
-    });
-
-    await db.redeemCode.create({
-      data: {
-        campaignId: campaignAktif.id,
-        participationId: participation.id,
-        code: generateRedeemCode(),
-        status: "USED",
-        redeemedAt: daysFromNow(-7),
-        redeemedBy: vendorKopi.id,
-        expiresAt: daysFromNow(11),
       },
     });
 
@@ -509,18 +494,6 @@ async function main() {
       creatorId: yoga.id,
       status: "SUBMITTED",
       joinedAt: daysFromNow(-8),
-    },
-  });
-
-  await db.redeemCode.create({
-    data: {
-      campaignId: campaignAktif.id,
-      participationId: partisipasiSengketa.id,
-      code: generateRedeemCode(),
-      status: "USED",
-      redeemedAt: daysFromNow(-6),
-      redeemedBy: vendorKopi.id,
-      expiresAt: daysFromNow(11),
     },
   });
 
@@ -613,7 +586,6 @@ async function main() {
       budgetPool: 1_800_000,
       cpmRate: 12_000,
       platformFeeRate: 3,
-      maxCreators: 6,
       complimentType: "Tiket masuk gratis + parkir",
       complimentValue: 20_000,
       complimentTerms: "Berlaku 1 orang, hari kerja saja.",
@@ -656,7 +628,6 @@ async function main() {
       briefProhibited: ["Merekam tamu lain tanpa izin"],
       budgetPool: 2_200_000,
       cpmRate: 14_000,
-      maxCreators: 7,
       complimentType: "Gratis kopi + roti bakar",
       complimentValue: 55_000,
       startDate: daysFromNow(-5),
@@ -675,7 +646,6 @@ async function main() {
       briefProhibited: ["Menyalakan api unggun di luar area yang ditentukan"],
       budgetPool: 3_400_000,
       cpmRate: 16_000,
-      maxCreators: 12,
       complimentType: "Tiket masuk + slot camping semalam",
       complimentValue: 75_000,
       startDate: daysFromNow(-8),
@@ -693,7 +663,6 @@ async function main() {
       briefProhibited: ["Klaim khasiat kesehatan"],
       budgetPool: 1_500_000,
       cpmRate: 13_000,
-      maxCreators: 5,
       complimentType: "Gratis 3 menu rempah baru",
       complimentValue: 90_000,
       startDate: daysFromNow(-3),
@@ -711,7 +680,6 @@ async function main() {
       briefProhibited: ["Melepas pelampung saat di atas perahu"],
       budgetPool: 2_600_000,
       cpmRate: 15_000,
-      maxCreators: 10,
       complimentType: "Sewa perahu + voucher food court",
       complimentValue: 70_000,
       startDate: daysFromNow(-4),
@@ -729,7 +697,6 @@ async function main() {
       briefProhibited: ["Merekam penonton lain dari dekat tanpa izin"],
       budgetPool: 1_900_000,
       cpmRate: 14_000,
-      maxCreators: 8,
       complimentType: "Tiket masuk + minuman",
       complimentValue: 50_000,
       startDate: daysFromNow(-6),
@@ -750,7 +717,6 @@ async function main() {
       ],
       budgetPool: 2_800_000,
       cpmRate: 17_000,
-      maxCreators: 9,
       complimentType: "Tiket sunrise + pemandu lokal",
       complimentValue: 60_000,
       startDate: daysFromNow(-1),
@@ -805,7 +771,6 @@ async function main() {
       budgetPool: 3_000_000,
       cpmRate: 18_000,
       platformFeeRate: 3,
-      maxCreators: 10,
       complimentType: "Paket buka puasa berdua",
       complimentValue: 89_000,
       startDate: daysFromNow(5),
@@ -842,7 +807,6 @@ async function main() {
       budgetPool: 1_500_000,
       cpmRate: 14_000,
       platformFeeRate: 3,
-      maxCreators: 5,
       complimentType: "Gratis 2 menu kopi",
       complimentValue: 70_000,
       startDate: daysFromNow(-60),
@@ -879,18 +843,6 @@ async function main() {
         creatorId: hasil.creator.id,
         status: "COMPLETED",
         joinedAt: daysFromNow(-58),
-      },
-    });
-
-    await db.redeemCode.create({
-      data: {
-        campaignId: campaignSelesai.id,
-        participationId: participation.id,
-        code: generateRedeemCode(),
-        status: "USED",
-        redeemedAt: daysFromNow(-55),
-        redeemedBy: vendorKopi.id,
-        expiresAt: daysFromNow(-35),
       },
     });
 
