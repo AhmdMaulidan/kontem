@@ -56,7 +56,7 @@ export function DescriptionList({
   items: Array<{ label: string; value: ReactNode }>;
 }) {
   return (
-    <dl className="grid gap-3 sm:grid-cols-2">
+    <dl className="grid grid-cols-2 gap-3">
       {items.map((item) => (
         <div key={item.label}>
           <dt className="text-xs font-medium text-muted">

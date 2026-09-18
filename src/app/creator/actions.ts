@@ -410,39 +410,6 @@ export async function refreshCreatorSubmissionViewsAction(
       },
     });
 
-    if (mencurigakan) {
-      await tx.fraudFlag.create({
-        data: {
-          submissionId,
-          flaggedUserId: submission.creatorId,
-          type: "INFLATED_VIEWS",
-          severity: 2,
-          detail: `Views otomatis dari API (${metrics.views}) lebih rendah dari views tercatat sebelumnya (${submission.lastViews}).`,
-        },
-      });
-    }
-
-    const registeredAccount = submission.creator.socialAccounts.find(
-      (a) => a.platform === submission.platform,
-    );
-    if (registeredAccount && metrics.author) {
-      const isAuthorMatch = verifyAuthorOwnership({
-        author: metrics.author,
-        registeredHandle: registeredAccount.handle,
-      });
-      if (!isAuthorMatch) {
-        await tx.fraudFlag.create({
-          data: {
-            submissionId,
-            flaggedUserId: submission.creatorId,
-            type: "REUSED_CONTENT",
-            severity: 2,
-            detail: `Penarikan metrik mendeteksi video diunggah oleh akun @${metrics.author}, berbeda dengan akun ${submission.platform} terdaftar kreator (@${registeredAccount.handle}).`,
-          },
-        });
-      }
-    }
-
     await tx.auditLog.create({
       data: {
         actorId: user.id,

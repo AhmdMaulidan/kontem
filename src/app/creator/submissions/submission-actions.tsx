@@ -12,17 +12,10 @@ import {
   cn,
 } from "@/components/ui";
 import { isWithinCooldown } from "@/domain/views";
-import { AppealForm } from "./appeal-form";
 import {
   deleteSubmissionAction,
   refreshCreatorSubmissionViewsAction,
 } from "../actions";
-
-interface DisputeData {
-  id: string;
-  reason: string;
-  status: string;
-}
 
 export function SubmissionActionMenu({
   submissionId,
@@ -30,7 +23,6 @@ export function SubmissionActionMenu({
   contentUrl,
   status,
   reviewNote,
-  dispute,
   canDelete,
   deleteDisabledReason,
 }: {
@@ -39,7 +31,6 @@ export function SubmissionActionMenu({
   contentUrl: string;
   status: string;
   reviewNote?: string | null;
-  dispute?: DisputeData | null;
   canDelete: boolean;
   deleteDisabledReason?: string;
 }) {
@@ -233,12 +224,6 @@ export function SubmissionActionMenu({
             </header>
 
             <div className="space-y-5 px-5 py-5">
-              {dispute ? (
-                <Callout tone="warning" title="Banding diproses">
-                  {dispute.reason}
-                </Callout>
-              ) : null}
-
               {reviewNote ? (
                 <Callout
                   tone={
@@ -250,22 +235,11 @@ export function SubmissionActionMenu({
                 >
                   {reviewNote}
                 </Callout>
-              ) : null}
-
-              {status === "REJECTED" && !dispute ? (
-                <div className="rounded-xl bg-surface-muted p-3">
-                  <p className="mb-2 text-xs text-muted">
-                    Jelaskan bagian konten yang sudah memenuhi brief.
-                  </p>
-                  <AppealForm submissionId={submissionId} />
-                </div>
-              ) : null}
-
-              {!reviewNote && !dispute && status !== "REJECTED" ? (
+              ) : (
                 <p className="text-sm text-muted">
                   Belum ada catatan dari reviewer.
                 </p>
-              ) : null}
+              )}
             </div>
           </aside>
         </div>
