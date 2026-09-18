@@ -28,8 +28,9 @@ export function getGoogleRedirectUri(requestUrl?: string | URL): string {
         if (envUri.origin === reqOrigin) {
           return process.env.GOOGLE_REDIRECT_URI;
         }
-        // Jika request berasal dari host yang berbeda (misal Vercel deployment), sesuaikan origin
-        return `${reqOrigin}/api/auth/google/callback`;
+        // Jika request berasal dari host yang berbeda (misal Vercel deployment), gunakan pathname dari envUri
+        const pathname = envUri.pathname || "/api/auth/google/callback";
+        return `${reqOrigin}${pathname}`;
       } catch {
         return process.env.GOOGLE_REDIRECT_URI;
       }
@@ -38,8 +39,15 @@ export function getGoogleRedirectUri(requestUrl?: string | URL): string {
   }
 
   if (requestUrl) {
-    const origin = typeof requestUrl === "string" ? new URL(requestUrl).origin : requestUrl.origin;
-    return `${origin}/api/auth/google/callback`;
+    try {
+      const parsed = typeof requestUrl === "string" ? new URL(requestUrl) : requestUrl;
+      if (parsed.pathname.includes("/api/auth/")) {
+        return `${parsed.origin}${parsed.pathname}`;
+      }
+      return `${parsed.origin}/api/auth/google/callback`;
+    } catch {
+      // fallback
+    }
   }
 
   return "http://localhost:3000/api/auth/google/callback";
@@ -77,12 +85,20 @@ export async function buildGoogleAuthUrl(requestUrl?: string | URL) {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
-export async function verifyGoogleState(state: string) {
+export async function verifyGoogleState(
+  state: string,
+): Promise<{ valid: boolean; redirectUri?: string }> {
   try {
     const { payload } = await jwtVerify(state, authSecret());
-    return payload.purpose === "google_oauth_state";
+    if (payload.purpose === "google_oauth_state") {
+      return {
+        valid: true,
+        redirectUri: typeof payload.redirectUri === "string" ? payload.redirectUri : undefined,
+      };
+    }
+    return { valid: false };
   } catch {
-    return false;
+    return { valid: false };
   }
 }
 
@@ -95,7 +111,18 @@ export type GoogleProfile = {
 
 /** Tukar `code` dari Google jadi profil pengguna (email, nama, googleId). */
 export async function exchangeGoogleCode(code: string, requestUrl?: string | URL): Promise<GoogleProfile> {
-  const redirectUri = getGoogleRedirectUri(requestUrl);
+  let redirectUri = getGoogleRedirectUri(requestUrl);
+  if (requestUrl) {
+    try {
+      const parsed = typeof requestUrl === "string" ? new URL(requestUrl) : requestUrl;
+      if (parsed.pathname.includes("/api/auth/")) {
+        redirectUri = `${parsed.origin}${parsed.pathname}`;
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },

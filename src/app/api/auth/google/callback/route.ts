@@ -38,12 +38,15 @@ export async function GET(request: Request) {
   if (googleError) {
     return keLogin(request, "google_dibatalkan");
   }
-  if (!code || !state || !(await verifyGoogleState(state))) {
+
+  const verified = state ? await verifyGoogleState(state) : { valid: false };
+  if (!code || !state || !verified.valid) {
     return keLogin(request, "google_state_tidak_valid");
   }
 
   try {
-    const profile = await exchangeGoogleCode(code, request.url);
+    const redirectUri = verified.redirectUri || request.url;
+    const profile = await exchangeGoogleCode(code, redirectUri);
     const email = profile.email.toLowerCase();
 
     const existing = await db.user.findFirst({
