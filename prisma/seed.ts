@@ -3,9 +3,9 @@ import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { calculatePayouts } from "../src/domain/payout";
+import { calculateCreatorEarning, calculateWithdrawalFee } from "../src/domain/withdrawal";
 
-// Seed menulis ribuan baris dalam satu sesi panjang, jadi memakai koneksi
-// langsung (DIRECT_URL) dan bukan transaction pooler.
+// Gunakan koneksi langsung (DIRECT_URL) jika ada untuk sesi seed yang stabil
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
 if (!connectionString) {
   throw new Error("DIRECT_URL atau DATABASE_URL belum diset di .env.");
@@ -22,10 +22,11 @@ function daysFromNow(days: number) {
 }
 
 async function main() {
-  console.log("Menghapus data lama...");
-  // Urutan penting: anak dulu, induk belakangan.
+  console.log("🧹 Menghapus data lama...");
+  // Urutan penghapusan: child tables terlebih dahulu sebelum parent tables
   await db.auditLog.deleteMany();
   await db.notification.deleteMany();
+  await db.withdrawal.deleteMany();
   await db.payout.deleteMany();
   await db.escrowTransaction.deleteMany();
   await db.viewSnapshot.deleteMany();
@@ -40,7 +41,10 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
-  console.log("Membuat admin...");
+  // ================================================================
+  // 1. ADMIN
+  // ================================================================
+  console.log("👤 Membuat Admin...");
   const admin = await db.user.create({
     data: {
       role: "ADMIN",
@@ -52,19 +56,22 @@ async function main() {
     },
   });
 
-  console.log("Membuat template brief...");
+  // ================================================================
+  // 2. TEMPLATE BRIEF
+  // ================================================================
+  console.log("📋 Membuat Template Brief...");
   const kulinerTemplate = await db.briefTemplate.create({
     data: {
       category: "KULINER",
-      name: "Template Kuliner — Food Review",
+      name: "Template Kuliner — Food & Place Review",
       fields: {
         angleSaran: [
-          "First impression saat masuk tempat",
-          "Close-up menu andalan + reaksi jujur saat mencicipi",
-          "Sebut nama tempat dan lokasi minimal sekali",
+          "First impression suasana tempat dan keramahan staf",
+          "Close-up tekstur makanan saat disajikan hangat",
+          "Review jujur rasa menu andalan serta porsinya",
         ],
-        wajibTampil: ["Nama tempat", "Menu andalan", "Suasana ruangan"],
-        larangan: ["Membandingkan langsung dengan kompetitor"],
+        wajibTampil: ["Nama tempat & lokasi", "Menu signature", "Suasana ruangan"],
+        larangan: ["Membandingkan langsung dengan kompetitor", "Konten berbau SARA"],
         durasiMinimalDetik: 20,
       },
     },
@@ -73,767 +80,960 @@ async function main() {
   const wisataTemplate = await db.briefTemplate.create({
     data: {
       category: "WISATA_ALAM",
-      name: "Template Wisata Alam — Destination Teaser",
+      name: "Template Wisata — Destination & Experience",
       fields: {
         angleSaran: [
-          "Establishing shot pemandangan utama",
-          "Rute dan estimasi waktu tempuh dari pusat kota",
-          "Tips praktis: jam terbaik, harga tiket, fasilitas",
+          "Establishing drone shot / pemandangan lanskap utama",
+          "Rute akses jalan dan tips perlengkapan trekking",
+          "Fasilitas lengkap: tiket, toilet, spot foto, warung",
         ],
         wajibTampil: ["Nama destinasi", "Spot foto utama", "Harga tiket masuk"],
-        larangan: ["Menampilkan sampah/area yang sedang direnovasi"],
+        larangan: ["Aksi berbahaya / melanggar batas keselamatan", "Membuang sampah sembarangan"],
         durasiMinimalDetik: 30,
       },
     },
   });
 
-  console.log("Membuat vendor...");
-  const vendorKopi = await db.user.create({
+  // ================================================================
+  // 3. VENDORS (Bisnis Nyata Indonesia)
+  // ================================================================
+  console.log("🏢 Membuat Vendor Realistis...");
+
+  // Vendor 1: Bakso Malang Enggal Rawamangun (Jakarta)
+  const vendorEnggal = await db.user.create({
     data: {
       role: "VENDOR",
-      email: "vendor@kopisenja.id",
-      name: "Rani Pratiwi",
+      email: "vendor@baksoenggal.id",
+      name: "H. Enggal Subagyo",
       phone: "081234567801",
       passwordHash,
       status: "VERIFIED",
       vendorProfile: {
         create: {
-          businessName: "Kopi Senja Malang",
+          businessName: "Bakso Malang Enggal Rawamangun",
           category: "KULINER",
           description:
-            "Coffee shop dengan rooftop menghadap Gunung Panderman. Spesialis manual brew dan menu nusantara.",
-          address: "Jl. Soekarno Hatta No. 21, Lowokwaru",
-          city: "Malang",
-          province: "Jawa Timur",
-          latitude: -7.9497,
-          longitude: 112.6156,
-          photos: ["/demo/kopi-senja-1.jpg", "/demo/kopi-senja-2.jpg"],
-          mapsUrl: "https://maps.google.com/?q=-7.9497,112.6156",
-          picName: "Rani Pratiwi",
+            "Bakso Malang otentik khas Jawa Timur di Rawamangun. Menyajikan aneka bakso halus, bakso urat, siomay kukus, dan pangsit goreng renyah.",
+          address: "Jl. Balai Pustaka Timur No. 39, Rawamangun, Pulo Gadung",
+          city: "Jakarta",
+          province: "DKI Jakarta",
+          latitude: -6.1953,
+          longitude: 106.8854,
+          mapsUrl: "https://maps.google.com/?q=Bakso+Malang+Enggal+Rawamangun",
+          photos: ["/demo/bakso-enggal-1.jpg"],
+          picName: "H. Enggal Subagyo",
           picPhone: "081234567801",
           verifiedAt: daysFromNow(-30),
           verifiedById: admin.id,
-          verificationNote: "Dikonfirmasi via telepon, lokasi cocok di Maps.",
+          verificationNote: "Lokasi fisik dan profil Google Maps terverifikasi.",
         },
       },
     },
   });
 
-  const vendorAirTerjun = await db.user.create({
+  // Vendor 2: Kopi Toko Djawa Menteng (Jakarta)
+  const vendorDjawa = await db.user.create({
     data: {
       role: "VENDOR",
-      email: "vendor@tumpaksewu.id",
-      name: "Bagus Setiawan",
+      email: "vendor@tokodjawa.id",
+      name: "Rian Kurniawan",
       phone: "081234567802",
       passwordHash,
       status: "VERIFIED",
       vendorProfile: {
         create: {
-          businessName: "Wisata Coban Tirta",
-          category: "WISATA_ALAM",
+          businessName: "Kopi Toko Djawa Menteng",
+          category: "KULINER",
           description:
-            "Air terjun setinggi 40 meter dengan jalur trekking 20 menit dan area camping.",
-          address: "Desa Sidomulyo, Kec. Pronojiwo",
-          city: "Lumajang",
-          province: "Jawa Timur",
-          latitude: -8.2306,
-          longitude: 112.9147,
-          photos: ["/demo/coban-1.jpg"],
-          picName: "Bagus Setiawan",
+            "Kedai kopi berkonsep vintage nostalgia Indonesia. Terkenal dengan Es Kopi Awan, seduhan manual brew, dan aneka pastry artisanal.",
+          address: "Jl. Johar No. 1A, Kebon Sirih, Menteng",
+          city: "Jakarta",
+          province: "DKI Jakarta",
+          latitude: -6.1873,
+          longitude: 106.8322,
+          mapsUrl: "https://maps.google.com/?q=Kopi+Toko+Djawa+Menteng",
+          photos: ["/demo/toko-djawa-1.jpg"],
+          picName: "Rian Kurniawan",
           picPhone: "081234567802",
-          verifiedAt: daysFromNow(-18),
+          verifiedAt: daysFromNow(-25),
           verifiedById: admin.id,
+          verificationNote: "Terverifikasi via telepon dan foto outlet aktif.",
         },
       },
     },
   });
 
-  // Vendor ini sengaja dibiarkan menunggu supaya panel approval admin ada isinya.
-  const vendorKafe = await db.user.create({
+  // Vendor 3: Petak Enam di Gedung Chandra (Jakarta Glodok)
+  const vendorPetakEnam = await db.user.create({
     data: {
       role: "VENDOR",
-      email: "vendor@kafearsip.id",
-      name: "Dimas Prakoso",
+      email: "vendor@petakenam.id",
+      name: "Linda Wijaya",
+      phone: "081234567803",
+      passwordHash,
+      status: "VERIFIED",
+      vendorProfile: {
+        create: {
+          businessName: "Petak Enam di Gedung Chandra",
+          category: "KULINER",
+          description:
+            "Pusat kuliner heritage dan wisata budaya di Glodok Pecinan Jakarta Barat. Menghadirkan ragam kuliner legendaris dan tenant kontemporer.",
+          address: "Jl. Pancoran No. 43, Glodok, Taman Sari",
+          city: "Jakarta",
+          province: "DKI Jakarta",
+          latitude: -6.1422,
+          longitude: 106.8142,
+          mapsUrl: "https://maps.google.com/?q=Petak+Enam+Glodok",
+          photos: ["/demo/petak-enam-1.jpg"],
+          picName: "Linda Wijaya",
+          picPhone: "081234567803",
+          verifiedAt: daysFromNow(-20),
+          verifiedById: admin.id,
+          verificationNote: "Sentra kuliner terdaftar resmi di kawasan pecinan Jakarta.",
+        },
+      },
+    },
+  });
+
+  // Vendor 4: Wisata Coban Rondo Malang
+  const vendorCobanRondo = await db.user.create({
+    data: {
+      role: "VENDOR",
+      email: "vendor@cobanrondo.id",
+      name: "Bambang Sutejo",
       phone: "081234567804",
       passwordHash,
       status: "VERIFIED",
       vendorProfile: {
         create: {
-          businessName: "Kafe Arsip Surabaya",
-          category: "KULINER",
-          description:
-            "Kafe dengan ruang kerja bersama dan koleksi buku, cocok untuk konten produktif.",
-          address: "Jl. Dharmawangsa No. 48, Gubeng",
-          city: "Surabaya",
-          province: "Jawa Timur",
-          latitude: -7.2687,
-          longitude: 112.7581,
-          photos: ["/demo/kafe-arsip-1.jpg"],
-          mapsUrl: "https://maps.google.com/?q=-7.2687,112.7581",
-          picName: "Dimas Prakoso",
-          picPhone: "081234567804",
-          verifiedAt: daysFromNow(-22),
-          verifiedById: admin.id,
-        },
-      },
-    },
-  });
-
-  const vendorPantai = await db.user.create({
-    data: {
-      role: "VENDOR",
-      email: "vendor@pantailestari.id",
-      name: "Ayu Kartika",
-      phone: "081234567805",
-      passwordHash,
-      status: "VERIFIED",
-      vendorProfile: {
-        create: {
-          businessName: "Pantai Lestari Gunungkidul",
+          businessName: "Wisata Alam Coban Rondo & Taman Labirin",
           category: "WISATA_ALAM",
           description:
-            "Pantai berpasir putih dengan area camping dan spot sunset.",
-          address: "Desa Kemadang, Kec. Tanjungsari",
-          city: "Gunungkidul",
-          province: "DI Yogyakarta",
-          latitude: -8.1364,
-          longitude: 110.5931,
-          photos: ["/demo/pantai-lestari-1.jpg"],
-          mapsUrl: "https://maps.google.com/?q=-8.1364,110.5931",
-          picName: "Ayu Kartika",
-          picPhone: "081234567805",
-          verifiedAt: daysFromNow(-14),
-          verifiedById: admin.id,
-        },
-      },
-    },
-  });
-
-  const vendorDanau = await db.user.create({
-    data: {
-      role: "VENDOR",
-      email: "vendor@danautirta.id",
-      name: "Rangga Wibowo",
-      phone: "081234567806",
-      passwordHash,
-      status: "VERIFIED",
-      vendorProfile: {
-        create: {
-          businessName: "Danau Tirta Recreation Park",
-          category: "WISATA_BUATAN",
-          description:
-            "Danau buatan dengan sewa perahu, jalur sepeda, dan food court tepi air.",
-          address: "Jl. Raya Pujon KM 8, Ngantang",
+            "Air terjun alami megah setinggi 84 meter di lereng Gunung Panderman dengan udara sejuk pegunungan dan atraksi taman labirin legendaris.",
+          address: "Jl. Coban Rondo, Pandesari, Pujon",
           city: "Malang",
           province: "Jawa Timur",
-          latitude: -7.8412,
-          longitude: 112.4187,
-          photos: ["/demo/danau-tirta-1.jpg"],
-          mapsUrl: "https://maps.google.com/?q=-7.8412,112.4187",
-          picName: "Rangga Wibowo",
-          picPhone: "081234567806",
-          verifiedAt: daysFromNow(-9),
+          latitude: -7.8837,
+          longitude: 112.4776,
+          mapsUrl: "https://maps.google.com/?q=Coban+Rondo+Malang",
+          photos: ["/demo/coban-rondo-1.jpg"],
+          picName: "Bambang Sutejo",
+          picPhone: "081234567804",
+          verifiedAt: daysFromNow(-15),
           verifiedById: admin.id,
+          verificationNote: "Pengelola destinasi wisata Perhutani Malang.",
         },
       },
     },
   });
 
-  const vendorPanggung = await db.user.create({
+  // Vendor 5: Sego Sambel Marem Malang (Status: PENDING — agar ada contoh antrean verifikasi admin)
+  const vendorSegoSambel = await db.user.create({
     data: {
       role: "VENDOR",
-      email: "vendor@panggungkota.id",
-      name: "Laras Anindya",
-      phone: "081234567807",
-      passwordHash,
-      status: "VERIFIED",
-      vendorProfile: {
-        create: {
-          businessName: "Panggung Kota Semarang",
-          category: "LAINNYA",
-          description:
-            "Ruang pertunjukan musik mingguan dengan panggung terbuka dan area jajanan.",
-          address: "Jl. Pemuda No. 148, Semarang Tengah",
-          city: "Semarang",
-          province: "Jawa Tengah",
-          latitude: -6.9825,
-          longitude: 110.4098,
-          photos: ["/demo/panggung-kota-1.jpg"],
-          mapsUrl: "https://maps.google.com/?q=-6.9825,110.4098",
-          picName: "Laras Anindya",
-          picPhone: "081234567807",
-          verifiedAt: daysFromNow(-6),
-          verifiedById: admin.id,
-        },
-      },
-    },
-  });
-
-  const vendorBaru = await db.user.create({
-    data: {
-      role: "VENDOR",
-      email: "vendor@sambalmbokdar.id",
-      name: "Sri Wahyuni",
-      phone: "081234567803",
+      email: "vendor@segosambelmarem.id",
+      name: "Ibu Siti Mariyam",
+      phone: "081234567805",
       passwordHash,
       status: "PENDING",
       vendorProfile: {
         create: {
-          businessName: "Warung Sambal Mbok Dar",
+          businessName: "Warung Sego Sambel Marem Malang",
           category: "KULINER",
-          description: "Warung sambal legendaris, buka sejak 1998.",
-          address: "Jl. Kaliurang KM 5 No. 12",
-          city: "Sleman",
-          province: "DI Yogyakarta",
-          latitude: -7.7561,
-          longitude: 110.3789,
-          photos: ["/demo/mbokdar-1.jpg"],
-          picName: "Sri Wahyuni",
-          picPhone: "081234567803",
+          description:
+            "Kuliner pedas malam favorit mahasiswa dan warga Malang. Sambal uleg fresh dengan pilihan iwak pe, ayam krispi, dan jeroan gurih.",
+          address: "Jl. Soekarno Hatta No. 18, Lowokwaru",
+          city: "Malang",
+          province: "Jawa Timur",
+          latitude: -7.9421,
+          longitude: 112.6178,
+          mapsUrl: "https://maps.google.com/?q=Sego+Sambel+Marem+Malang",
+          photos: ["/demo/sego-sambel-1.jpg"],
+          picName: "Ibu Siti Mariyam",
+          picPhone: "081234567805",
         },
       },
     },
   });
 
-  console.log("Membuat creator...");
-  const creatorSeeds = [
-    {
-      email: "dita@creator.id",
-      name: "Dita Anggraini",
-      city: "Malang",
-      handle: "ditamakan",
-      followers: 18400,
-      trust: 82,
-    },
-    {
-      email: "reza@creator.id",
-      name: "Reza Fadillah",
-      city: "Malang",
-      handle: "rezajalanjalan",
-      followers: 7200,
-      trust: 71,
-    },
-    {
-      email: "nabila@creator.id",
-      name: "Nabila Zahra",
-      city: "Surabaya",
-      handle: "nabilabites",
-      followers: 45300,
-      trust: 90,
-    },
-    {
-      email: "yoga@creator.id",
-      name: "Yoga Prasetya",
-      city: "Lumajang",
-      handle: "yogaoutdoor",
-      followers: 3100,
-      trust: 64,
-    },
-    {
-      email: "sinta@creator.id",
-      name: "Sinta Maharani",
-      city: "Malang",
-      handle: "sintaexplore",
-      followers: 12800,
-      trust: 55,
-    },
-  ];
+  // ================================================================
+  // 4. CREATORS (Handle & Platform Cocok dengan Video Nyata)
+  // ================================================================
+  console.log("🎨 Membuat Akun Creator Realistis...");
 
-  const creators = [];
-  for (const seed of creatorSeeds) {
-    const creator = await db.user.create({
-      data: {
-        role: "CREATOR",
-        email: seed.email,
-        name: seed.name,
-        phone: `0812${Math.floor(10000000 + Math.random() * 89999999)}`,
-        passwordHash,
-        status: "VERIFIED",
-        creatorProfile: {
-          create: {
-            city: seed.city,
-            province: seed.city === "Surabaya" ? "Jawa Timur" : "Jawa Timur",
-            trustScore: seed.trust,
-            bio: `Konten kreator ${seed.city}.`,
-            bankName: "BCA",
-            bankAccountNumber: `8${Math.floor(100000000 + Math.random() * 899999999)}`,
-            bankAccountName: seed.name.toUpperCase(),
-          },
-        },
-        socialAccounts: {
-          create: {
-            platform: "TIKTOK",
-            handle: seed.handle,
-            profileUrl: `https://tiktok.com/@${seed.handle}`,
-            followerCount: seed.followers,
-            verifiedAt: daysFromNow(-20),
-          },
+  // Creator 1: Siti Bungbung (TikTok @sibungbung - Food Vlogger 5.4M followers)
+  const creatorSibungbung = await db.user.create({
+    data: {
+      role: "CREATOR",
+      email: "sibungbung@creator.id",
+      name: "Siti Rahmawati (Sibungbung)",
+      phone: "081288990001",
+      passwordHash,
+      status: "VERIFIED",
+      creatorProfile: {
+        create: {
+          city: "Jakarta",
+          province: "DKI Jakarta",
+          trustScore: 96,
+          bio: "Food reviewer & kulineran viral nusantara. Review jujur, bikin ngiler!",
+          bankName: "BCA",
+          bankAccountNumber: "8219482910",
+          bankAccountName: "SITI RAHMAWATI",
         },
       },
-    });
-    creators.push(creator);
-  }
+      socialAccounts: {
+        create: {
+          platform: "TIKTOK",
+          handle: "sibungbung",
+          profileUrl: "https://www.tiktok.com/@sibungbung",
+          followerCount: 5_400_000,
+          verifiedAt: daysFromNow(-30),
+        },
+      },
+    },
+  });
 
-  const [dita, reza, nabila, yoga, sinta] = creators;
-
-  // ---------------------------------------------------------------- campaign aktif
-
-  console.log("Membuat campaign aktif...");
-  const campaignAktif = await db.campaign.create({
+  // Creator 2: Aunty Feni (YouTube @auntyfeni - Reviewer Kuliner Bakso & Mie)
+  const creatorAuntyFeni = await db.user.create({
     data: {
-      vendorId: vendorKopi.id,
-      title: "Rooftop Coffee Session — Kopi Senja Malang",
+      role: "CREATOR",
+      email: "auntyfeni@creator.id",
+      name: "Feni Wijaya (Aunty Feni)",
+      phone: "081288990002",
+      passwordHash,
+      status: "VERIFIED",
+      creatorProfile: {
+        create: {
+          city: "Jakarta",
+          province: "DKI Jakarta",
+          trustScore: 84,
+          bio: "Pecinta bakso kuah gurih, mie ayam gerobak, dan kuliner otentik Jakarta.",
+          bankName: "BCA",
+          bankAccountNumber: "7120984561",
+          bankAccountName: "FENI WIJAYA",
+        },
+      },
+      socialAccounts: {
+        create: {
+          platform: "YOUTUBE",
+          handle: "auntyfeni",
+          profileUrl: "https://www.youtube.com/@auntyfeni",
+          followerCount: 15_800,
+          verifiedAt: daysFromNow(-25),
+        },
+      },
+    },
+  });
+
+  // Creator 3: Byan Hardi (YouTube @byanhardTV - Kafe & Coffee Reviewer)
+  const creatorByan = await db.user.create({
+    data: {
+      role: "CREATOR",
+      email: "byanhard@creator.id",
+      name: "Byan Hardi (byanhard TV)",
+      phone: "081288990003",
+      passwordHash,
+      status: "VERIFIED",
+      creatorProfile: {
+        create: {
+          city: "Jakarta",
+          province: "DKI Jakarta",
+          trustScore: 88,
+          bio: "Review tempat ngopi nyaman, makanan aman, dan suasana WFK Jakarta.",
+          bankName: "Mandiri",
+          bankAccountNumber: "1400019283741",
+          bankAccountName: "BYAN HARDI",
+        },
+      },
+      socialAccounts: {
+        create: {
+          platform: "YOUTUBE",
+          handle: "byanhardTV",
+          profileUrl: "https://www.youtube.com/@byanhardTV",
+          followerCount: 45_200,
+          verifiedAt: daysFromNow(-28),
+        },
+      },
+    },
+  });
+
+  // Creator 4: Petak Enam Explorer (Instagram @petakenam - Wisata Kuliner Glodok)
+  const creatorPetakEnam = await db.user.create({
+    data: {
+      role: "CREATOR",
+      email: "petakenam@creator.id",
+      name: "Dita Ayu (Petak Enam Diary)",
+      phone: "081288990004",
+      passwordHash,
+      status: "VERIFIED",
+      creatorProfile: {
+        create: {
+          city: "Jakarta",
+          province: "DKI Jakarta",
+          trustScore: 85,
+          bio: "Eksplorasi spot kuliner halal & legendaris Petak Enam Glodok Jakarta.",
+          bankName: "BNI",
+          bankAccountNumber: "0987654321",
+          bankAccountName: "DITA AYU",
+        },
+      },
+      socialAccounts: {
+        create: {
+          platform: "INSTAGRAM",
+          handle: "petakenam",
+          profileUrl: "https://www.instagram.com/petakenam",
+          followerCount: 34_500,
+          verifiedAt: daysFromNow(-20),
+        },
+      },
+    },
+  });
+
+  // Creator 5: Raka Rekurae (YouTube @Rekurae - Kuliner Legendaris Jakarta)
+  const creatorRekurae = await db.user.create({
+    data: {
+      role: "CREATOR",
+      email: "rekurae@creator.id",
+      name: "Raka Pradana (Rekurae)",
+      phone: "081288990005",
+      passwordHash,
+      status: "VERIFIED",
+      creatorProfile: {
+        create: {
+          city: "Jakarta",
+          province: "DKI Jakarta",
+          trustScore: 82,
+          bio: "Berburu kuliner legendaris murah dan enak di pelosok pasar Jakarta.",
+          bankName: "BCA",
+          bankAccountNumber: "5410982341",
+          bankAccountName: "RAKA PRADANA",
+        },
+      },
+      socialAccounts: {
+        create: {
+          platform: "YOUTUBE",
+          handle: "Rekurae",
+          profileUrl: "https://www.youtube.com/@Rekurae",
+          followerCount: 28_400,
+          verifiedAt: daysFromNow(-18),
+        },
+      },
+    },
+  });
+
+  // Creator 6: Yuanda Pratama (YouTube @YuandaTVChannel - Kuliner Malang)
+  const creatorYuanda = await db.user.create({
+    data: {
+      role: "CREATOR",
+      email: "yuanda@creator.id",
+      name: "Yuanda Pratama (Yuanda TV)",
+      phone: "081288990006",
+      passwordHash,
+      status: "VERIFIED",
+      creatorProfile: {
+        create: {
+          city: "Malang",
+          province: "Jawa Timur",
+          trustScore: 78,
+          bio: "Food vlogger Malang. Berburu kuliner pedas malam dan hidden gems mahasiswa.",
+          bankName: "BRI",
+          bankAccountNumber: "334501029384501",
+          bankAccountName: "YUANDA PRATAMA",
+        },
+      },
+      socialAccounts: {
+        create: {
+          platform: "YOUTUBE",
+          handle: "YuandaTVChannel",
+          profileUrl: "https://www.youtube.com/@YuandaTVChannel",
+          followerCount: 12_600,
+          verifiedAt: daysFromNow(-15),
+        },
+      },
+    },
+  });
+
+  // ================================================================
+  // 5. CAMPAIGN 1: AKTIF (Bakso Malang Enggal Rawamangun)
+  // ================================================================
+  console.log("🚀 Membuat Campaign Aktif: Bakso Malang Enggal...");
+  const campaignBakso = await db.campaign.create({
+    data: {
+      vendorId: vendorEnggal.id,
+      title: "Review Kenikmatan Bakso Malang Enggal Rawamangun",
       category: "KULINER",
       description:
-        "Cari 8 creator Malang untuk bikin konten suasana rooftop sore hari dan menu signature kami.",
+        "Kami mencari food creator untuk meliput suasana makan siang dan aneka pilihan bakso kuah serta siomay goreng renyah khas Malang.",
       templateId: kulinerTemplate.id,
       briefAngle:
-        "Tunjukkan suasana rooftop saat golden hour, lalu review jujur menu Kopi Senja Signature.",
+        "Tunjukkan variasi menu prasmanan bakso saat diambil, tuangan kuah kaldu sapi gurih, dan gigitan renyah pangsit goreng.",
       briefMustShow: [
-        "Nama tempat 'Kopi Senja Malang'",
-        "Menu Kopi Senja Signature",
-        "View rooftop menghadap gunung",
+        "Plang nama 'Bakso Malang Enggal Rawamangun'",
+        "Pilihan bakso urat dan siomay goreng",
+        "Kuah kaldu sapi hangat mengepul",
       ],
       briefProhibited: [
-        "Membandingkan dengan coffee shop lain",
-        "Konten diambil saat kafe tutup",
+        "Membandingkan dengan warung bakso lain",
+        "Konten diambil di luar jam buka resmi",
       ],
       minDurationSec: 20,
-      allowedPlatforms: ["TIKTOK", "INSTAGRAM"],
-      budgetPool: 2_500_000,
+      allowedPlatforms: ["YOUTUBE", "TIKTOK", "INSTAGRAM"],
+      budgetPool: 3_000_000,
       cpmRate: 15_000,
       platformFeeRate: 3,
-      complimentType: "Gratis 1 menu kopi + 1 snack",
-      complimentValue: 65_000,
-      complimentTerms:
-        "Berlaku untuk 1 orang, jam 15.00-18.00, tunjukkan kode redeem ke kasir.",
+      minWithdrawalAmount: 15_000, // Syarat minimum views/earning sebelum tarik dana dini
+      complimentType: "Gratis 1 mangkok bakso campur spesial + Es Jeruk",
+      complimentValue: 50_000,
+      complimentTerms: "Berlaku untuk 1 orang saat syuting konten, tunjukkan profil kreator.",
       startDate: daysFromNow(-10),
-      endDate: daysFromNow(11),
-      trackingEndsAt: daysFromNow(18),
+      endDate: daysFromNow(20),
+      trackingEndsAt: daysFromNow(27),
       status: "ACTIVE",
-      submittedAt: daysFromNow(-13),
-      approvedAt: daysFromNow(-12),
+      submittedAt: daysFromNow(-12),
+      approvedAt: daysFromNow(-10),
+      approvedById: admin.id,
+      escrow: {
+        create: {
+          type: "DEPOSIT",
+          amount: 3_000_000,
+          status: "COMPLETED",
+          reference: "ESCROW-ENGGAL-001",
+          note: "Deposit pool campaign Bakso Malang Enggal.",
+          completedAt: daysFromNow(-10),
+        },
+      },
+    },
+  });
+
+  // Submissions untuk Campaign Bakso:
+  // --- Video 1: Aunty Feni (YouTube Shorts - REAL: https://www.youtube.com/shorts/lf4U3T3TqPQ)
+  const partFeni = await db.campaignParticipation.create({
+    data: {
+      campaignId: campaignBakso.id,
+      creatorId: creatorAuntyFeni.id,
+      status: "COMPLETED",
+      joinedAt: daysFromNow(-9),
+    },
+  });
+
+  const subFeni = await db.submission.create({
+    data: {
+      campaignId: campaignBakso.id,
+      creatorId: creatorAuntyFeni.id,
+      participationId: partFeni.id,
+      contentUrl: "https://www.youtube.com/shorts/lf4U3T3TqPQ",
+      platform: "YOUTUBE",
+      caption: "BAKSO MALANG ENGGAL RAWAMANGUN #kuliner #makanenak #wisatakuliner #jakarta #fyp",
+      status: "APPROVED",
+      lastViews: 1_547,
+      lastLikes: 42,
+      lastComments: 8,
+      lastSyncedAt: daysFromNow(-1),
+      submittedAt: daysFromNow(-7),
+      reviewedById: vendorEnggal.id,
+      reviewedAt: daysFromNow(-6),
+      reviewNote: "Video review sangat menarik, kuah dan bakso tampak sangat menggugah selera!",
+    },
+  });
+
+  // Snapshot views berkala
+  for (let day = 5; day >= 0; day -= 1) {
+    const factor = 1 - day * 0.16;
+    await db.viewSnapshot.create({
+      data: {
+        submissionId: subFeni.id,
+        views: Math.max(100, Math.round(1_547 * factor)),
+        likes: Math.round(42 * factor),
+        comments: Math.round(8 * factor),
+        source: "API",
+        capturedAt: daysFromNow(-day),
+      },
+    });
+  }
+
+  // Early withdrawal demo: Aunty Feni meminta penarikan dana dini untuk videonya
+  const earningFeni = calculateCreatorEarning(1_547, {
+    cpmRate: campaignBakso.cpmRate,
+    platformFeeRate: campaignBakso.platformFeeRate,
+  });
+  const feeFeni = calculateWithdrawalFee(earningFeni.grossAmount);
+
+  await db.withdrawal.create({
+    data: {
+      creatorId: creatorAuntyFeni.id,
+      campaignId: campaignBakso.id,
+      submissionId: subFeni.id,
+      viewsCounted: earningFeni.viewsCounted,
+      grossAmount: earningFeni.grossAmount,
+      feeAmount: feeFeni.feeAmount,
+      netAmount: feeFeni.netAmount,
+      status: "PENDING_ADMIN_APPROVAL",
+      bankName: "BCA",
+      bankAccountNumber: "7120984561",
+      bankAccountName: "FENI WIJAYA",
+      requestedAt: daysFromNow(-1),
+    },
+  });
+
+  // --- Video 2: Siti Bungbung (TikTok - REAL: https://www.tiktok.com/@sibungbung/video/7686608385516539157)
+  const partSibungbung = await db.campaignParticipation.create({
+    data: {
+      campaignId: campaignBakso.id,
+      creatorId: creatorSibungbung.id,
+      status: "COMPLETED",
+      joinedAt: daysFromNow(-8),
+    },
+  });
+
+  const subSibungbung = await db.submission.create({
+    data: {
+      campaignId: campaignBakso.id,
+      creatorId: creatorSibungbung.id,
+      participationId: partSibungbung.id,
+      contentUrl: "https://www.tiktok.com/@sibungbung/video/7686608385516539157",
+      platform: "TIKTOK",
+      caption: "Menu simple yg comforting.. rasanya pedes, manis gurih #mukbang #kulinerviral #sibungbung",
+      status: "APPROVED",
+      lastViews: 18_961,
+      lastLikes: 1_124,
+      lastComments: 20,
+      lastSyncedAt: daysFromNow(-1),
+      submittedAt: daysFromNow(-6),
+      reviewedById: vendorEnggal.id,
+      reviewedAt: daysFromNow(-5),
+      reviewNote: "Angle estetik dan reach sangat tinggi. Mantap!",
+    },
+  });
+
+  for (let day = 5; day >= 0; day -= 1) {
+    const factor = 1 - day * 0.15;
+    await db.viewSnapshot.create({
+      data: {
+        submissionId: subSibungbung.id,
+        views: Math.max(500, Math.round(18_961 * factor)),
+        likes: Math.round(1_124 * factor),
+        comments: Math.round(20 * factor),
+        source: "API",
+        capturedAt: daysFromNow(-day),
+      },
+    });
+  }
+
+  // --- Video 3: Yuanda Malang (YouTube Shorts - REAL: https://www.youtube.com/shorts/ngvQkHL-um4)
+  // Status PENDING_REVIEW agar vendor memiliki submission yang bisa di-review
+  const partYuanda = await db.campaignParticipation.create({
+    data: {
+      campaignId: campaignBakso.id,
+      creatorId: creatorYuanda.id,
+      status: "SUBMITTED",
+      joinedAt: daysFromNow(-3),
+    },
+  });
+
+  await db.submission.create({
+    data: {
+      campaignId: campaignBakso.id,
+      creatorId: creatorYuanda.id,
+      participationId: partYuanda.id,
+      contentUrl: "https://www.youtube.com/shorts/ngvQkHL-um4",
+      platform: "YOUTUBE",
+      caption: "Kuliner Malang Viral #shorts #kuliner #kulinermalang #segosambel #fyp",
+      status: "PENDING_REVIEW",
+      lastViews: 1_202,
+      lastLikes: 35,
+      lastComments: 4,
+      lastSyncedAt: daysFromNow(-1),
+      submittedAt: daysFromNow(-2),
+    },
+  });
+
+  // ================================================================
+  // 6. CAMPAIGN 2: AKTIF (Kopi Toko Djawa Menteng)
+  // ================================================================
+  console.log("☕ Membuat Campaign Aktif: Kopi Toko Djawa...");
+  const campaignDjawa = await db.campaign.create({
+    data: {
+      vendorId: vendorDjawa.id,
+      title: "Nostalgia Secangkir Es Kopi Awan di Kopi Toko Djawa",
+      category: "KULINER",
+      description:
+        "Mencari 5 video creator Jakarta untuk mereview ambience kedai bergaya vintage dan sensasi busa creamy Es Kopi Awan.",
+      templateId: kulinerTemplate.id,
+      briefAngle:
+        "Eksplorasi sudut ruangan vintage, suasana santai sore hari, dan rasa signature Es Kopi Awan.",
+      briefMustShow: [
+        "Nama 'Kopi Toko Djawa Menteng'",
+        "Menu Es Kopi Awan",
+        "Koleksi buku/piringan hitam vintage",
+      ],
+      briefProhibited: ["Merekam pengunjung lain tanpa izin"],
+      minDurationSec: 15,
+      allowedPlatforms: ["YOUTUBE", "INSTAGRAM", "TIKTOK"],
+      budgetPool: 2_500_000,
+      cpmRate: 18_000,
+      platformFeeRate: 3,
+      minWithdrawalAmount: 20_000,
+      complimentType: "Gratis 1 Es Kopi Awan + 1 Slice Cendol Cake",
+      complimentValue: 65_000,
+      complimentTerms: "Tunjukkan kode booking creator ke barista saat kedatangan.",
+      startDate: daysFromNow(-6),
+      endDate: daysFromNow(24),
+      trackingEndsAt: daysFromNow(31),
+      status: "ACTIVE",
+      submittedAt: daysFromNow(-8),
+      approvedAt: daysFromNow(-6),
       approvedById: admin.id,
       escrow: {
         create: {
           type: "DEPOSIT",
           amount: 2_500_000,
           status: "COMPLETED",
-          reference: "DEMO-TRX-001",
-          note: "Deposit budget pool sebelum campaign live.",
-          completedAt: daysFromNow(-12),
+          reference: "ESCROW-DJAWA-001",
+          note: "Deposit pool Kopi Toko Djawa.",
+          completedAt: daysFromNow(-6),
         },
       },
     },
   });
 
-  // Peserta campaign aktif dengan tahapan yang berbeda-beda, supaya setiap
-  // state di dashboard punya contoh nyata.
-  const pesertaAktif = [
-    { creator: dita, views: 84_300, status: "APPROVED" as const },
-    { creator: reza, views: 21_700, status: "APPROVED" as const },
-    { creator: nabila, views: 156_200, status: "APPROVED" as const },
-    { creator: sinta, views: 4_900, status: "PENDING_REVIEW" as const },
-  ];
+  // Byan Hardi submit YouTube Shorts (REAL: https://www.youtube.com/shorts/CqmGN1cb_8U)
+  const partByan = await db.campaignParticipation.create({
+    data: {
+      campaignId: campaignDjawa.id,
+      creatorId: creatorByan.id,
+      status: "COMPLETED",
+      joinedAt: daysFromNow(-5),
+    },
+  });
 
-  for (const peserta of pesertaAktif) {
-    const participation = await db.campaignParticipation.create({
+  const subByan = await db.submission.create({
+    data: {
+      campaignId: campaignDjawa.id,
+      creatorId: creatorByan.id,
+      participationId: partByan.id,
+      contentUrl: "https://www.youtube.com/shorts/CqmGN1cb_8U",
+      platform: "YOUTUBE",
+      caption: "Cafe nyaman, makanan Aman! Ngopi sore di Menteng #shorts #coffeeshop #jakarta",
+      status: "APPROVED",
+      lastViews: 1_253,
+      lastLikes: 48,
+      lastComments: 6,
+      lastSyncedAt: daysFromNow(-1),
+      submittedAt: daysFromNow(-4),
+      reviewedById: vendorDjawa.id,
+      reviewedAt: daysFromNow(-3),
+      reviewNote: "Tone video sangat cocok dengan branding vintage kami!",
+    },
+  });
+
+  for (let day = 3; day >= 0; day -= 1) {
+    const factor = 1 - day * 0.2;
+    await db.viewSnapshot.create({
       data: {
-        campaignId: campaignAktif.id,
-        creatorId: peserta.creator.id,
-        status: peserta.status === "APPROVED" ? "COMPLETED" : "SUBMITTED",
-        joinedAt: daysFromNow(-9),
+        submissionId: subByan.id,
+        views: Math.max(150, Math.round(1_253 * factor)),
+        likes: Math.round(48 * factor),
+        comments: Math.round(6 * factor),
+        source: "API",
+        capturedAt: daysFromNow(-day),
       },
     });
-
-    const submission = await db.submission.create({
-      data: {
-        campaignId: campaignAktif.id,
-        creatorId: peserta.creator.id,
-        participationId: participation.id,
-        contentUrl: `https://tiktok.com/@user/video/${Math.floor(7000000000000000000 + Math.random() * 99999999999999999)}`,
-        platform: "TIKTOK",
-        caption: "Sore di rooftop Kopi Senja Malang ☕",
-        status: peserta.status,
-        lastViews: peserta.views,
-        lastLikes: Math.round(peserta.views * 0.08),
-        lastComments: Math.round(peserta.views * 0.01),
-        lastSyncedAt: daysFromNow(-1),
-        submittedAt: daysFromNow(-6),
-        reviewedById: peserta.status === "APPROVED" ? vendorKopi.id : null,
-        reviewedAt: peserta.status === "APPROVED" ? daysFromNow(-5) : null,
-        reviewNote:
-          peserta.status === "APPROVED" ? "Sesuai brief, angle bagus." : null,
-      },
-    });
-
-    // Riwayat views bertahap supaya grafik tren punya data.
-    for (let day = 5; day >= 0; day -= 1) {
-      const factor = 1 - day * 0.15;
-      await db.viewSnapshot.create({
-        data: {
-          submissionId: submission.id,
-          views: Math.max(0, Math.round(peserta.views * factor)),
-          likes: Math.round(peserta.views * factor * 0.08),
-          comments: Math.round(peserta.views * factor * 0.01),
-          source: "MANUAL",
-          capturedAt: daysFromNow(-day),
-        },
-      });
-    }
   }
 
-  // Satu submission ditolak vendor — memberi isi ke status "Ditolak" di
-  // riwayat submission creator.
-  const partisipasiDitolak = await db.campaignParticipation.create({
+  // ================================================================
+  // 7. CAMPAIGN 3: AKTIF (Petak Enam Glodok)
+  // ================================================================
+  console.log("🏮 Membuat Campaign Aktif: Petak Enam Glodok...");
+  const campaignPetakEnam = await db.campaign.create({
     data: {
-      campaignId: campaignAktif.id,
-      creatorId: yoga.id,
-      status: "SUBMITTED",
-      joinedAt: daysFromNow(-8),
-    },
-  });
-
-  const submissionDitolak = await db.submission.create({
-    data: {
-      campaignId: campaignAktif.id,
-      creatorId: yoga.id,
-      participationId: partisipasiDitolak.id,
-      contentUrl: "https://tiktok.com/@yogaoutdoor/video/7312345678901234567",
-      platform: "TIKTOK",
-      caption: "Ngopi sore di Malang",
-      status: "REJECTED",
-      lastViews: 31_400,
-      lastLikes: 2_100,
-      lastComments: 190,
-      lastSyncedAt: daysFromNow(-1),
-      submittedAt: daysFromNow(-5),
-      reviewedById: vendorKopi.id,
-      reviewedAt: daysFromNow(-4),
-      reviewNote: "Menu signature tidak ditampilkan sama sekali.",
-    },
-  });
-
-  // ---------------------------------------------------------------- campaign wisata
-
-  console.log("Membuat campaign wisata...");
-  await db.campaign.create({
-    data: {
-      vendorId: vendorAirTerjun.id,
-      title: "Trekking Coban Tirta — Konten Musim Kemarau",
-      category: "WISATA_ALAM",
+      vendorId: vendorPetakEnam.id,
+      title: "Jelajah Kuliner & Heritage Petak Enam Glodok",
+      category: "KULINER",
       description:
-        "Butuh konten yang menunjukkan rute trekking aman dan spot foto utama.",
-      templateId: wisataTemplate.id,
+        "Promo wisata kuliner pecinan Glodok Jakarta. Tunjukkan keberagaman kuliner halal dan suasana bangunan tempo doeloe yang estetik.",
+      templateId: kulinerTemplate.id,
       briefAngle:
-        "Perjalanan dari parkiran sampai air terjun, lengkap dengan tips perlengkapan.",
+        "Walking tour dari gerbang utama masuk ke area lantai 1 & 2, lalu cicip 2 kuliner khas.",
       briefMustShow: [
-        "Nama 'Coban Tirta'",
-        "Spot foto utama",
-        "Harga tiket Rp 15.000",
+        "Gapura Petak Enam di Gedung Chandra",
+        "Area duduk komunal lantai 2",
+        "Minimal 1 tenant kuliner halal",
       ],
-      briefProhibited: ["Berenang di bawah air terjun (larangan keselamatan)"],
+      briefProhibited: ["Informasi keliru mengenai kehalalan tenant makanan"],
       minDurationSec: 30,
-      allowedPlatforms: ["TIKTOK", "INSTAGRAM", "YOUTUBE"],
-      budgetPool: 1_800_000,
-      cpmRate: 12_000,
+      allowedPlatforms: ["INSTAGRAM", "YOUTUBE", "TIKTOK"],
+      budgetPool: 4_000_000,
+      cpmRate: 20_000,
       platformFeeRate: 3,
-      complimentType: "Tiket masuk gratis + parkir",
-      complimentValue: 20_000,
-      complimentTerms: "Berlaku 1 orang, hari kerja saja.",
-      startDate: daysFromNow(-2),
-      endDate: daysFromNow(26),
-      trackingEndsAt: daysFromNow(33),
-      status: "ACTIVE",
-      submittedAt: daysFromNow(-6),
-      approvedAt: daysFromNow(-4),
-      approvedById: admin.id,
-      escrow: {
-        create: {
-          type: "DEPOSIT",
-          amount: 1_800_000,
-          status: "COMPLETED",
-          reference: "DEMO-TRX-002",
-          completedAt: daysFromNow(-4),
-        },
-      },
-    },
-  });
-
-  // ---------------------------------------------------------------- campaign aktif lainnya
-
-  // Empat campaign aktif tambahan supaya katalog halaman depan terisi enam
-  // kartu — cukup untuk melihat grid dua barisnya, dan tetap data nyata,
-  // bukan angka contoh yang ditulis di JSX (design.md bagian 10.1).
-  console.log("Membuat campaign aktif lainnya...");
-
-  const campaignAktifLain = [
-    {
-      vendorId: vendorKafe.id,
-      title: "Work From Kafe — Sesi Pagi",
-      category: "KULINER" as const,
-      description:
-        "Cari creator Surabaya untuk menunjukkan suasana kerja pagi dan menu sarapan.",
-      briefAngle:
-        "Tunjukkan sudut kerja favorit, colokan, dan menu sarapan andalan.",
-      briefMustShow: ["Nama 'Kafe Arsip Surabaya'", "Area kerja lantai dua"],
-      briefProhibited: ["Merekam tamu lain tanpa izin"],
-      budgetPool: 2_200_000,
-      cpmRate: 14_000,
-      complimentType: "Gratis kopi + roti bakar",
-      complimentValue: 55_000,
-      startDate: daysFromNow(-5),
-      endDate: daysFromNow(16),
-      reference: "DEMO-TRX-004",
-    },
-    {
-      vendorId: vendorPantai.id,
-      title: "Sunset Camping — Pantai Lestari",
-      category: "WISATA_ALAM" as const,
-      description:
-        "Butuh konten yang menunjukkan area camping dan proses reservasinya.",
-      briefAngle:
-        "Dari parkiran sampai tenda berdiri, lalu sunset dari bibir pantai.",
-      briefMustShow: ["Nama 'Pantai Lestari'", "Tarif camping Rp 35.000"],
-      briefProhibited: ["Menyalakan api unggun di luar area yang ditentukan"],
-      budgetPool: 3_400_000,
-      cpmRate: 16_000,
-      complimentType: "Tiket masuk + slot camping semalam",
-      complimentValue: 75_000,
+      minWithdrawalAmount: 25_000,
+      complimentType: "Voucher makan senilai Rp 100.000 untuk tenant pilihan",
+      complimentValue: 100_000,
+      complimentTerms: "Dapat ditukarkan di kantor informasi Petak Enam.",
       startDate: daysFromNow(-8),
       endDate: daysFromNow(22),
-      reference: "DEMO-TRX-005",
-    },
-    {
-      vendorId: vendorKopi.id,
-      title: "Menu Baru Nusantara — Kopi Senja",
-      category: "KULINER" as const,
-      description: "Peluncuran tiga menu kopi rempah, butuh konten rasa jujur.",
-      briefAngle:
-        "Cicip tiga menu rempah baru dan bandingkan karakter rasanya.",
-      briefMustShow: ["Tiga menu rempah baru", "Harga per gelas"],
-      briefProhibited: ["Klaim khasiat kesehatan"],
-      budgetPool: 1_500_000,
-      cpmRate: 13_000,
-      complimentType: "Gratis 3 menu rempah baru",
-      complimentValue: 90_000,
-      startDate: daysFromNow(-3),
-      endDate: daysFromNow(9),
-      reference: "DEMO-TRX-006",
-    },
-    {
-      vendorId: vendorDanau.id,
-      title: "Sewa Perahu Sore — Danau Tirta",
-      category: "WISATA_BUATAN" as const,
-      description:
-        "Konten yang menunjukkan rute perahu dan suasana food court tepi danau.",
-      briefAngle: "Naik perahu saat sore, lalu jajan di food court tepi air.",
-      briefMustShow: ["Nama 'Danau Tirta'", "Tarif sewa perahu Rp 25.000"],
-      briefProhibited: ["Melepas pelampung saat di atas perahu"],
-      budgetPool: 2_600_000,
-      cpmRate: 15_000,
-      complimentType: "Sewa perahu + voucher food court",
-      complimentValue: 70_000,
-      startDate: daysFromNow(-4),
-      endDate: daysFromNow(20),
-      reference: "DEMO-TRX-008",
-    },
-    {
-      vendorId: vendorPanggung.id,
-      title: "Panggung Sabtu Malam — Semarang",
-      category: "LAINNYA" as const,
-      description:
-        "Butuh konten suasana pertunjukan musik mingguan dan cara beli tiketnya.",
-      briefAngle: "Suasana panggung dari antre masuk sampai lagu penutup.",
-      briefMustShow: ["Nama 'Panggung Kota Semarang'", "Jadwal Sabtu 19.00"],
-      briefProhibited: ["Merekam penonton lain dari dekat tanpa izin"],
-      budgetPool: 1_900_000,
-      cpmRate: 14_000,
-      complimentType: "Tiket masuk + minuman",
-      complimentValue: 50_000,
-      startDate: daysFromNow(-6),
-      endDate: daysFromNow(13),
-      reference: "DEMO-TRX-009",
-    },
-    {
-      vendorId: vendorAirTerjun.id,
-      title: "Coban Tirta Sunrise — Batch Kedua",
-      category: "WISATA_ALAM" as const,
-      description:
-        "Konten trek pagi buta sampai matahari terbit di air terjun.",
-      briefAngle:
-        "Perjalanan sebelum subuh, perlengkapan wajib, dan momen sunrise.",
-      briefMustShow: ["Nama 'Coban Tirta'", "Jam buka gerbang 04.30"],
-      briefProhibited: [
-        "Trekking sendirian tanpa pemandu (larangan keselamatan)",
-      ],
-      budgetPool: 2_800_000,
-      cpmRate: 17_000,
-      complimentType: "Tiket sunrise + pemandu lokal",
-      complimentValue: 60_000,
-      startDate: daysFromNow(-1),
-      endDate: daysFromNow(30),
-      reference: "DEMO-TRX-007",
-    },
-  ];
-
-  for (const item of campaignAktifLain) {
-    const { reference, ...data } = item;
-    await db.campaign.create({
-      data: {
-        ...data,
-        minDurationSec: 20,
-        allowedPlatforms: ["TIKTOK"],
-        platformFeeRate: 3,
-        trackingEndsAt: daysFromNow(40),
-        status: "ACTIVE",
-        submittedAt: daysFromNow(-12),
-        approvedAt: daysFromNow(-10),
-        approvedById: admin.id,
-        escrow: {
-          create: {
-            type: "DEPOSIT",
-            amount: data.budgetPool,
-            status: "COMPLETED",
-            reference,
-            completedAt: daysFromNow(-10),
-          },
-        },
-      },
-    });
-  }
-
-  // ---------------------------------------------------------------- campaign menunggu approval
-
-  console.log("Membuat campaign menunggu approval admin...");
-  await db.campaign.create({
-    data: {
-      vendorId: vendorKopi.id,
-      title: "Promo Ramadan — Paket Buka Puasa",
-      category: "KULINER",
-      description: "Campaign musiman untuk paket buka puasa berdua.",
-      briefAngle: "Suasana buka puasa di rooftop dengan paket berdua.",
-      briefMustShow: [
-        "Paket Buka Berdua Rp 89.000",
-        "Suasana menjelang maghrib",
-      ],
-      briefProhibited: ["Konten yang menyinggung SARA"],
-      minDurationSec: 20,
-      allowedPlatforms: ["TIKTOK", "INSTAGRAM"],
-      budgetPool: 3_000_000,
-      cpmRate: 18_000,
-      platformFeeRate: 3,
-      complimentType: "Paket buka puasa berdua",
-      complimentValue: 89_000,
-      startDate: daysFromNow(5),
-      endDate: daysFromNow(35),
-      status: "PENDING_REVIEW",
-      submittedAt: daysFromNow(-1),
-      // Deposit sengaja dibiarkan PENDING: admin harus menandainya lunas
-      // sebelum campaign boleh disetujui.
+      trackingEndsAt: daysFromNow(29),
+      status: "ACTIVE",
+      submittedAt: daysFromNow(-10),
+      approvedAt: daysFromNow(-8),
+      approvedById: admin.id,
       escrow: {
         create: {
           type: "DEPOSIT",
-          amount: 3_000_000,
-          status: "PENDING",
-          note: "Menunggu pembayaran deposit budget pool.",
+          amount: 4_000_000,
+          status: "COMPLETED",
+          reference: "ESCROW-PETAK-001",
+          note: "Deposit pool campaign Petak Enam Glodok.",
+          completedAt: daysFromNow(-8),
         },
       },
     },
   });
 
-  // ---------------------------------------------------------------- campaign selesai + payout
-
-  console.log("Membuat campaign selesai beserta payout...");
-  const campaignSelesai = await db.campaign.create({
+  // Creator Petak Enam Instagram Reel (REAL: https://www.instagram.com/petakenam/reel/C0xvXxEBneT/)
+  const partPetak = await db.campaignParticipation.create({
     data: {
-      vendorId: vendorKopi.id,
-      title: "Grand Opening Kopi Senja — Batch Perdana",
-      category: "KULINER",
-      description: "Campaign pembukaan cabang baru, sudah selesai dan cair.",
-      briefAngle: "Liputan suasana grand opening dan promo diskon 50%.",
-      briefMustShow: ["Nama tempat", "Promo grand opening"],
-      briefProhibited: [],
-      minDurationSec: 15,
-      allowedPlatforms: ["TIKTOK"],
-      budgetPool: 1_500_000,
+      campaignId: campaignPetakEnam.id,
+      creatorId: creatorPetakEnam.id,
+      status: "COMPLETED",
+      joinedAt: daysFromNow(-7),
+    },
+  });
+
+  const subPetak = await db.submission.create({
+    data: {
+      campaignId: campaignPetakEnam.id,
+      creatorId: creatorPetakEnam.id,
+      participationId: partPetak.id,
+      contentUrl: "https://www.instagram.com/petakenam/reel/C0xvXxEBneT/",
+      platform: "INSTAGRAM",
+      caption: "Wisata kuliner legendaris di Petak Enam Glodok Jakarta Barat! Banyak spot seru & makanan enak #petakenam #kulinerjakarta #reels",
+      status: "APPROVED",
+      lastViews: 15_200,
+      lastLikes: 840,
+      lastComments: 32,
+      lastSyncedAt: daysFromNow(-1),
+      submittedAt: daysFromNow(-5),
+      reviewedById: vendorPetakEnam.id,
+      reviewedAt: daysFromNow(-4),
+      reviewNote: "Konten informatif dan visualisasi tenant sangat lengkap.",
+    },
+  });
+
+  for (let day = 4; day >= 0; day -= 1) {
+    const factor = 1 - day * 0.18;
+    await db.viewSnapshot.create({
+      data: {
+        submissionId: subPetak.id,
+        views: Math.max(300, Math.round(15_200 * factor)),
+        likes: Math.round(840 * factor),
+        comments: Math.round(32 * factor),
+        source: "API",
+        capturedAt: daysFromNow(-day),
+      },
+    });
+  }
+
+  // Raka Rekurae YouTube Shorts (REAL: https://www.youtube.com/shorts/q9oBcCf980Y)
+  const partRekurae = await db.campaignParticipation.create({
+    data: {
+      campaignId: campaignPetakEnam.id,
+      creatorId: creatorRekurae.id,
+      status: "COMPLETED",
+      joinedAt: daysFromNow(-6),
+    },
+  });
+
+  const subRekurae = await db.submission.create({
+    data: {
+      campaignId: campaignPetakEnam.id,
+      creatorId: creatorRekurae.id,
+      participationId: partRekurae.id,
+      contentUrl: "https://www.youtube.com/shorts/q9oBcCf980Y",
+      platform: "YOUTUBE",
+      caption: "MURAH & ENAK! 3 Kuliner Legendaris Pasar Teluk Gong Jakarta #kuliner #streetfood #jakarta",
+      status: "APPROVED",
+      lastViews: 3_775,
+      lastLikes: 110,
+      lastComments: 14,
+      lastSyncedAt: daysFromNow(-1),
+      submittedAt: daysFromNow(-4),
+      reviewedById: vendorPetakEnam.id,
+      reviewedAt: daysFromNow(-3),
+      reviewNote: "Eksplorasi kuliner yang sangat detail dan autentik.",
+    },
+  });
+
+  for (let day = 3; day >= 0; day -= 1) {
+    const factor = 1 - day * 0.2;
+    await db.viewSnapshot.create({
+      data: {
+        submissionId: subRekurae.id,
+        views: Math.max(200, Math.round(3_775 * factor)),
+        likes: Math.round(110 * factor),
+        comments: Math.round(14 * factor),
+        source: "API",
+        capturedAt: daysFromNow(-day),
+      },
+    });
+  }
+
+  // ================================================================
+  // 8. CAMPAIGN 4: PENDING REVIEW (Wisata Coban Rondo Malang)
+  // ================================================================
+  console.log("🌲 Membuat Campaign Menunggu Approval Admin: Coban Rondo...");
+  await db.campaign.create({
+    data: {
+      vendorId: vendorCobanRondo.id,
+      title: "Sensasi Kesegaran Wisata Air Terjun & Labirin Coban Rondo",
+      category: "WISATA_ALAM",
+      description:
+        "Membutuhkan 4 travel creator Malang / Jawa Timur untuk membuat video dokumentasi rute trekking santai, panorama air terjun, dan keseruan wahana labirin.",
+      templateId: wisataTemplate.id,
+      briefAngle:
+        "Pemandangan gemuruh air terjun 84 meter, udara sejuk pinus, dan keseruan memecahkan rute labirin.",
+      briefMustShow: [
+        "Spot utama Coban Rondo",
+        "Wahana Taman Labirin",
+        "Info tiket masuk Rp 35.000",
+      ],
+      briefProhibited: [
+        "Melewati pagar pembatas air terjun",
+        "Meninggalkan sampah plastik",
+      ],
+      minDurationSec: 30,
+      allowedPlatforms: ["TIKTOK", "INSTAGRAM", "YOUTUBE"],
+      budgetPool: 2_000_000,
       cpmRate: 14_000,
       platformFeeRate: 3,
-      complimentType: "Gratis 2 menu kopi",
+      minWithdrawalAmount: 20_000,
+      complimentType: "Tiket masuk + akses wahana labirin gratis (2 pax)",
       complimentValue: 70_000,
-      startDate: daysFromNow(-60),
-      endDate: daysFromNow(-35),
-      trackingEndsAt: daysFromNow(-28),
+      complimentTerms: "Berlaku di hari kerja (Senin - Jumat), konfirmasi H-1.",
+      startDate: daysFromNow(3),
+      endDate: daysFromNow(33),
+      trackingEndsAt: daysFromNow(40),
+      status: "PENDING_REVIEW",
+      submittedAt: daysFromNow(-1),
+      escrow: {
+        create: {
+          type: "DEPOSIT",
+          amount: 2_000_000,
+          status: "PENDING",
+          note: "Menunggu approval admin dan verifikasi transfer pool.",
+        },
+      },
+    },
+  });
+
+  // ================================================================
+  // 9. CAMPAIGN 5: SELESAI & SETTLED (Grand Opening Toko Djawa)
+  // ================================================================
+  console.log("💰 Membuat Campaign Selesai (Settled) dengan Data Payout...");
+  const campaignSelesai = await db.campaign.create({
+    data: {
+      vendorId: vendorDjawa.id,
+      title: "Grand Opening Kopi Toko Djawa Menteng — Batch Perdana",
+      category: "KULINER",
+      description: "Campaign peluncuran cabang Menteng, periode selesai dan seluruh payout telah cair.",
+      briefAngle: "Liputan suasana opening, diskon 50%, dan antrean pengunjung antusias.",
+      briefMustShow: ["Logo Toko Djawa", "Promo Opening"],
+      briefProhibited: [],
+      minDurationSec: 15,
+      allowedPlatforms: ["TIKTOK", "YOUTUBE"],
+      budgetPool: 1_500_000,
+      cpmRate: 15_000,
+      platformFeeRate: 3,
+      startDate: daysFromNow(-45),
+      endDate: daysFromNow(-15),
+      trackingEndsAt: daysFromNow(-8),
       status: "SETTLED",
-      submittedAt: daysFromNow(-65),
-      approvedAt: daysFromNow(-63),
+      submittedAt: daysFromNow(-50),
+      approvedAt: daysFromNow(-48),
       approvedById: admin.id,
-      settledAt: daysFromNow(-27),
+      settledAt: daysFromNow(-7),
       escrow: {
         create: {
           type: "DEPOSIT",
           amount: 1_500_000,
           status: "COMPLETED",
-          reference: "DEMO-TRX-000",
-          completedAt: daysFromNow(-63),
+          reference: "ESCROW-DJAWA-BATCH0",
+          completedAt: daysFromNow(-48),
         },
       },
     },
   });
 
-  const hasilLama = [
-    { creator: dita, views: 62_800 },
-    { creator: reza, views: 38_400 },
-    { creator: nabila, views: 104_500 },
+  const riwayatPeserta = [
+    {
+      creator: creatorSibungbung,
+      views: 52_400,
+      url: "https://www.tiktok.com/@sibungbung/video/7686223056871705876",
+      platform: "TIKTOK" as const,
+      caption: "Bikin Rujak Es Semangka , potong semangkanya pakai hack #kulinerviral #sibungbung",
+    },
+    {
+      creator: creatorByan,
+      views: 31_200,
+      url: "https://www.youtube.com/shorts/CqmGN1cb_8U",
+      platform: "YOUTUBE" as const,
+      caption: "Nongkrong asik di Toko Djawa Menteng #shorts #jakarta",
+    },
+    {
+      creator: creatorAuntyFeni,
+      views: 16_400,
+      url: "https://www.youtube.com/shorts/lf4U3T3TqPQ",
+      platform: "YOUTUBE" as const,
+      caption: "Ngopi dan pastry lezat di Menteng #shorts",
+    },
   ];
 
   const entriesLama = [];
-  for (const hasil of hasilLama) {
-    const participation = await db.campaignParticipation.create({
+  for (const item of riwayatPeserta) {
+    const part = await db.campaignParticipation.create({
       data: {
         campaignId: campaignSelesai.id,
-        creatorId: hasil.creator.id,
+        creatorId: item.creator.id,
         status: "COMPLETED",
-        joinedAt: daysFromNow(-58),
+        joinedAt: daysFromNow(-44),
       },
     });
 
-    const submission = await db.submission.create({
+    const sub = await db.submission.create({
       data: {
         campaignId: campaignSelesai.id,
-        creatorId: hasil.creator.id,
-        participationId: participation.id,
-        contentUrl: `https://tiktok.com/@user/video/${Math.floor(7000000000000000000 + Math.random() * 99999999999999999)}`,
-        platform: "TIKTOK",
+        creatorId: item.creator.id,
+        participationId: part.id,
+        contentUrl: item.url,
+        platform: item.platform,
+        caption: item.caption,
         status: "APPROVED",
-        lastViews: hasil.views,
-        finalViews: hasil.views,
-        lastLikes: Math.round(hasil.views * 0.09),
-        lastComments: Math.round(hasil.views * 0.012),
-        lastSyncedAt: daysFromNow(-28),
-        submittedAt: daysFromNow(-52),
-        reviewedById: vendorKopi.id,
-        reviewedAt: daysFromNow(-51),
-        reviewNote: "Bagus.",
+        lastViews: item.views,
+        finalViews: item.views,
+        lastLikes: Math.round(item.views * 0.08),
+        lastComments: Math.round(item.views * 0.01),
+        lastSyncedAt: daysFromNow(-8),
+        submittedAt: daysFromNow(-30),
+        reviewedById: vendorDjawa.id,
+        reviewedAt: daysFromNow(-29),
+        reviewNote: "Sangat baik, memenuhi seluruh ketentuan brief.",
       },
     });
 
     entriesLama.push({
-      creatorId: hasil.creator.id,
-      submissionId: submission.id,
-      views: hasil.views,
+      creatorId: item.creator.id,
+      submissionId: sub.id,
+      views: item.views,
     });
   }
 
-  // Payout dihitung dengan fungsi yang sama seperti yang dipakai aplikasi,
-  // supaya angka di data demo konsisten dengan logika produksi.
-  const hasilPayout = calculatePayouts(entriesLama, {
+  // Hitung payout otomatis menggunakan fungsi domain
+  const kalkulasiPayout = calculatePayouts(entriesLama, {
     budgetPool: campaignSelesai.budgetPool,
     cpmRate: campaignSelesai.cpmRate,
     platformFeeRate: campaignSelesai.platformFeeRate,
   });
 
-  for (const line of hasilPayout.lines) {
+  for (const line of kalkulasiPayout.lines) {
     await db.payout.create({
       data: {
         campaignId: campaignSelesai.id,
@@ -846,7 +1046,8 @@ async function main() {
         platformFee: line.platformFee,
         netAmount: line.netAmount,
         status: "PAID",
-        paidAt: daysFromNow(-27),
+        paidAt: daysFromNow(-7),
+        note: "Settlement otomatis campaign selesai.",
       },
     });
   }
@@ -856,67 +1057,70 @@ async function main() {
       {
         campaignId: campaignSelesai.id,
         type: "PAYOUT",
-        amount: hasilPayout.totalNetToCreators,
+        amount: kalkulasiPayout.totalNetToCreators,
         status: "COMPLETED",
-        reference: "DEMO-PAYOUT-000",
-        completedAt: daysFromNow(-27),
+        reference: "ESCROW-PAYOUT-SETTLED",
+        completedAt: daysFromNow(-7),
       },
       {
         campaignId: campaignSelesai.id,
         type: "PLATFORM_FEE",
-        amount: hasilPayout.totalPlatformFee,
+        amount: kalkulasiPayout.totalPlatformFee,
         status: "COMPLETED",
-        reference: "DEMO-FEE-000",
-        completedAt: daysFromNow(-27),
+        reference: "ESCROW-FEE-SETTLED",
+        completedAt: daysFromNow(-7),
       },
-      ...(hasilPayout.refundToVendor > 0
+      ...(kalkulasiPayout.refundToVendor > 0
         ? [
-            {
-              campaignId: campaignSelesai.id,
-              type: "REFUND" as const,
-              amount: hasilPayout.refundToVendor,
-              status: "COMPLETED" as const,
-              reference: "DEMO-REFUND-000",
-              note: "Sisa pool dikembalikan karena tagihan CPM di bawah budget.",
-              completedAt: daysFromNow(-27),
-            },
-          ]
+          {
+            campaignId: campaignSelesai.id,
+            type: "REFUND" as const,
+            amount: kalkulasiPayout.refundToVendor,
+            status: "COMPLETED" as const,
+            reference: "ESCROW-REFUND-SETTLED",
+            note: "Pengembalian sisa budget pool kepada vendor.",
+            completedAt: daysFromNow(-7),
+          },
+        ]
         : []),
     ],
   });
 
-  console.log("Membuat notifikasi...");
+  // ================================================================
+  // 10. NOTIFIKASI & AUDIT LOG
+  // ================================================================
+  console.log("🔔 Membuat Notifikasi & Audit Log...");
   await db.notification.createMany({
     data: [
       {
-        userId: dita.id,
-        type: "PAYOUT_RELEASED",
-        title: "Payout cair",
-        body: "Payout campaign Grand Opening Kopi Senja sudah ditransfer.",
-        link: "/creator/earnings",
-        createdAt: daysFromNow(-27),
-      },
-      {
-        userId: dita.id,
-        type: "CAMPAIGN_NEW_NEARBY",
-        title: "Campaign baru di Malang",
-        body: "Rooftop Coffee Session — Kopi Senja Malang membuka 8 slot.",
-        link: "/creator/campaigns",
-        createdAt: daysFromNow(-10),
-      },
-      {
-        userId: yoga.id,
-        type: "SUBMISSION_REJECTED",
-        title: "Submission ditolak",
-        body: "Vendor menolak konten kamu: menu signature tidak ditampilkan.",
+        userId: creatorAuntyFeni.id,
+        type: "SUBMISSION_APPROVED",
+        title: "Submission Disetujui! 🎉",
+        body: "Vendor Bakso Malang Enggal telah menyetujui video YouTube Shorts kamu.",
         link: "/creator/submissions",
-        createdAt: daysFromNow(-4),
+        createdAt: daysFromNow(-6),
       },
       {
-        userId: vendorBaru.id,
+        userId: creatorSibungbung.id,
+        type: "PAYOUT_RELEASED",
+        title: "Payout Cair! 💸",
+        body: "Payout sebesar Rp 762.300 dari campaign Grand Opening Kopi Toko Djawa telah ditransfer ke rekening BCA kamu.",
+        link: "/creator/earnings",
+        createdAt: daysFromNow(-7),
+      },
+      {
+        userId: creatorByan.id,
+        type: "CAMPAIGN_NEW_NEARBY",
+        title: "Campaign Baru di Jakarta 📍",
+        body: "Kopi Toko Djawa Menteng membuka slot konten baru untuk kreator kopi & kafe.",
+        link: "/creator/campaigns",
+        createdAt: daysFromNow(-6),
+      },
+      {
+        userId: vendorSegoSambel.id,
         type: "GENERAL",
-        title: "Verifikasi sedang diproses",
-        body: "Tim kami akan menghubungi nomor PIC dalam 1x24 jam.",
+        title: "Pendaftaran Akun Sedang Diverifikasi",
+        body: "Tim verifikasi Kontem sedang memeriksa dokumen dan titik Google Maps usaha kamu.",
         createdAt: daysFromNow(-1),
       },
     ],
@@ -928,45 +1132,60 @@ async function main() {
         actorId: admin.id,
         action: "vendor.verify",
         entity: "VendorProfile",
-        entityId: vendorKopi.id,
-        metadata: { catatan: "Dikonfirmasi via telepon." },
+        entityId: vendorEnggal.id,
+        metadata: { catatan: "Lokasi fisik dan profil Google Maps cocok." },
         createdAt: daysFromNow(-30),
       },
       {
         actorId: admin.id,
         action: "campaign.approve",
         entity: "Campaign",
-        entityId: campaignAktif.id,
-        createdAt: daysFromNow(-12),
+        entityId: campaignBakso.id,
+        createdAt: daysFromNow(-10),
       },
       {
-        actorId: vendorKopi.id,
-        action: "submission.reject",
+        actorId: vendorEnggal.id,
+        action: "submission.approve",
         entity: "Submission",
-        entityId: submissionDitolak.id,
-        metadata: { alasan: "Menu signature tidak ditampilkan." },
-        createdAt: daysFromNow(-4),
+        entityId: subFeni.id,
+        metadata: { note: "Kualitas audio dan video sangat jernih." },
+        createdAt: daysFromNow(-6),
       },
     ],
   });
 
-  console.log("\nSeed selesai. Akun demo (password: %s)", PASSWORD);
+  console.log("\n✅ SEED BERHASIL DISELESAIKAN!\n");
+  console.log("==========================================================================");
+  console.log("Akun Demo Kontem (Semua Password: %s)", PASSWORD);
+  console.log("==========================================================================");
   console.table([
-    { role: "ADMIN", email: admin.email },
-    { role: "VENDOR (verified)", email: vendorKopi.email },
-    { role: "VENDOR (verified)", email: vendorAirTerjun.email },
-    { role: "VENDOR (verified)", email: vendorKafe.email },
-    { role: "VENDOR (verified)", email: vendorPantai.email },
-    { role: "VENDOR (verified)", email: vendorDanau.email },
-    { role: "VENDOR (verified)", email: vendorPanggung.email },
-    { role: "VENDOR (pending)", email: vendorBaru.email },
-    ...creators.map((c) => ({ role: "CREATOR", email: c.email })),
+    { Role: "ADMIN", Email: admin.email, Nama: admin.name, Platform: "-", Handle: "-" },
+    { Role: "VENDOR (Verified)", Email: vendorEnggal.email, Nama: "Bakso Malang Enggal", Platform: "-", Handle: "-" },
+    { Role: "VENDOR (Verified)", Email: vendorDjawa.email, Nama: "Kopi Toko Djawa", Platform: "-", Handle: "-" },
+    { Role: "VENDOR (Verified)", Email: vendorPetakEnam.email, Nama: "Petak Enam Glodok", Platform: "-", Handle: "-" },
+    { Role: "VENDOR (Verified)", Email: vendorCobanRondo.email, Nama: "Wisata Coban Rondo", Platform: "-", Handle: "-" },
+    { Role: "VENDOR (Pending)", Email: vendorSegoSambel.email, Nama: "Sego Sambel Marem", Platform: "-", Handle: "-" },
+    { Role: "CREATOR", Email: creatorSibungbung.email, Nama: "Siti Bungbung", Platform: "TIKTOK", Handle: "@sibungbung" },
+    { Role: "CREATOR", Email: creatorAuntyFeni.email, Nama: "Aunty Feni Foodie", Platform: "YOUTUBE", Handle: "@auntyfeni" },
+    { Role: "CREATOR", Email: creatorByan.email, Nama: "Byan Hardi", Platform: "YOUTUBE", Handle: "@byanhardTV" },
+    { Role: "CREATOR", Email: creatorPetakEnam.email, Nama: "Petak Enam Diary", Platform: "INSTAGRAM", Handle: "@petakenam" },
+    { Role: "CREATOR", Email: creatorRekurae.email, Nama: "Raka Rekurae", Platform: "YOUTUBE", Handle: "@Rekurae" },
+    { Role: "CREATOR", Email: creatorYuanda.email, Nama: "Yuanda Pratama", Platform: "YOUTUBE", Handle: "@YuandaTVChannel" },
   ]);
+  console.log("\nVideo Asli Terverifikasi yang Digunakan:");
+  console.log("1. [TikTok]    https://www.tiktok.com/@sibungbung/video/7686608385516539157");
+  console.log("2. [TikTok]    https://www.tiktok.com/@sibungbung/video/7686223056871705876");
+  console.log("3. [YouTube]   https://www.youtube.com/shorts/lf4U3T3TqPQ (Aunty Feni)");
+  console.log("4. [YouTube]   https://www.youtube.com/shorts/CqmGN1cb_8U (Byan Hardi)");
+  console.log("5. [YouTube]   https://www.youtube.com/shorts/q9oBcCf980Y (Rekurae)");
+  console.log("6. [YouTube]   https://www.youtube.com/shorts/ngvQkHL-um4 (Yuanda Pratama)");
+  console.log("7. [Instagram] https://www.instagram.com/petakenam/reel/C0xvXxEBneT/ (Petak Enam)");
+  console.log("==========================================================================\n");
 }
 
 main()
   .catch((error) => {
-    console.error(error);
+    console.error("❌ Terjadi kesalahan saat seeding:", error);
     process.exit(1);
   })
   .finally(async () => {

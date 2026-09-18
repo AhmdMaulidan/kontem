@@ -36,7 +36,7 @@ export function extractHandleFromUrl(
       // Format: instagram.com/username/reel/123 atau instagram.com/username/p/123
       // Abaikan jika segmen pertama adalah kata kunci sistem (reel, p, tv, stories)
       const match = trimmed.match(
-        /instagram\.com\/(?!reel|p|tv|stories|explore)([a-zA-Z0-9_.-]+)\/(?:reel|p|tv)\//i,
+        /instagram\.com\/(?!(?:reel|p|tv|stories|explore)\/)([a-zA-Z0-9_.-]+)\/(?:reel|p|tv)\//i,
       );
       return match ? normalizeHandle(match[1]) : null;
     }

@@ -93,7 +93,8 @@ export async function fetchYouTubeMetrics(url: string): Promise<VideoMetrics> {
 
   try {
     // 1. Ambil metadata judul dan channel author dari endpoint oEmbed resmi Google/YouTube
-    const oembedEndpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+    const canonicalWatchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const oembedEndpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(canonicalWatchUrl)}&format=json`;
     const oembedResponse = await fetch(oembedEndpoint, {
       signal: controller.signal,
       headers: {
