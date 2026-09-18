@@ -72,6 +72,11 @@ export function CatalogCard({
             alt=""
             width={640}
             height={360}
+            unoptimized={
+              foto.startsWith("data:") ||
+              foto.startsWith("http://") ||
+              foto.startsWith("https://")
+            }
             className="aspect-video w-full rounded-md object-cover"
           />
         ) : (

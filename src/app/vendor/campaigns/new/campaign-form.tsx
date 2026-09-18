@@ -69,7 +69,11 @@ export function CampaignForm({
   }, [cpmRate, maxViewsPerCreator]);
 
   return (
-    <form action={formAction} className="grid gap-6 lg:grid-cols-3">
+    <form
+      action={formAction}
+      encType="multipart/form-data"
+      className="grid gap-6 lg:grid-cols-3"
+    >
       <div className="space-y-6 lg:col-span-2">
         <FormError message={state.error} />
 
@@ -107,6 +111,11 @@ export function CampaignForm({
               label="Gambar campaign"
               hint="Foto yang mewakili campaign ini, tampil di kartu katalog. JPG/PNG/WEBP, maks 3 MB."
             >
+              <input
+                type="hidden"
+                name="imageDataUrl"
+                value={imagePreview ?? ""}
+              />
               <input
                 name="imageFile"
                 type="file"

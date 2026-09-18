@@ -146,6 +146,11 @@ export default async function CreatorDashboard() {
                             alt=""
                             width={112}
                             height={112}
+                            unoptimized={
+                              foto.startsWith("data:") ||
+                              foto.startsWith("http://") ||
+                              foto.startsWith("https://")
+                            }
                             className="h-14 w-14 shrink-0 rounded-lg object-cover"
                           />
                         ) : (

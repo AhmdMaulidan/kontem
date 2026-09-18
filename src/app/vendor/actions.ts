@@ -135,11 +135,18 @@ export async function createCampaignAction(
     return { error: "Pool budget tidak boleh lebih kecil dari CPM rate." };
   }
 
-  const imageFile = formData.get("imageFile");
-  const { dataUrl: imageUrl, error: imageError } = await readImageAsDataUrl(
-    imageFile instanceof File ? imageFile : null,
-  );
-  if (imageError) return { error: imageError };
+  let imageUrl: string | null = null;
+  const rawDataUrl = formData.get("imageDataUrl");
+  if (typeof rawDataUrl === "string" && rawDataUrl.startsWith("data:image/")) {
+    imageUrl = rawDataUrl;
+  } else {
+    const imageFile = formData.get("imageFile");
+    const { dataUrl, error: imageError } = await readImageAsDataUrl(
+      imageFile instanceof File ? imageFile : null,
+    );
+    if (imageError) return { error: imageError };
+    imageUrl = dataUrl ?? null;
+  }
 
   let newCampaignId: string;
   try {
