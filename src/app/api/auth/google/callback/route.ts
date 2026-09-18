@@ -43,7 +43,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const profile = await exchangeGoogleCode(code);
+    const profile = await exchangeGoogleCode(code, request.url);
     const email = profile.email.toLowerCase();
 
     const existing = await db.user.findFirst({
