@@ -241,7 +241,7 @@ export default async function VendorDashboard() {
                 {campaigns.slice(0, 5).map((campaign) => (
                   <li
                     key={campaign.id}
-                    className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                    className="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"
                   >
                     <div className="min-w-0">
                       <Link
@@ -250,15 +250,17 @@ export default async function VendorDashboard() {
                       >
                         {campaign.title}
                       </Link>
-                      <p className="text-xs text-muted">
+                      <p className="mt-0.5 truncate text-xs text-muted">
                         {formatDate(campaign.startDate)} –{" "}
                         {formatDate(campaign.endDate)} ·{" "}
                         {campaign._count.participations} creator
                       </p>
                     </div>
-                    <Badge tone={campaignStatusTone[campaign.status]}>
-                      {campaignStatusLabel[campaign.status]}
-                    </Badge>
+                    <div className="shrink-0">
+                      <Badge tone={campaignStatusTone[campaign.status]}>
+                        {campaignStatusLabel[campaign.status]}
+                      </Badge>
+                    </div>
                   </li>
                 ))}
               </ul>
