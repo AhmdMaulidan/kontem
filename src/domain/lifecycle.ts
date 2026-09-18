@@ -1,6 +1,9 @@
 import type { CampaignStatus } from "@/generated/prisma/enums";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { notifyParticipantsCampaignEndingSoon } from "./notification";
+import { COUNTABLE_STATUSES } from "./campaign";
+import { calculatePayouts } from "./payout";
+import { calculateCreatorEarning } from "./withdrawal";
 
 export interface CampaignTransitionEval {
   shouldEnd: boolean;
@@ -122,9 +125,200 @@ export function evaluateCampaignEndingSoon(
 
 export interface LifecycleSyncResult {
   campaignsEnded: number;
-  settleAlertsSent: number;
+  campaignsSettled: number;
   endingSoonAlertsSent: number;
   timestamp: string;
+}
+
+/**
+ * Settlement + pencairan payout sepenuhnya otomatis untuk satu campaign,
+ * dipanggil dari `runCampaignLifecycleSync` begitu masa tracking views-nya
+ * selesai. Menggantikan alur lama yang mengharuskan admin klik "Hitung
+ * pembagian pool" lalu "Cairkan" secara manual — di sini keduanya jadi satu
+ * langkah atomik karena toh pencairannya sendiri tetap simulasi (tidak ada
+ * integrasi payment gateway sungguhan), jadi tidak ada alasan menunggu klik
+ * admin sebelum menandainya PAID.
+ *
+ * Video yang sudah dicairkan lebih dulu lewat penarikan dini (Withdrawal
+ * status PAID) dikecualikan dari batch proporsional ini — jatahnya sudah
+ * final — dan sisa budget pool untuk creator lain dikurangi sebesar itu,
+ * supaya vendor tetap tidak pernah membayar lebih dari budgetPool.
+ */
+async function autoSettleCampaign(
+  db: PrismaClient,
+  campaign: {
+    id: string;
+    title: string;
+    budgetPool: number;
+    cpmRate: number;
+    platformFeeRate: number;
+    maxViewsPerCreator: number | null;
+  },
+): Promise<{ settled: boolean; reason?: string }> {
+  // Penarikan dini yang masih menunggu approval/transfer manual admin
+  // menahan sisa pool yang belum pasti — settlement ditunda ke siklus cron
+  // berikutnya alih-alih menghitung dengan angka yang bisa berubah.
+  const withdrawalPending = await db.withdrawal.count({
+    where: {
+      campaignId: campaign.id,
+      status: { in: ["PENDING_ADMIN_APPROVAL", "APPROVED"] },
+    },
+  });
+  if (withdrawalPending > 0) {
+    return {
+      settled: false,
+      reason: `${withdrawalPending} penarikan dini belum diputuskan/dicairkan admin.`,
+    };
+  }
+
+  const submissions = await db.submission.findMany({
+    where: { campaignId: campaign.id, status: { in: COUNTABLE_STATUSES } },
+    include: { withdrawal: true },
+  });
+
+  const submissionSudahDitarik = submissions.filter(
+    (s) => s.withdrawal?.status === "PAID",
+  );
+  const submissionBelumDitarik = submissions.filter(
+    (s) => s.withdrawal?.status !== "PAID",
+  );
+  const totalSudahDitarik = submissionSudahDitarik.reduce(
+    (sum, s) => sum + (s.withdrawal?.grossAmount ?? 0),
+    0,
+  );
+
+  const entries = submissionBelumDitarik.map((submission) => ({
+    creatorId: submission.creatorId,
+    submissionId: submission.id,
+    views: submission.finalViews ?? submission.lastViews,
+  }));
+
+  const hasil = calculatePayouts(entries, {
+    budgetPool: Math.max(0, campaign.budgetPool - totalSudahDitarik),
+    cpmRate: campaign.cpmRate,
+    platformFeeRate: campaign.platformFeeRate,
+    maxViewsPerCreator: campaign.maxViewsPerCreator,
+  });
+
+  await db.$transaction(async (tx) => {
+    for (const submission of submissions) {
+      await tx.submission.update({
+        where: { id: submission.id },
+        data: { finalViews: submission.finalViews ?? submission.lastViews },
+      });
+    }
+
+    // Payout cermin untuk video yang sudah cair via penarikan dini — supaya
+    // "Riwayat payout" di /creator/earnings tetap satu sumber lengkap untuk
+    // semua uang yang pernah diterima, apa pun jalurnya.
+    for (const submission of submissionSudahDitarik) {
+      const w = submission.withdrawal!;
+      const ulang = calculateCreatorEarning(w.viewsCounted, campaign);
+      await tx.payout.create({
+        data: {
+          campaignId: campaign.id,
+          creatorId: submission.creatorId,
+          submissionId: submission.id,
+          viewsCounted: w.viewsCounted,
+          totalPoolViews: w.viewsCounted,
+          sharePercent: 100,
+          grossAmount: ulang.rawGrossAmount,
+          platformFee: ulang.rawGrossAmount - ulang.grossAmount,
+          netAmount: w.netAmount,
+          status: "PAID",
+          paidAt: w.paidAt,
+          note: `Dicairkan lebih awal lewat penarikan dini (fee penarikan ${w.feeAmount.toLocaleString("id-ID")} rupiah).`,
+        },
+      });
+    }
+
+    for (const line of hasil.lines) {
+      await tx.payout.create({
+        data: {
+          campaignId: campaign.id,
+          creatorId: line.creatorId,
+          submissionId: line.submissionId,
+          viewsCounted: line.viewsCounted,
+          totalPoolViews: line.totalPoolViews,
+          sharePercent: line.sharePercent,
+          grossAmount: line.grossAmount,
+          platformFee: line.platformFee,
+          netAmount: line.netAmount,
+          status: "PAID",
+          paidAt: new Date(),
+        },
+      });
+      await tx.notification.create({
+        data: {
+          userId: line.creatorId,
+          type: "PAYOUT_RELEASED",
+          title: "Payout otomatis cair",
+          body: `Campaign "${campaign.title}" selesai. ${line.netAmount.toLocaleString("id-ID")} rupiah sudah otomatis ditransfer ke rekening terdaftar.`,
+          link: "/creator/earnings",
+        },
+      });
+    }
+
+    if (hasil.totalPlatformFee > 0) {
+      await tx.escrowTransaction.create({
+        data: {
+          campaignId: campaign.id,
+          type: "PLATFORM_FEE",
+          amount: hasil.totalPlatformFee,
+          status: "COMPLETED",
+          completedAt: new Date(),
+        },
+      });
+    }
+
+    if (hasil.totalNetToCreators > 0) {
+      await tx.escrowTransaction.create({
+        data: {
+          campaignId: campaign.id,
+          type: "PAYOUT",
+          amount: hasil.totalNetToCreators,
+          status: "COMPLETED",
+          reference: `AUTO-SETTLE-${Date.now()}`,
+          completedAt: new Date(),
+        },
+      });
+    }
+
+    if (hasil.refundToVendor > 0) {
+      await tx.escrowTransaction.create({
+        data: {
+          campaignId: campaign.id,
+          type: "REFUND",
+          amount: hasil.refundToVendor,
+          status: "PENDING",
+          note: "Sisa pool yang tidak terserap.",
+        },
+      });
+    }
+
+    await tx.campaign.update({
+      where: { id: campaign.id },
+      data: { status: "SETTLED", settledAt: new Date() },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId: null, // dieksekusi sistem, bukan admin
+        action: "campaign.auto_settle",
+        entity: "Campaign",
+        entityId: campaign.id,
+        metadata: {
+          totalViews: hasil.totalViews,
+          dibagikan: hasil.totalDistributed,
+          fee: hasil.totalPlatformFee,
+          refund: hasil.refundToVendor,
+          sudahDitarikDini: totalSudahDitarik,
+        },
+      },
+    });
+  });
+
+  return { settled: true };
 }
 
 /**
@@ -138,7 +332,7 @@ export async function runCampaignLifecycleSync(
   now: Date = new Date(),
 ): Promise<LifecycleSyncResult> {
   let campaignsEnded = 0;
-  let settleAlertsSent = 0;
+  let campaignsSettled = 0;
   let endingSoonAlertsSent = 0;
 
   // 1. Ambil seluruh campaign ACTIVE yang telah melewati endDate
@@ -206,50 +400,46 @@ export async function runCampaignLifecycleSync(
     campaignsEnded++;
   }
 
-  // 2. Ambil campaign ENDED yang telah melewati masa pelacakan trackingEndsAt
+  // 2. Ambil campaign ENDED yang telah melewati masa pelacakan trackingEndsAt,
+  // lalu settle + cairkan otomatis (tidak ada lagi langkah manual admin).
   const trackingOverCampaigns = await db.campaign.findMany({
     where: {
       status: "ENDED",
       trackingEndsAt: { lte: now },
-      // Pastikan belum disettle
       settledAt: null,
     },
   });
 
   for (const c of trackingOverCampaigns) {
-    // Hindari duplikasi notifikasi settle alert menggunakan AuditLog
-    const sudahNotif = await db.auditLog.findFirst({
-      where: {
-        action: "campaign.lifecycle.tracking_ended",
-        entityId: c.id,
-      },
-    });
-
-    if (!sudahNotif) {
-      if (admins.length > 0) {
+    const hasil = await autoSettleCampaign(db, c);
+    if (hasil.settled) {
+      campaignsSettled++;
+    } else {
+      // Ditunda ke siklus cron berikutnya (mis. masih ada penarikan dini
+      // yang belum diputuskan admin) — catat sekali saja per campaign
+      // supaya admin tidak dibanjiri notifikasi berulang tiap cron jalan.
+      const sudahNotif = await db.auditLog.findFirst({
+        where: { action: "campaign.lifecycle.settle_deferred", entityId: c.id },
+      });
+      if (!sudahNotif && admins.length > 0) {
         await db.notification.createMany({
           data: admins.map((adm: { id: string }) => ({
             userId: adm.id,
             type: "GENERAL",
-            title: "Masa pelacakan views selesai",
-            body: `Campaign "${c.title}" telah menyelesaikan masa pelacakan views (trackingEndsAt). Silakan lakukan settlement di panel Payouts.`,
-            link: "/admin/payouts",
+            title: "Settlement otomatis tertunda",
+            body: `Campaign "${c.title}" siap disettle, tapi tertunda: ${hasil.reason}`,
+            link: "/admin/submissions?tab=penarikan",
           })),
         });
-      }
-
-      await db.auditLog.create({
-        data: {
-          action: "campaign.lifecycle.tracking_ended",
-          entity: "Campaign",
-          entityId: c.id,
-          metadata: {
-            trackingEndsAt: c.trackingEndsAt,
+        await db.auditLog.create({
+          data: {
+            action: "campaign.lifecycle.settle_deferred",
+            entity: "Campaign",
+            entityId: c.id,
+            metadata: { alasan: hasil.reason ?? null },
           },
-        },
-      });
-
-      settleAlertsSent++;
+        });
+      }
     }
   }
 
@@ -282,7 +472,7 @@ export async function runCampaignLifecycleSync(
 
   return {
     campaignsEnded,
-    settleAlertsSent,
+    campaignsSettled,
     endingSoonAlertsSent,
     timestamp: now.toISOString(),
   };

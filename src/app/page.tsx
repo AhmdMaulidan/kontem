@@ -91,7 +91,7 @@ const langkah = [
   },
   {
     judul: "Konten ditinjau",
-    isi: "Vendor dan admin memeriksa konten. Jika ditolak, alasannya jelas dan bisa diajukan banding.",
+    isi: "Vendor dan admin memeriksa konten. Jika ditolak, alasannya selalu dijelaskan.",
     gambar: "/illustrations/langkah-6-review.svg",
   },
   {
@@ -311,7 +311,7 @@ const ALUR_VENDOR = [
   },
   {
     judul: "Tinjau konten",
-    isi: "Setujui atau tolak konten yang masuk. Setiap penolakan wajib disertai alasan dan bisa diajukan banding.",
+    isi: "Setujui atau tolak konten yang masuk. Setiap penolakan wajib disertai alasan.",
     gambar: "/illustrations/langkah-6-review.svg",
   },
   {
@@ -366,7 +366,7 @@ const faq = [
   {
     pertanyaan: "Bagaimana kalau konten saya ditolak vendor?",
     jawaban:
-      "Vendor wajib memilih kategori pelanggaran brief dan menuliskan alasannya; penolakan tanpa alasan tidak bisa dikirim. Kalau kamu tidak setuju, ajukan banding dan admin akan menengahi dengan melihat video, brief, serta argumen kedua pihak.",
+      "Vendor wajib memilih kategori pelanggaran brief dan menuliskan alasannya; penolakan tanpa alasan tidak bisa dikirim. Alasan penolakan itu bisa kamu lihat di halaman Submission Saya supaya tahu bagian mana yang perlu diperbaiki untuk campaign berikutnya.",
   },
   {
     pertanyaan: "Kapan payout dicairkan?",
@@ -395,7 +395,7 @@ export default async function LandingPage() {
       }),
       db.submission.aggregate({
         _sum: { lastViews: true },
-        where: { status: { in: ["APPROVED", "ADMIN_APPROVED"] } },
+        where: { status: "APPROVED" },
       }),
       // Delapan campaign aktif dengan pool terbesar — dua baris penuh pada
       // grid empat kolom. Yang sudah lewat tenggat tidak ikut: kartunya akan

@@ -160,6 +160,10 @@ test("lifecycle: runCampaignLifecycleSync menjalankan transisi campaign dan noti
               id: "camp-2",
               title: "Kafe Kopi",
               trackingEndsAt: new Date("2026-09-15T00:00:00Z"),
+              budgetPool: 1_000_000,
+              cpmRate: 15_000,
+              platformFeeRate: 3,
+              maxViewsPerCreator: null,
             },
           ];
         }
@@ -172,6 +176,18 @@ test("lifecycle: runCampaignLifecycleSync menjalankan transisi campaign dan noti
     },
     campaignParticipation: {
       findMany: async () => [{ creatorId: "creator-soon" }],
+    },
+    withdrawal: {
+      count: async () => 0, // tidak ada penarikan dini yang menahan settlement
+    },
+    submission: {
+      findMany: async () => [], // tidak ada submission approved di campaign ini
+    },
+    payout: {
+      create: async () => ({}),
+    },
+    escrowTransaction: {
+      create: async () => ({}),
     },
     user: {
       findMany: async () => [{ id: "admin-1" }],
@@ -205,16 +221,20 @@ test("lifecycle: runCampaignLifecycleSync menjalankan transisi campaign dan noti
   );
 
   assert.equal(result.campaignsEnded, 1);
-  assert.equal(result.settleAlertsSent, 1);
+  assert.equal(result.campaignsSettled, 1);
   assert.equal(result.endingSoonAlertsSent, 1);
 
   // Pastikan campaign status diubah jadi ENDED
   const campUpdate = updates.find((u) => u.model === "campaign" && u.id === "camp-1");
   assert.equal(campUpdate?.data.status, "ENDED");
 
+  // Pastikan campaign yang tracking-nya selesai langsung disettle otomatis
+  const settleUpdate = updates.find((u) => u.model === "campaign" && u.id === "camp-2");
+  assert.equal(settleUpdate?.data.status, "SETTLED");
+
   // Pastikan audit logs tercatat
   assert.ok(auditLogs.some((a) => a.action === "campaign.lifecycle.ended"));
-  assert.ok(auditLogs.some((a) => a.action === "campaign.lifecycle.tracking_ended"));
+  assert.ok(auditLogs.some((a) => a.action === "campaign.auto_settle"));
 });
 
 

@@ -33,7 +33,6 @@ import {
   reviewWithdrawalAction,
 } from "../actions";
 import { DecisionForm, SimpleActionForm } from "../decision-form";
-import { FlagForm } from "./review-form";
 
 /**
  * Duplikat dari `/vendor/submissions` (lihat berkas itu untuk pola aslinya),
@@ -281,9 +280,6 @@ export default async function AdminSubmissionsPage({
                           rejectLabel="Tolak"
                           requireNoteOnApprove
                         />
-                        <div className="mt-3">
-                          <FlagForm submissionId={submission.id} />
-                        </div>
                       </div>
                     </DetailDrawer>
                   </Td>

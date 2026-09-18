@@ -48,11 +48,7 @@ export default async function AdminViewsPage({
   // diperbarui; campaign yang sudah settle memakai finalViews yang terkunci.
   const where = {
     status: {
-      in: [
-        "APPROVED",
-        "ADMIN_APPROVED",
-        "PENDING_REVIEW",
-      ] as SubmissionStatus[],
+      in: ["APPROVED", "PENDING_REVIEW"] as SubmissionStatus[],
     },
     campaign: {
       is: {
@@ -230,8 +226,8 @@ export default async function AdminViewsPage({
         {submissions.length > 0 ? (
           <tfoot>
             <TableCaptionRow colSpan={7} tone="danger">
-              Views turun otomatis memunculkan fraud flag INFLATED_VIEWS saat
-              disimpan — views media sosial asli tidak pernah berkurang.
+              Views media sosial asli tidak pernah berkurang — kalau angkanya
+              turun dari sebelumnya, cek dulu sebelum menyimpan.
             </TableCaptionRow>
           </tfoot>
         ) : null}

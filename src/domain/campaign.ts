@@ -6,10 +6,7 @@ import type {
 } from "@/generated/prisma/enums";
 
 /** Hanya submission berstatus ini yang views-nya ikut dihitung untuk payout. */
-export const COUNTABLE_STATUSES: SubmissionStatus[] = [
-  "APPROVED",
-  "ADMIN_APPROVED",
-];
+export const COUNTABLE_STATUSES: SubmissionStatus[] = ["APPROVED"];
 
 export type CampaignPerformance = PayoutResult & {
   /** Submission yang views-nya diperhitungkan, sudah diurutkan dari terbesar. */

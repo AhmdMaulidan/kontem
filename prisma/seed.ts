@@ -28,9 +28,6 @@ async function main() {
   await db.notification.deleteMany();
   await db.payout.deleteMany();
   await db.escrowTransaction.deleteMany();
-  await db.disputeMessage.deleteMany();
-  await db.dispute.deleteMany();
-  await db.fraudFlag.deleteMany();
   await db.viewSnapshot.deleteMany();
   await db.submission.deleteMany();
   await db.campaignParticipation.deleteMany();
@@ -486,9 +483,9 @@ async function main() {
     }
   }
 
-  // Satu submission ditolak vendor lalu dibanding creator — memberi isi
-  // ke panel sengketa admin.
-  const partisipasiSengketa = await db.campaignParticipation.create({
+  // Satu submission ditolak vendor — memberi isi ke status "Ditolak" di
+  // riwayat submission creator.
+  const partisipasiDitolak = await db.campaignParticipation.create({
     data: {
       campaignId: campaignAktif.id,
       creatorId: yoga.id,
@@ -497,15 +494,15 @@ async function main() {
     },
   });
 
-  const submissionSengketa = await db.submission.create({
+  const submissionDitolak = await db.submission.create({
     data: {
       campaignId: campaignAktif.id,
       creatorId: yoga.id,
-      participationId: partisipasiSengketa.id,
+      participationId: partisipasiDitolak.id,
       contentUrl: "https://tiktok.com/@yogaoutdoor/video/7312345678901234567",
       platform: "TIKTOK",
       caption: "Ngopi sore di Malang",
-      status: "APPEALED",
+      status: "REJECTED",
       lastViews: 31_400,
       lastLikes: 2_100,
       lastComments: 190,
@@ -514,51 +511,6 @@ async function main() {
       reviewedById: vendorKopi.id,
       reviewedAt: daysFromNow(-4),
       reviewNote: "Menu signature tidak ditampilkan sama sekali.",
-    },
-  });
-
-  const dispute = await db.dispute.create({
-    data: {
-      submissionId: submissionSengketa.id,
-      openedById: yoga.id,
-      reason:
-        "Menu signature muncul di detik 00:14-00:19 dengan caption menu. Mohon ditinjau ulang.",
-      status: "UNDER_REVIEW",
-    },
-  });
-
-  await db.disputeMessage.createMany({
-    data: [
-      {
-        disputeId: dispute.id,
-        senderId: yoga.id,
-        body: "Halo, saya sudah menampilkan menu signature di detik 14. Bisa dicek lagi?",
-        createdAt: daysFromNow(-3),
-      },
-      {
-        disputeId: dispute.id,
-        senderId: vendorKopi.id,
-        body: "Terlihat sekilas tapi nama menunya tidak disebut sesuai brief.",
-        createdAt: daysFromNow(-2),
-      },
-      {
-        disputeId: dispute.id,
-        senderId: admin.id,
-        body: "Sedang kami tinjau, keputusan maksimal 2x24 jam.",
-        createdAt: daysFromNow(-1),
-      },
-    ],
-  });
-
-  await db.fraudFlag.create({
-    data: {
-      submissionId: submissionSengketa.id,
-      flaggedUserId: yoga.id,
-      reportedById: vendorKopi.id,
-      type: "OFF_BRIEF",
-      severity: 1,
-      detail: "Vendor menilai konten tidak memenuhi poin wajib brief.",
-      status: "REVIEWING",
     },
   });
 
@@ -956,17 +908,9 @@ async function main() {
         userId: yoga.id,
         type: "SUBMISSION_REJECTED",
         title: "Submission ditolak",
-        body: "Vendor menolak konten kamu. Kamu bisa mengajukan banding.",
+        body: "Vendor menolak konten kamu: menu signature tidak ditampilkan.",
         link: "/creator/submissions",
         createdAt: daysFromNow(-4),
-      },
-      {
-        userId: admin.id,
-        type: "DISPUTE_UPDATE",
-        title: "Sengketa baru menunggu",
-        body: "Creator Yoga Prasetya mengajukan banding atas penolakan vendor.",
-        link: "/admin/disputes",
-        createdAt: daysFromNow(-3),
       },
       {
         userId: vendorBaru.id,
@@ -999,7 +943,7 @@ async function main() {
         actorId: vendorKopi.id,
         action: "submission.reject",
         entity: "Submission",
-        entityId: submissionSengketa.id,
+        entityId: submissionDitolak.id,
         metadata: { alasan: "Menu signature tidak ditampilkan." },
         createdAt: daysFromNow(-4),
       },

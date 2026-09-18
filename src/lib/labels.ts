@@ -1,8 +1,6 @@
 import {
   BusinessCategory,
   CampaignStatus,
-  DisputeStatus,
-  FraudFlagType,
   ParticipationStatus,
   PayoutStatus,
   Role,
@@ -41,9 +39,6 @@ export const submissionStatusLabel: Record<SubmissionStatus, string> = {
   PENDING_REVIEW: "Menunggu Review",
   APPROVED: "Disetujui",
   REJECTED: "Ditolak",
-  APPEALED: "Banding",
-  ADMIN_APPROVED: "Disetujui Admin",
-  ADMIN_REJECTED: "Ditolak Final",
 };
 
 export const participationStatusLabel: Record<ParticipationStatus, string> = {
@@ -54,10 +49,7 @@ export const participationStatusLabel: Record<ParticipationStatus, string> = {
 
 export const payoutStatusLabel: Record<PayoutStatus, string> = {
   PENDING: "Menunggu Pencairan",
-  PROCESSING: "Diproses",
   PAID: "Cair",
-  HELD: "Ditahan",
-  CANCELLED: "Dibatalkan",
 };
 
 export const withdrawalStatusLabel: Record<WithdrawalStatus, string> = {
@@ -86,27 +78,10 @@ export const creatorAccountStatusLabel: Record<VerificationStatus, string> = {
   REJECTED: "Non-aktif",
 };
 
-export const disputeStatusLabel: Record<DisputeStatus, string> = {
-  OPEN: "Terbuka",
-  UNDER_REVIEW: "Sedang Ditinjau",
-  RESOLVED_UPHELD: "Penolakan Dikuatkan",
-  RESOLVED_OVERTURNED: "Dimenangkan Creator",
-  WITHDRAWN: "Dicabut",
-};
-
 export const platformLabel: Record<SocialPlatform, string> = {
   TIKTOK: "TikTok",
   INSTAGRAM: "Instagram",
   YOUTUBE: "YouTube",
-};
-
-export const fraudFlagLabel: Record<FraudFlagType, string> = {
-  REUSED_CONTENT: "Konten Daur Ulang",
-  INFLATED_VIEWS: "Views Tidak Wajar",
-  DUPLICATE_ACCOUNT: "Akun Ganda",
-  OFF_BRIEF: "Tidak Sesuai Brief",
-  FAKE_VISIT: "Kunjungan Palsu",
-  OTHER: "Lainnya",
 };
 
 /**
@@ -118,7 +93,7 @@ export type BadgeTone =
   | "info" // indigo — sedang ditinjau
   | "success" // emerald — beres / dana terkunci
   | "warning" // amber — menunggu tindakan
-  | "danger" // rose — ditolak / sengketa
+  | "danger" // rose — ditolak
   | "sky" // sky — kehadiran terkonfirmasi
   | "teal" // teal — dana sudah cair
   | "accent"; // marigold — komplimen & sorotan
@@ -138,9 +113,6 @@ export const submissionStatusTone: Record<SubmissionStatus, BadgeTone> = {
   PENDING_REVIEW: "info",
   APPROVED: "success",
   REJECTED: "danger",
-  APPEALED: "danger",
-  ADMIN_APPROVED: "success",
-  ADMIN_REJECTED: "danger",
 };
 
 export const participationStatusTone: Record<ParticipationStatus, BadgeTone> = {
@@ -151,10 +123,7 @@ export const participationStatusTone: Record<ParticipationStatus, BadgeTone> = {
 
 export const payoutStatusTone: Record<PayoutStatus, BadgeTone> = {
   PENDING: "warning",
-  PROCESSING: "info",
   PAID: "teal",
-  HELD: "danger",
-  CANCELLED: "neutral",
 };
 
 export const withdrawalStatusTone: Record<WithdrawalStatus, BadgeTone> = {

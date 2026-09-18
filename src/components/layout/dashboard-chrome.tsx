@@ -373,7 +373,7 @@ function SidebarContent({
  * Dicek dengan `startsWith` mentah, `/admin` ikut cocok dengan semua halaman
  * di bawahnya sehingga beranda dan menu halaman sekarang sama-sama menyala.
  * Karena itu: kalau ada menu yang URL-nya persis sama, hanya itu yang aktif;
- * kalau tidak ada (mis. halaman detail `/admin/disputes/123`), yang aktif
+ * kalau tidak ada (mis. halaman detail `/admin/campaigns/123`), yang aktif
  * adalah menu terpanjang yang mengawali URL sekarang.
  */
 function isAktif(pathname: string, href: string, nav: NavItem[]) {

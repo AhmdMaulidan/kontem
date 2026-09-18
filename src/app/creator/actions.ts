@@ -129,61 +129,6 @@ export async function submitContentAction(
   return { success: "Konten terkirim, menunggu review admin." };
 }
 
-export async function appealAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const user = await requireRole("CREATOR");
-  const submissionId = String(formData.get("submissionId") ?? "");
-  const reason = String(formData.get("reason") ?? "").trim();
-
-  if (reason.length < 20) {
-    return { error: "Jelaskan alasan banding minimal 20 karakter." };
-  }
-
-  const submission = await db.submission.findUnique({
-    where: { id: submissionId },
-    include: { campaign: true },
-  });
-
-  if (!submission || submission.creatorId !== user.id) {
-    return { error: "Submission tidak ditemukan." };
-  }
-  if (submission.status !== "REJECTED") {
-    return { error: "Hanya submission yang ditolak yang bisa dibanding." };
-  }
-
-  try {
-    await db.$transaction(async (tx) => {
-      await tx.submission.update({
-        where: { id: submissionId },
-        data: { status: "APPEALED" },
-      });
-      const dispute = await tx.dispute.create({
-        data: { submissionId, openedById: user.id, reason, status: "OPEN" },
-      });
-      await tx.disputeMessage.create({
-        data: { disputeId: dispute.id, senderId: user.id, body: reason },
-      });
-      await tx.auditLog.create({
-        data: {
-          actorId: user.id,
-          action: "submission.appeal",
-          entity: "Submission",
-          entityId: submissionId,
-          metadata: { alasan: reason },
-        },
-      });
-    });
-  } catch (err) {
-    console.error("[appealAction Error]", err);
-    return { error: "Terjadi kesalahan sistem saat mengajukan banding." };
-  }
-
-  revalidatePath("/creator/submissions");
-  return { success: "Banding diajukan. Admin akan meninjau dalam 2x24 jam." };
-}
-
 export async function updateBankAction(
   _prev: ActionState,
   formData: FormData,
@@ -213,16 +158,6 @@ export async function updateBankAction(
       });
 
       if (duplicate) {
-        await tx.fraudFlag.create({
-          data: {
-            flaggedUserId: user.id,
-            reportedById: null, // terdeteksi otomatis oleh sistem
-            type: "DUPLICATE_ACCOUNT",
-            severity: 3,
-            detail: `Nomor rekening ${bankAccountNumber} (${bankName} a.n. ${bankAccountName}) sama persis dengan akun kreator lain "${duplicate.user.name}" (ID: ${duplicate.userId}).`,
-          },
-        });
-
         const admins = await tx.user.findMany({
           where: { role: "ADMIN" },
           select: { id: true },
@@ -232,9 +167,9 @@ export async function updateBankAction(
             data: admins.map((adm) => ({
               userId: adm.id,
               type: "GENERAL",
-              title: "Peringatan Akun Ganda (Sybil)",
-              body: `Kreator "${user.name}" mendaftarkan nomor rekening yang sama dengan kreator "${duplicate.user.name}". Periksa di panel Fraud.`,
-              link: "/admin/fraud",
+              title: "Nomor rekening sama dipakai dua akun creator",
+              body: `Kreator "${user.name}" mendaftarkan nomor rekening yang sama dengan kreator "${duplicate.user.name}".`,
+              link: "/admin/creators",
             })),
           });
         }
@@ -246,7 +181,6 @@ export async function updateBankAction(
   }
 
   revalidatePath("/creator/earnings");
-  revalidatePath("/admin/fraud");
   return { success: "Rekening tersimpan." };
 }
 

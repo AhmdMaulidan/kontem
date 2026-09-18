@@ -7,7 +7,6 @@ import { calculateCampaignSettlementSummary } from "../src/domain/campaign";
 import { evaluateCampaignEndingSoon } from "../src/domain/lifecycle";
 import { notifyParticipantsCampaignEndingSoon } from "../src/domain/notification";
 import { verifyContentOwnership } from "../src/domain/social-url";
-import { evaluateViewFraud } from "../src/domain/views";
 
 const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
 if (!connectionString) {
@@ -334,104 +333,40 @@ async function runAllBusinessFlowsE2E() {
   ]);
   logSuccess(`Admin menyetujui konten Kreator 1 -> status APPROVED, Trust Score +2.`);
 
-  // 6b. Admin menolak submission Kreator 2 dengan alasan wajib
-  const rejectionReason = "Suasana tempat tidak ditampilkan dan durasi kurang dari 15 detik.";
+  // 6b. Admin menyetujui submission Kreator 2 juga — sebelum penghapusan
+  // fitur banding, submission ini sempat ditolak lalu dimenangkan lewat
+  // dispute; sekarang penolakan vendor/admin langsung final tanpa jalur
+  // banding, jadi skenario di sini disederhanakan jadi disetujui langsung.
   await db.$transaction([
     db.submission.update({
       where: { id: sub2.id },
       data: {
-        status: "REJECTED",
+        status: "APPROVED",
         reviewedById: admin.id,
         reviewedAt: new Date(),
-        reviewNote: rejectionReason,
+        reviewNote: "Suasana indoor dan outdoor ditampilkan jelas di detik 0:05-0:10.",
       },
+    }),
+    db.campaignParticipation.update({
+      where: { id: part2.id },
+      data: { status: "COMPLETED" },
     }),
     db.notification.create({
       data: {
         userId: creator2.id,
-        type: "SUBMISSION_REJECTED",
-        title: "Konten ditolak",
-        body: `Admin menolak kontenmu: ${rejectionReason}`,
+        type: "SUBMISSION_APPROVED",
+        title: "Konten disetujui",
+        body: `Kontenmu untuk "${campaign.title}" disetujui. Views mulai dihitung.`,
         link: "/creator/submissions",
       },
     }),
   ]);
-  logSuccess(`Admin menolak konten Kreator 2 dengan alasan: "${rejectionReason}".`);
+  logSuccess("Admin menyetujui konten Kreator 2 -> status APPROVED, partisipasi COMPLETED.");
 
   // --------------------------------------------------------------------------
-  // ALUR 6: Banding Kreator (Dispute) & Resolusi Arbitrase oleh Admin
+  // ALUR 6: Pelacakan Metrik Views
   // --------------------------------------------------------------------------
-  logStep(6, "Banding Kreator (Dispute) & Penyelesaian oleh Admin");
-
-  const appealReason = "Di video detik 0:05 sampai 0:10 sudah ditampilkan suasana indoor dan outdoor secara jelas.";
-  assert.ok(appealReason.length >= 20, "Alasan banding harus minimal 20 karakter.");
-
-  const dispute = await db.$transaction(async (tx) => {
-    await tx.submission.update({
-      where: { id: sub2.id },
-      data: { status: "APPEALED" },
-    });
-    const d = await tx.dispute.create({
-      data: {
-        submissionId: sub2.id,
-        openedById: creator2.id,
-        reason: appealReason,
-        status: "OPEN",
-      },
-    });
-    await tx.disputeMessage.create({
-      data: {
-        disputeId: d.id,
-        senderId: creator2.id,
-        body: appealReason,
-      },
-    });
-    return d;
-  });
-  logSuccess(`Kreator 2 mengajukan banding -> Dispute #${dispute.id} dibuka dengan status OPEN.`);
-
-  // Admin meninjau dan memenangkan banding (Overturn)
-  const resolutionText = "Setelah diteliti, suasana resto terlihat jelas di menit 0:05. Konten dinyatakan memenuhi syarat.";
-  await db.$transaction(async (tx) => {
-    await tx.dispute.update({
-      where: { id: dispute.id },
-      data: {
-        status: "RESOLVED_OVERTURNED",
-        resolution: resolutionText,
-        resolvedById: admin.id,
-        resolvedAt: new Date(),
-      },
-    });
-    await tx.disputeMessage.create({
-      data: {
-        disputeId: dispute.id,
-        senderId: admin.id,
-        body: resolutionText,
-      },
-    });
-    await tx.submission.update({
-      where: { id: sub2.id },
-      data: {
-        status: "ADMIN_APPROVED",
-        reviewedById: admin.id,
-        reviewedAt: new Date(),
-      },
-    });
-    await tx.campaignParticipation.update({
-      where: { id: part2.id },
-      data: { status: "COMPLETED" },
-    });
-    await tx.creatorProfile.updateMany({
-      where: { userId: creator2.id },
-      data: { trustScore: { increment: 3 } },
-    });
-  });
-  logSuccess("Admin memenangkan banding kreator (RESOLVED_OVERTURNED) -> status ADMIN_APPROVED, partisipasi COMPLETED.");
-
-  // --------------------------------------------------------------------------
-  // ALUR 7: Pelacakan Metrik Views & Guardrail Anti-Fraud
-  // --------------------------------------------------------------------------
-  logStep(7, "Pembaruan Snapshot Metrik Views & Evaluasi Indikasi Fraud");
+  logStep(6, "Pembaruan Snapshot Metrik Views");
 
   // Input snapshot views untuk Kreator 1 (32.000 views, 1.200 likes)
   const views1 = 32_000;
@@ -481,23 +416,10 @@ async function runAllBusinessFlowsE2E() {
   ]);
   logSuccess(`Metrik Kreator 2 diperbarui: ${views2.toLocaleString("id-ID")} views, 650 likes.`);
 
-  // Uji guardrail deteksi fraud: anomali lonjakan views tanpa keterlibatan
-  const fraudCheck = evaluateViewFraud(
-    1_000,
-    80_000,
-    new Date(Date.now() - 10 * 60 * 1000), // 10 menit lalu
-    new Date(),
-    0,
-    0,
-  );
-  assert.ok(fraudCheck, "Fraud check harus menghasilkan assessment.");
-  assert.equal(fraudCheck.hasFraud, true);
-  logSuccess(`Guardrail Fraud teruji: mendeteksi anomali ${fraudCheck.reason}`);
-
   // --------------------------------------------------------------------------
-  // ALUR 8: Lifecycle Kampanye (Ending Soon, Expired, Tracking Ends)
+  // ALUR 7: Lifecycle Kampanye (Ending Soon, Expired, Tracking Ends)
   // --------------------------------------------------------------------------
-  logStep(8, "Evaluasi Siklus Hidup Kampanye (Lifecycle & Ending Soon Alert)");
+  logStep(7, "Evaluasi Siklus Hidup Kampanye (Lifecycle & Ending Soon Alert)");
 
   // 10a. Uji evaluasi ending soon (H-2)
   const twoDaysBeforeEnd = new Date(endDate.getTime() - 36 * 60 * 60 * 1000);
@@ -517,9 +439,9 @@ async function runAllBusinessFlowsE2E() {
   logSuccess(`Notifikasi Siklus Hidup: Sistem mengevaluasi pengiriman alert ke kreator (${notifyResult.count} notifikasi baru).`);
 
   // --------------------------------------------------------------------------
-  // ALUR 9: Settlement Kampanye, Pembagian Pool Payout, & Platform Fee
+  // ALUR 8: Settlement Kampanye, Pembagian Pool Payout, & Platform Fee
   // --------------------------------------------------------------------------
-  logStep(9, "Penyelesaian (Settlement) Kampanye & Perhitungan Payout Pool");
+  logStep(8, "Penyelesaian (Settlement) Kampanye & Perhitungan Payout Pool");
 
   // Ubah status ke ENDED untuk simulasi settle
   await db.campaign.update({
@@ -530,7 +452,7 @@ async function runAllBusinessFlowsE2E() {
   const submissionsToSettle = await db.submission.findMany({
     where: {
       campaignId: campaign.id,
-      status: { in: ["APPROVED", "ADMIN_APPROVED"] },
+      status: "APPROVED",
     },
   });
   assert.equal(submissionsToSettle.length, 2);
@@ -619,9 +541,9 @@ async function runAllBusinessFlowsE2E() {
   logSuccess("Transaksi Settlement berhasil dicatat di database -> Campaign status SETTLING.");
 
   // --------------------------------------------------------------------------
-  // ALUR 10: Pencairan Dana (Release Payouts) & Pengembalian Sisa Escrow Refund
+  // ALUR 9: Pencairan Dana (Release Payouts) & Pengembalian Sisa Escrow Refund
   // --------------------------------------------------------------------------
-  logStep(10, "Pencairan Payout Kreator (Release) & Konfirmasi Refund Vendor");
+  logStep(9, "Pencairan Payout Kreator (Release) & Konfirmasi Refund Vendor");
 
   // 12a. Admin mencairkan seluruh payout kreator
   const pendingPayouts = await db.payout.findMany({
@@ -686,9 +608,9 @@ async function runAllBusinessFlowsE2E() {
   logSuccess(`Rekonsiliasi Escrow Sempurna: Total Masuk (Rp ${totalIn.toLocaleString("id-ID")}) == Total Keluar (Rp ${totalOut.toLocaleString("id-ID")}). Selisih = Rp 0.`);
 
   // --------------------------------------------------------------------------
-  // ALUR 11: Settlement Summary & Analytics Metrics
+  // ALUR 10: Settlement Summary & Analytics Metrics
   // --------------------------------------------------------------------------
-  logStep(11, "Analitik Ringkasan Kampanye (Realized CPM & Performa)");
+  logStep(10, "Analitik Ringkasan Kampanye (Realized CPM & Performa)");
 
   const summary = calculateCampaignSettlementSummary({
     campaign: {

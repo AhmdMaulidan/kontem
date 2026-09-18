@@ -7,12 +7,8 @@ import {
   Card,
   DataTable,
   IconBank,
-  IconBanknote,
   IconBusiness,
-  IconGavel,
-  IconLock,
   IconMegaphone,
-  IconShieldAlert,
   IconTrend,
   IconUsers,
   IconVideo,
@@ -56,12 +52,8 @@ export default async function AdminDashboard({
   const [
     vendorPending,
     campaignPending,
-    sengketaTerbuka,
-    fraudTerbuka,
-    payoutPending,
     creatorPending,
     submissionPending,
-    payoutTertahan,
     vendorAktif,
     creatorAktif,
     gmv,
@@ -71,16 +63,8 @@ export default async function AdminDashboard({
   ] = await Promise.all([
     db.user.count({ where: { role: "VENDOR", status: "PENDING" } }),
     db.campaign.count({ where: { status: "PENDING_REVIEW" } }),
-    db.dispute.count({ where: { status: { in: ["OPEN", "UNDER_REVIEW"] } } }),
-    db.fraudFlag.count({ where: { status: { in: ["OPEN", "REVIEWING"] } } }),
-    db.payout.aggregate({
-      _sum: { netAmount: true },
-      _count: true,
-      where: { status: "PENDING" },
-    }),
     db.user.count({ where: { role: "CREATOR", status: "PENDING" } }),
     db.submission.count({ where: { status: "PENDING_REVIEW" } }),
-    db.payout.count({ where: { status: "HELD" } }),
     db.user.count({ where: { role: "VENDOR", status: "VERIFIED" } }),
     db.user.count({ where: { role: "CREATOR" } }),
     db.campaign.aggregate({
@@ -127,32 +111,6 @@ export default async function AdminDashboard({
       href: "/admin/submissions",
       Ikon: IconVideo,
     },
-    {
-      label: "Sengketa terbuka",
-      value: sengketaTerbuka,
-      href: "/admin/disputes",
-      Ikon: IconGavel,
-    },
-    {
-      label: "Fraud terbuka",
-      value: fraudTerbuka,
-      href: "/admin/fraud",
-      Ikon: IconShieldAlert,
-    },
-    {
-      label: "Payout belum cair",
-      value: formatIDR(payoutPending._sum.netAmount ?? 0),
-      hint: `${payoutPending._count} payout`,
-      href: "/admin/payouts",
-      Ikon: IconBanknote,
-      menunggu: payoutPending._count > 0,
-    },
-    {
-      label: "Payout tertahan",
-      value: payoutTertahan,
-      href: "/admin/payouts",
-      Ikon: IconLock,
-    },
   ];
 
   return (
@@ -168,8 +126,8 @@ export default async function AdminDashboard({
           Antrean kerja
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {antrean.map(({ href, label, value, hint, Ikon, menunggu }) => {
-            const perluDikerjakan = menunggu ?? Number(value) > 0;
+          {antrean.map(({ href, label, value, Ikon }) => {
+            const perluDikerjakan = value > 0;
             return (
               <Link key={label} href={href} className="block">
                 <Card className="h-full p-4" hover>
@@ -192,9 +150,6 @@ export default async function AdminDashboard({
                   >
                     {value}
                   </p>
-                  {hint ? (
-                    <p className="mt-0.5 text-xs text-muted">{hint}</p>
-                  ) : null}
                 </Card>
               </Link>
             );
