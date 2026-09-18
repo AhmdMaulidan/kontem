@@ -250,10 +250,11 @@ const MANFAAT = [
  * Ilustrasinya memakai kembali sembilan aset langkah yang ada, dipetakan ke
  * makna terdekat; satu aset boleh muncul di lebih dari satu alur.
  *
- * SELURUH alur tidak lagi menyebut kode redeem, kunjungan fisik, maupun
- * kuota slot (keputusan pemilik produk): kreator submit konten langsung dari
- * halaman campaign, siapa pun boleh ikut tanpa batas jumlah peserta. Model
- * `RedeemCode` dan field `maxCreators` sudah dihapus dari skema.
+ * SELURUH alur tidak lagi menyebut kode redeem maupun kuota slot (keputusan
+ * pemilik produk): siapa pun boleh bergabung tanpa batas slot, dan kreator
+ * datang ke lokasi tanpa menunjukkan kode apa pun. Verifikasi kunjungan
+ * dilakukan admin saat meninjau submission. Model `RedeemCode` dan field
+ * `maxCreators` masih ada di skema — keduanya belum dibersihkan dari kode.
  */
 const ALUR_CREATOR = [
   {

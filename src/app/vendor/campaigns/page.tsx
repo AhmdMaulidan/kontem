@@ -10,6 +10,7 @@ import {
   Card,
   EmptyState,
   PageHeader,
+  ProgressBar,
 } from "@/components/ui";
 import { campaignStatusLabel, campaignStatusTone, categoryLabel } from "@/lib/labels";
 import type { CampaignStatus } from "@/generated/prisma/enums";
@@ -123,18 +124,7 @@ export default async function VendorCampaignsPage(props: {
                   href={`/vendor/campaigns/${campaign.id}`}
                   className="block h-full"
                 >
-                  <Card className="flex h-full flex-col gap-4 p-2.5 transition-shadow hover:shadow-float">
-                    {campaign.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={campaign.imageUrl}
-                        alt={campaign.title}
-                        className="aspect-video w-full rounded-md object-cover"
-                      />
-                    ) : (
-                      <div className="aspect-video w-full rounded-md bg-surface-muted" />
-                    )}
-
+                  <Card className="flex h-full flex-col gap-4 transition-shadow hover:shadow-float">
                     {/* Baris atas: nama + badge status */}
                     <div className="flex items-start justify-between gap-3">
                       <span className="font-display font-semibold leading-snug">
@@ -179,6 +169,13 @@ export default async function VendorCampaignsPage(props: {
                         <p className="tabular font-medium">{cpmEfektif}</p>
                       </div>
                     </div>
+
+                    {/* Progress budget */}
+                    <ProgressBar
+                      value={totalDistributed}
+                      max={campaign.budgetPool}
+                      tone={performance?.poolExhausted ? "warning" : "brand"}
+                    />
                   </Card>
                 </Link>
               </li>

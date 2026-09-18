@@ -42,7 +42,7 @@ export function CatalogCard({
   cpmRate: number;
   /** Berapa kreator yang sudah bergabung. Tidak ada kuota yang membatasinya. */
   creatorBergabung: number;
-  komplimen?: string | null;
+  komplimen: string;
   sisaHari: number;
   foto?: string | null;
   aksi?: string;
@@ -125,17 +125,15 @@ export function CatalogCard({
           </div>
           <FactChip>{sisaHari > 0 ? `${sisaHari} hari` : "Berakhir"}</FactChip>
         </li>
-        {komplimen ? (
-          <li className="flex items-start gap-1.5">
-            <IconGift
-              className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-600"
-              strokeWidth={2}
-            />
-            <p className="truncate text-[10px] text-body lg:text-[12px]">
-              {komplimen}
-            </p>
-          </li>
-        ) : null}
+        <li className="flex items-start gap-1.5">
+          <IconGift
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-600"
+            strokeWidth={2}
+          />
+          <p className="truncate text-[10px] text-body lg:text-[12px]">
+            {komplimen}
+          </p>
+        </li>
       </ul>
 
       {/* mt-auto: tinggi kartu dalam satu baris grid tetap sama walau judul

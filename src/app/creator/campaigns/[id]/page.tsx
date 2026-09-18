@@ -3,12 +3,13 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getCampaignPerformance } from "@/domain/campaign";
-import { formatCompact, formatDate, formatIDR, daysUntil } from "@/lib/format";
+import { formatCompact, formatDate, formatDateTime, formatIDR, daysUntil } from "@/lib/format";
 import {
   Badge,
   Callout,
   Card,
   CardHeader,
+  CopyButton,
   DescriptionList,
   IconCheck,
   IconChevronLeft,
@@ -24,7 +25,7 @@ import {
   submissionStatusLabel,
   submissionStatusTone,
 } from "@/lib/labels";
-import { SubmitContentForm } from "./forms";
+import { JoinForm, SubmitContentForm } from "./forms";
 
 export default async function CampaignDetailPage({
   params,
@@ -49,7 +50,7 @@ export default async function CampaignDetailPage({
 
   const participation = await db.campaignParticipation.findUnique({
     where: { campaignId_creatorId: { campaignId: id, creatorId: user.id } },
-    include: { submission: true },
+    include: { submission: true, redeemCode: true },
   });
 
   const socialAccounts = await db.socialAccount.findMany({
@@ -61,9 +62,10 @@ export default async function CampaignDetailPage({
   const estimasiSaya = performance?.lines.find((l) => l.creatorId === user.id);
 
   const terisi = campaign.participations.length;
+  const penuh = terisi >= campaign.maxCreators;
   const sisaHari = daysUntil(campaign.endDate);
-  const bisaSubmit =
-    campaign.status === "ACTIVE" && !participation && sisaHari >= 0;
+  const bisaJoin =
+    campaign.status === "ACTIVE" && !penuh && !participation && sisaHari >= 0;
 
   return (
     <div>
@@ -90,10 +92,10 @@ export default async function CampaignDetailPage({
         }
       />
 
-      {sisaHari <= 2 && sisaHari >= 0 && !participation ? (
+      {sisaHari <= 2 && sisaHari >= 0 && participation && !participation.submission ? (
         <div className="mb-6">
           <Callout tone="warning" title="Campaign Segera Berakhir!">
-            Periode campaign ini tersisa {sisaHari === 0 ? "kurang dari 24 jam" : `${sisaHari} hari lagi`}. Segera kirim tautan kontenmu sebelum periode ditutup agar tidak kehilangan slot reward!
+            Periode campaign ini tersisa {sisaHari === 0 ? "kurang dari 24 jam" : `${sisaHari} hari lagi`}. Segera lakukan kunjungan dan unggah tautan kontenmu sebelum periode ditutup agar tidak kehilangan slot reward!
           </Callout>
         </div>
       ) : null}
@@ -168,7 +170,7 @@ export default async function CampaignDetailPage({
           </Card>
 
           <Card>
-            <CardHeader title="Lokasi" />
+            <CardHeader title="Lokasi & komplimen" />
             <DescriptionList
               items={[
                 {
@@ -177,26 +179,29 @@ export default async function CampaignDetailPage({
                 },
                 {
                   label: "Titik peta",
-                  value: (() => {
-                    const profil = campaign.vendor.vendorProfile;
-                    const mapsUrl =
-                      profil?.mapsUrl ??
-                      (profil?.latitude && profil?.longitude
-                        ? `https://maps.google.com/?q=${profil.latitude},${profil.longitude}`
-                        : null);
-                    return mapsUrl ? (
-                      <a
-                        className="text-brand"
-                        href={mapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Buka di Google Maps
-                      </a>
-                    ) : (
-                      "—"
-                    );
-                  })(),
+                  value: campaign.vendor.vendorProfile ? (
+                    <a
+                      className="text-brand"
+                      href={
+                        campaign.vendor.vendorProfile.mapsUrl ??
+                        `https://maps.google.com/?q=${campaign.vendor.vendorProfile.latitude},${campaign.vendor.vendorProfile.longitude}`
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Buka di Google Maps
+                    </a>
+                  ) : (
+                    "—"
+                  ),
+                },
+                {
+                  label: "Komplimen",
+                  value: `${campaign.complimentType} (${formatIDR(campaign.complimentValue)})`,
+                },
+                {
+                  label: "Syarat komplimen",
+                  value: campaign.complimentTerms ?? "—",
                 },
               ]}
             />
@@ -255,8 +260,12 @@ export default async function CampaignDetailPage({
                   value: `${formatIDR(campaign.cpmRate)} / 1.000 views`,
                 },
                 {
-                  label: "Creator ikut",
-                  value: terisi,
+                  label: "Fee platform",
+                  value: `${campaign.platformFeeRate}%`,
+                },
+                {
+                  label: "Slot",
+                  value: `${terisi} / ${campaign.maxCreators}`,
                 },
                 ...(campaign.maxViewsPerCreator
                   ? [
@@ -268,6 +277,9 @@ export default async function CampaignDetailPage({
                   : []),
               ]}
             />
+            <div className="mt-3">
+              <ProgressBar value={terisi} max={campaign.maxCreators} />
+            </div>
 
             {estimasiSaya ? (
               <div className="mt-4 rounded-xl bg-brand-soft p-3">
@@ -295,55 +307,112 @@ export default async function CampaignDetailPage({
             ) : null}
           </Card>
 
-          <Card>
-            <CardHeader title="Kirim konten" />
-            {participation?.submission ? (
-              <div className="space-y-3">
-                <Badge
-                  tone={submissionStatusTone[participation.submission.status]}
-                >
-                  {submissionStatusLabel[participation.submission.status]}
-                </Badge>
-                <a
-                  href={participation.submission.contentUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block truncate text-sm text-brand"
-                >
-                  {participation.submission.contentUrl}
-                </a>
-                <p className="tabular text-sm">
-                  {formatCompact(participation.submission.lastViews)} views
-                </p>
-                {participation.submission.reviewNote ? (
-                  <Callout
-                    tone={
-                      participation.submission.status === "APPROVED"
-                        ? "success"
-                        : "danger"
-                    }
-                    title="Catatan reviewer"
-                  >
-                    {participation.submission.reviewNote}
-                  </Callout>
-                ) : null}
-              </div>
-            ) : (
-              <SubmitContentForm
+          {!participation ? (
+            <Card>
+              <CardHeader title="Ikut campaign ini" />
+              <JoinForm
                 campaignId={campaign.id}
-                allowedPlatforms={campaign.allowedPlatforms}
-                registeredAccounts={socialAccounts}
-                disabled={!bisaSubmit}
+                disabled={!bisaJoin}
                 disabledReason={
-                  campaign.status !== "ACTIVE"
-                    ? "Campaign belum/tidak aktif."
-                    : sisaHari < 0
-                      ? "Periode campaign sudah berakhir."
-                      : undefined
+                  penuh
+                    ? "Slot sudah penuh."
+                    : campaign.status !== "ACTIVE"
+                      ? "Campaign belum/tidak aktif."
+                      : sisaHari < 0
+                        ? "Periode campaign sudah berakhir."
+                        : undefined
                 }
               />
-            )}
-          </Card>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {participation.redeemCode ? (
+                <Card>
+                  <CardHeader
+                    title="Kode Kunjungan / Redeem"
+                    description="Tunjukkan kode ini kepada kasir/staf vendor saat berkunjung ke lokasi untuk mendapatkan komplimen."
+                  />
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between rounded-2xl border border-line bg-surface-muted p-4">
+                      <div>
+                        <p className="text-xs text-muted">Kode Unik Kamu</p>
+                        <p className="font-mono text-xl font-bold tracking-wider text-foreground">
+                          {participation.redeemCode.code}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CopyButton value={participation.redeemCode.code} />
+                        <Badge
+                          tone={
+                            participation.redeemCode.status === "USED"
+                              ? "success"
+                              : "warning"
+                          }
+                        >
+                          {participation.redeemCode.status === "USED"
+                            ? "Sudah Ditukar"
+                            : "Belum Ditukar"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted">
+                      {participation.redeemCode.status === "USED"
+                        ? `Kehadiran terkonfirmasi pada ${formatDateTime(participation.redeemCode.redeemedAt ?? new Date())}. Kamu sudah bisa mengirim tautan konten.`
+                        : `Berlaku hingga ${formatDate(participation.redeemCode.expiresAt)}. Kunjungi lokasi sebelum periode berakhir.`}
+                    </p>
+                  </div>
+                </Card>
+              ) : null}
+
+              <Card>
+                <CardHeader title="Kirim konten" />
+                {participation.submission ? (
+                  <div className="space-y-3">
+                    <Badge
+                      tone={submissionStatusTone[participation.submission.status]}
+                    >
+                      {submissionStatusLabel[participation.submission.status]}
+                    </Badge>
+                    <a
+                      href={participation.submission.contentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block truncate text-sm text-brand"
+                    >
+                      {participation.submission.contentUrl}
+                    </a>
+                    <p className="tabular text-sm">
+                      {formatCompact(participation.submission.lastViews)} views
+                    </p>
+                    {participation.submission.reviewNote ? (
+                      <Callout
+                        tone={
+                          participation.submission.status === "APPROVED"
+                            ? "success"
+                            : "danger"
+                        }
+                        title="Catatan reviewer"
+                      >
+                        {participation.submission.reviewNote}
+                      </Callout>
+                    ) : null}
+                  </div>
+                ) : (
+                  <SubmitContentForm
+                    campaignId={campaign.id}
+                    allowedPlatforms={campaign.allowedPlatforms}
+                    registeredAccounts={socialAccounts}
+                    locked={
+                      participation.status !== "VISITED" &&
+                      participation.redeemCode?.status !== "USED"
+                    }
+                    lockedReason="Kunjungi tempat usaha vendor dan tukarkan kode redeem di atas terlebih dahulu. Formulir pengiriman konten akan aktif otomatis setelah vendor memverifikasi kodemu."
+                  />
+                )}
+              </Card>
+            </div>
+          )}
         </div>
       </div>
     </div>

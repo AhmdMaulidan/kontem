@@ -222,7 +222,7 @@ export default async function AdminCampaignsPage({
             <Th>Vendor</Th>
             <Th>Kategori</Th>
             <Th align="right">Budget</Th>
-            <Th align="right">Creator</Th>
+            <Th align="right">Slot</Th>
             <Th>Periode</Th>
             <Th>Escrow</Th>
             <Th>Status</Th>
@@ -271,7 +271,9 @@ export default async function AdminCampaignsPage({
                       </span>
                     </div>
                   </Td>
-                  <Td align="right">{campaign._count.participations}</Td>
+                  <Td align="right">
+                    {campaign._count.participations}/{campaign.maxCreators}
+                  </Td>
                   <Td className="whitespace-nowrap text-muted">
                     <div className="flex flex-col">
                       <span>{formatDate(campaign.startDate)}</span>
@@ -342,25 +344,22 @@ export default async function AdminCampaignsPage({
                         </div>
                         <div>
                           <dt className="text-xs font-medium text-muted">
-                            Creator ikut
+                            Slot
                           </dt>
                           <dd className="tabular mt-0.5">
-                            {campaign._count.participations} creator
+                            {campaign._count.participations} dari{" "}
+                            {campaign.maxCreators} creator
                           </dd>
                         </div>
-                        {campaign.complimentType ? (
-                          <div className="col-span-2">
-                            <dt className="text-xs font-medium text-muted">
-                              Komplimen
-                            </dt>
-                            <dd className="mt-0.5">
-                              {campaign.complimentType}
-                              {campaign.complimentValue
-                                ? ` (${formatIDR(campaign.complimentValue)})`
-                                : ""}
-                            </dd>
-                          </div>
-                        ) : null}
+                        <div className="col-span-2">
+                          <dt className="text-xs font-medium text-muted">
+                            Komplimen
+                          </dt>
+                          <dd className="mt-0.5">
+                            {campaign.complimentType} (
+                            {formatIDR(campaign.complimentValue)})
+                          </dd>
+                        </div>
                         <div className="col-span-2">
                           <dt className="text-xs font-medium text-muted">
                             Periode

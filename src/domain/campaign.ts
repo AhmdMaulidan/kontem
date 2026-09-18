@@ -391,3 +391,35 @@ export async function getCampaignPerformance(
 
   return { ...result, ranking };
 }
+
+/**
+ * Memvalidasi batas kuota kreator (maxCreators) saat vendor membuat campaign baru.
+ * Sesuai spesifikasi, kuota harus bilangan bulat positif dalam batas wajar (1 hingga 100 kreator).
+ */
+export function validateCampaignQuota(maxCreators: number): {
+  isValid: boolean;
+  error?: string;
+} {
+  if (!Number.isInteger(maxCreators)) {
+    return {
+      isValid: false,
+      error: "Kuota creator harus berupa bilangan bulat.",
+    };
+  }
+
+  if (maxCreators < 1) {
+    return {
+      isValid: false,
+      error: "Kuota creator minimal 1 creator.",
+    };
+  }
+
+  if (maxCreators > 100) {
+    return {
+      isValid: false,
+      error: "Kuota creator maksimal 100 creator per campaign.",
+    };
+  }
+
+  return { isValid: true };
+}

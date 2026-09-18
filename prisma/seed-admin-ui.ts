@@ -2,7 +2,10 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { generateSocialVerifyToken } from "../src/domain/codes";
+import {
+  generateRedeemCode,
+  generateSocialVerifyToken,
+} from "../src/domain/codes";
 
 /**
  * Seed TAMBAHAN khusus untuk mengisi tampilan setiap menu di /admin
@@ -267,6 +270,7 @@ async function main() {
         budgetPool: 1_000_000 + (i % 10) * 250_000,
         cpmRate: 10_000 + (i % 5) * 1_000,
         platformFeeRate: 15,
+        maxCreators: 5 + (i % 6),
         complimentType: "Gratis 1 produk/menu",
         complimentValue: 40_000 + (i % 5) * 10_000,
         startDate: daysFromNow(3 + (i % 7)),
@@ -300,6 +304,7 @@ async function main() {
         budgetPool: 1_500_000,
         cpmRate: 12_000,
         platformFeeRate: 15,
+        maxCreators: 10,
         complimentType: "Gratis 1 produk",
         complimentValue: 50_000,
         startDate: daysFromNow(-5),
@@ -327,6 +332,18 @@ async function main() {
         creatorId: creator.id,
         status: "SUBMITTED",
         joinedAt: daysFromNow(-4),
+      },
+    });
+
+    await db.redeemCode.create({
+      data: {
+        campaignId: campaign.id,
+        participationId: participation.id,
+        code: generateRedeemCode(),
+        status: "USED",
+        redeemedAt: daysFromNow(-3),
+        redeemedBy: vendor.id,
+        expiresAt: daysFromNow(20),
       },
     });
 
@@ -370,6 +387,7 @@ async function main() {
         budgetPool: 1_200_000,
         cpmRate: 11_000,
         platformFeeRate: 15,
+        maxCreators: 6,
         complimentType: "Gratis 1 menu",
         complimentValue: 45_000,
         startDate: daysFromNow(-15),
@@ -388,6 +406,18 @@ async function main() {
         creatorId: creator.id,
         status: "SUBMITTED",
         joinedAt: daysFromNow(-10),
+      },
+    });
+
+    await db.redeemCode.create({
+      data: {
+        campaignId: campaign.id,
+        participationId: participation.id,
+        code: generateRedeemCode(),
+        status: "USED",
+        redeemedAt: daysFromNow(-9),
+        redeemedBy: vendor.id,
+        expiresAt: daysFromNow(5),
       },
     });
 
@@ -464,6 +494,7 @@ async function main() {
         budgetPool: 2_000_000,
         cpmRate: 10_000,
         platformFeeRate: 15,
+        maxCreators: 4,
         complimentType: "Gratis tiket masuk",
         complimentValue: 30_000,
         startDate: daysFromNow(-40),
@@ -520,6 +551,18 @@ async function main() {
           creatorId: creator.id,
           status: "COMPLETED",
           joinedAt: daysFromNow(-35),
+        },
+      });
+
+      await db.redeemCode.create({
+        data: {
+          campaignId: campaign.id,
+          participationId: participation.id,
+          code: generateRedeemCode(),
+          status: "USED",
+          redeemedAt: daysFromNow(-33),
+          redeemedBy: vendor.id,
+          expiresAt: daysFromNow(-10),
         },
       });
 

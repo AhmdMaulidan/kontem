@@ -74,8 +74,10 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       economics: {
         budgetPool: campaign.budgetPool,
         cpmRate: campaign.cpmRate,
+        maxCreators: campaign.maxCreators,
         maxViewsPerCreator: campaign.maxViewsPerCreator,
-        participantsCount: campaign._count.participations,
+        filledSlots: campaign._count.participations,
+        remainingSlots: Math.max(0, campaign.maxCreators - campaign._count.participations),
         approvedSubmissions: campaign._count.submissions,
       },
       compliment: {

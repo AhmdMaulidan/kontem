@@ -190,7 +190,7 @@ export default async function AdminVendorsPage({
               const profil = vendor.vendorProfile;
               const mapsUrl =
                 profil?.mapsUrl ??
-                (profil?.latitude && profil?.longitude
+                (profil
                   ? `https://maps.google.com/?q=${profil.latitude},${profil.longitude}`
                   : null);
               const menungguDiperiksa = vendor.status === "PENDING";

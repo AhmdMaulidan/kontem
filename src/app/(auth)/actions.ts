@@ -11,7 +11,6 @@ import {
 } from "@/lib/auth";
 import { generateSocialVerifyToken } from "@/domain/codes";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { getPendingGoogleProfile, clearPendingGoogleProfile } from "@/lib/google-auth";
 
 export type AuthState = { error?: string };
 
@@ -75,43 +74,19 @@ const baseRegister = {
   name: z.string().min(2, "Nama minimal 2 karakter.").max(100, "Nama maksimal 100 karakter."),
   email: z.string().email("Format email tidak valid.").max(120, "Email terlalu panjang."),
   phone: z.string().min(8, "Nomor HP tidak valid.").max(20, "Nomor HP maksimal 20 karakter."),
-  // Kosong kalau daftar lewat Google (method="google") — passwordHash tidak
-  // dipakai untuk akun begitu, divalidasi manual di registerAction.
   password: z
     .string()
-    .max(72, "Password maksimal 72 karakter.")
-    .optional(),
-  method: z.enum(["password", "google"]).default("password"),
+    .min(8, "Password minimal 8 karakter.")
+    .max(72, "Password maksimal 72 karakter."),
 };
-
-const socialAccountItem = z.object({
-  platform: z.enum(["TIKTOK", "INSTAGRAM", "YOUTUBE"]),
-  handle: z.string().min(2, "Username medsos minimal 2 karakter.").max(50),
-});
 
 const creatorSchema = z.object({
   ...baseRegister,
   role: z.literal("CREATOR"),
   city: z.string().min(2, "Kota domisili wajib diisi.").max(100),
   province: z.string().min(2, "Provinsi wajib diisi.").max(100),
-  // Dikirim sebagai satu field JSON tersembunyi oleh client (lihat
-  // register-form.tsx) — lebih predictable divalidasi di sini daripada
-  // mengenumerasi nama field per platform.
-  socialAccounts: z
-    .string()
-    .transform((raw, ctx) => {
-      try {
-        return JSON.parse(raw) as unknown;
-      } catch {
-        ctx.addIssue({ code: "custom", message: "Data platform tidak valid." });
-        return z.NEVER;
-      }
-    })
-    .pipe(
-      z
-        .array(socialAccountItem)
-        .min(1, "Pilih minimal satu platform media sosial."),
-    ),
+  socialPlatform: z.enum(["TIKTOK", "INSTAGRAM", "YOUTUBE"]),
+  socialHandle: z.string().min(2, "Username medsos wajib diisi.").max(50),
 });
 
 const vendorSchema = z.object({
@@ -128,10 +103,10 @@ const vendorSchema = z.object({
   address: z.string().min(5, "Alamat wajib diisi.").max(300),
   city: z.string().min(2, "Kota wajib diisi.").max(100),
   province: z.string().min(2, "Provinsi wajib diisi.").max(100),
-  // Menggantikan input latitude/longitude/PIC manual — nama & nomor PIC
-  // sekarang diambil dari field name/phone di atas (form sudah memberi label
-  // "Nama PIC / pemilik" untuk keduanya saat role vendor).
-  mapsUrl: z.string().url("Link Google Maps tidak valid."),
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+  picName: z.string().min(2, "Nama PIC wajib diisi.").max(100),
+  picPhone: z.string().min(8, "Nomor PIC tidak valid.").max(20),
 });
 
 export async function registerAction(
@@ -152,11 +127,6 @@ export async function registerAction(
 
   const data = parsed.data;
   const email = data.email.toLowerCase();
-  const isGoogle = data.method === "google";
-
-  if (!isGoogle && (!data.password || data.password.length < 8)) {
-    return { error: "Password minimal 8 karakter." };
-  }
 
   // Rate limit registrasi per email untuk mencegah spam pendaftaran
   const rateLimit = checkRateLimit(`register:${email}`, 3, 60_000);
@@ -167,22 +137,11 @@ export async function registerAction(
     };
   }
 
-  let googleId: string | null = null;
-  if (isGoogle) {
-    const pending = await getPendingGoogleProfile();
-    if (!pending || pending.email.toLowerCase() !== email) {
-      return {
-        error: "Sesi Google sudah kedaluwarsa. Ulangi login dengan Google.",
-      };
-    }
-    googleId = pending.googleId;
-  }
-
   try {
     const existing = await db.user.findUnique({ where: { email } });
     if (existing) return { error: "Email sudah terdaftar." };
 
-    const passwordHash = isGoogle ? null : await hashPassword(data.password!);
+    const passwordHash = await hashPassword(data.password);
 
     if (data.role === "VENDOR") {
       // Vendor menunggu verifikasi manual admin sebelum bisa bikin campaign.
@@ -190,7 +149,6 @@ export async function registerAction(
         data: {
           role: "VENDOR",
           email,
-          googleId,
           name: data.name,
           phone: data.phone,
           passwordHash,
@@ -202,38 +160,33 @@ export async function registerAction(
               address: data.address,
               city: data.city,
               province: data.province,
-              mapsUrl: data.mapsUrl,
+              latitude: data.latitude,
+              longitude: data.longitude,
               photos: [],
-              // PIC = pemilik/penanggung jawab yang sudah diisi di atas.
-              picName: data.name,
-              picPhone: data.phone,
+              picName: data.picName,
+              picPhone: data.picPhone,
             },
           },
         },
       });
-      if (isGoogle) await clearPendingGoogleProfile();
       await createSession({ userId: user.id, role: user.role, name: user.name });
       redirect("/vendor");
     }
 
-    const accounts = data.socialAccounts.map((item) => ({
-      ...item,
-      handle: item.handle.replace(/^@/, ""),
-    }));
-
-    const duplicateSocial = await db.socialAccount.findFirst({
+    const handle = data.socialHandle.replace(/^@/, "");
+    const duplicateSocial = await db.socialAccount.findUnique({
       where: {
-        OR: accounts.map((a) => ({ platform: a.platform, handle: a.handle })),
+        platform_handle: { platform: data.socialPlatform, handle },
       },
     });
     if (duplicateSocial) {
-      return { error: "Salah satu akun media sosial ini sudah ditautkan ke user lain." };
+      return { error: "Akun media sosial ini sudah ditautkan ke user lain." };
     }
 
-    const profileUrl = (platform: string, handle: string) =>
-      platform === "YOUTUBE"
+    const profileUrl =
+      data.socialPlatform === "YOUTUBE"
         ? `https://youtube.com/@${handle}`
-        : platform === "INSTAGRAM"
+        : data.socialPlatform === "INSTAGRAM"
           ? `https://instagram.com/${handle}`
           : `https://tiktok.com/@${handle}`;
 
@@ -241,7 +194,6 @@ export async function registerAction(
       data: {
         role: "CREATOR",
         email,
-        googleId,
         name: data.name,
         phone: data.phone,
         passwordHash,
@@ -251,17 +203,16 @@ export async function registerAction(
           create: { city: data.city, province: data.province },
         },
         socialAccounts: {
-          create: accounts.map((a) => ({
-            platform: a.platform,
-            handle: a.handle,
-            profileUrl: profileUrl(a.platform, a.handle),
+          create: {
+            platform: data.socialPlatform,
+            handle,
+            profileUrl,
             verifyToken: generateSocialVerifyToken(),
-          })),
+          },
         },
       },
     });
 
-    if (isGoogle) await clearPendingGoogleProfile();
     await createSession({ userId: user.id, role: user.role, name: user.name });
     redirect("/creator");
   } catch (error) {

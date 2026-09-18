@@ -130,7 +130,7 @@ export function buildCampaignEndingSoonNotification(
 
 /**
  * Mengirimkan notifikasi peringatan kampanye mau berakhir kepada para kreator terdaftar
- * yang belum mengunggah konten.
+ * yang belum mengunggah konten (status JOINED atau VISITED tanpa submission).
  * Menghindari duplikasi notifikasi untuk kreator yang sama pada kampanye tersebut.
  */
 export async function notifyParticipantsCampaignEndingSoon(
@@ -144,6 +144,7 @@ export async function notifyParticipantsCampaignEndingSoon(
   const pendingParticipants = await prismaClient.campaignParticipation.findMany({
     where: {
       campaignId,
+      status: { in: ["JOINED", "VISITED"] },
       submission: null,
     },
     select: { creatorId: true },

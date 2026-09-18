@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -244,6 +245,16 @@ export default async function VendorCampaignDetail({
                 </tbody>
               </Table>
             )}
+            {menungguReview > 0 ? (
+              <p className="mt-4 text-sm">
+                <Link
+                  href="/vendor/submissions"
+                  className="inline-flex items-center gap-1 font-semibold text-brand-600"
+                >
+                  {menungguReview} submission menunggu review
+                </Link>
+              </p>
+            ) : null}
           </Card>
 
           {campaign.payouts.length > 0 ? (
@@ -290,6 +301,8 @@ export default async function VendorCampaignDetail({
                   label: "CPM rate",
                   value: `${formatIDR(campaign.cpmRate)} / 1.000 views`,
                 },
+                { label: "Fee platform", value: `${campaign.platformFeeRate}%` },
+                { label: "Kuota creator", value: campaign.maxCreators },
                 ...(campaign.maxViewsPerCreator
                   ? [
                       {
@@ -333,26 +346,23 @@ export default async function VendorCampaignDetail({
 
           <Card>
             <CardHeader title="Escrow" description="Aliran dana campaign ini." />
-            {campaign.escrow.filter((trx) => trx.type !== "PLATFORM_FEE")
-              .length === 0 ? (
+            {campaign.escrow.length === 0 ? (
               <p className="text-sm text-muted">Belum ada transaksi.</p>
             ) : (
               <ul className="space-y-2 text-sm">
-                {campaign.escrow
-                  .filter((trx) => trx.type !== "PLATFORM_FEE")
-                  .map((trx) => (
-                    <li key={trx.id} className="flex justify-between gap-3">
-                      <span className="text-muted">{trx.type}</span>
-                      <span className="tabular">
-                        {formatIDR(trx.amount)}
-                        <Badge
-                          tone={trx.status === "COMPLETED" ? "success" : "warning"}
-                        >
-                          {trx.status === "COMPLETED" ? "lunas" : "pending"}
-                        </Badge>
-                      </span>
-                    </li>
-                  ))}
+                {campaign.escrow.map((trx) => (
+                  <li key={trx.id} className="flex justify-between gap-3">
+                    <span className="text-muted">{trx.type}</span>
+                    <span className="tabular">
+                      {formatIDR(trx.amount)}
+                      <Badge
+                        tone={trx.status === "COMPLETED" ? "success" : "warning"}
+                      >
+                        {trx.status === "COMPLETED" ? "lunas" : "pending"}
+                      </Badge>
+                    </span>
+                  </li>
+                ))}
               </ul>
             )}
           </Card>

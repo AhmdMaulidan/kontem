@@ -37,7 +37,6 @@ const jenisLabel: Record<EscrowType, string> = {
   PAYOUT: "Payout",
   PLATFORM_FEE: "Fee platform",
   REFUND: "Refund",
-  WITHDRAWAL_FEE: "Fee penarikan",
 };
 
 const statusLabel: Record<EscrowStatus, string> = {

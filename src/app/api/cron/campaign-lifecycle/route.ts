@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 /**
  * Endpoint cron untuk memeriksa dan memperbarui siklus hidup kampanye secara terjadwal:
  * - Menutup campaign yang telah melewati masa endDate.
+ * - Membatalkan slot partisipasi & kedaluwarsa-kan kode redeem yang lewat batas waktu.
  * - Memberitahu admin jika campaign ENDED telah melewati trackingEndsAt dan siap disettle.
- * - Mengirim notifikasi H-2/H-1 untuk campaign yang akan segera berakhir.
  *
  * Proteksi:
  * Memeriksa Authorization: Bearer <CRON_SECRET>.
