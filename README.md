@@ -83,6 +83,7 @@ termasuk fitur **penarikan dana dini** dalam berbagai tahapan sekaligus.
 | Vendor | `vendor@petakenam.id` | Terverifikasi, campaign aktif berjalan |
 | Vendor | `vendor@cobanrondo.id` | Campaign masih menunggu approval admin |
 | Vendor | `vendor@segosambelmarem.id` | Akun vendor masih **menunggu verifikasi** admin |
+| Creator | `tarikdana@creator.id` | **Siap Tarik Dana**: Video sudah disetujui, views memenuhi minimum campaign (20k views / Rp 291.000 >= Rp 15.000), tombol "Tarik Dana" aktif di `/creator/earnings` |
 | Creator | `sibungbung@creator.id` | Video sudah disetujui & siap ditarik, **belum diajukan** penarikannya — coba klik "Tarik Dana" di `/creator/earnings` |
 | Creator | `auntyfeni@creator.id` | Sudah mengajukan penarikan, **menunggu approval admin** — coba approve dari akun admin |
 | Creator | `byanhard@creator.id` | Penarikan **sudah cair (PAID)** — riwayat lengkap sampai ke `/admin/escrow` |

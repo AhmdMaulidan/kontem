@@ -11,7 +11,22 @@ import { COUNTABLE_STATUSES } from "@/domain/campaign";
 import { calculateCreatorEarning, calculateWithdrawalFee } from "@/domain/withdrawal";
 import { formatIDR } from "@/lib/format";
 
-export type ActionState = { error?: string; success?: string };
+export type ActionState<T = Record<string, unknown>> = {
+  error?: string;
+  success?: string;
+  data?: T;
+};
+
+export type WithdrawalResultData = {
+  campaignTitle: string;
+  grossAmount: number;
+  feeAmount: number;
+  netAmount: number;
+  bankName: string;
+  bankAccountNumber: string;
+  bankAccountName: string;
+  paidAt: string;
+};
 
 const submitSchema = z.object({
   campaignId: z.string().min(1),
@@ -206,9 +221,9 @@ const withdrawalSchema = z.object({
  * kuota slot yang dulu dipakai di submitContentAction).
  */
 export async function requestWithdrawalAction(
-  _prev: ActionState,
+  _prev: ActionState<WithdrawalResultData>,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<ActionState<WithdrawalResultData>> {
   const user = await requireRole("CREATOR");
   const parsed = withdrawalSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -262,11 +277,12 @@ export async function requestWithdrawalAction(
   const fee = calculateWithdrawalFee(earning.grossAmount);
 
   try {
+    let resultData: WithdrawalResultData | undefined;
+
     await db.$transaction(
       async (tx) => {
-        // Reservasi FCFS: penarikan yang masih menunggu approval pun ikut
-        // dihitung sebagai "sudah dipakai" — supaya sisa pool tidak jebol
-        // kalau ada beberapa request menunggu bersamaan.
+        // Reservasi FCFS: penarikan yang sudah terjadi dihitung sebagai "sudah dipakai"
+        // supaya sisa pool tidak jebol.
         const sudahDitarik = await tx.withdrawal.aggregate({
           where: {
             campaignId: campaign.id,
@@ -281,7 +297,8 @@ export async function requestWithdrawalAction(
           );
         }
 
-        await tx.withdrawal.create({
+        const now = new Date();
+        const withdrawal = await tx.withdrawal.create({
           data: {
             creatorId: user.id,
             campaignId: campaign.id,
@@ -290,12 +307,50 @@ export async function requestWithdrawalAction(
             grossAmount: earning.grossAmount,
             feeAmount: fee.feeAmount,
             netAmount: fee.netAmount,
+            status: "PAID",
+            requestedAt: now,
+            approvedAt: now,
+            paidAt: now,
             bankName: creatorProfile.bankName,
             bankAccountNumber: creatorProfile.bankAccountNumber,
             bankAccountName: creatorProfile.bankAccountName,
           },
         });
 
+        // Catat transaksi mutasi escrow: dana keluar untuk creator dan fee platform
+        await tx.escrowTransaction.createMany({
+          data: [
+            {
+              campaignId: campaign.id,
+              type: "PAYOUT",
+              amount: fee.netAmount,
+              status: "COMPLETED",
+              reference: `WITHDRAW-${withdrawal.id}`,
+              completedAt: now,
+            },
+            {
+              campaignId: campaign.id,
+              type: "WITHDRAWAL_FEE",
+              amount: fee.feeAmount,
+              status: "COMPLETED",
+              reference: `WITHDRAW-FEE-${withdrawal.id}`,
+              completedAt: now,
+            },
+          ],
+        });
+
+        // Notifikasi ke creator bahwa dana sudah masuk rekening
+        await tx.notification.create({
+          data: {
+            userId: user.id,
+            type: "PAYOUT_RELEASED",
+            title: "Penarikan Dana Berhasil",
+            body: `Dana ${formatIDR(fee.netAmount)} dari campaign "${campaign.title}" telah berhasil ditarik dan langsung ditransfer ke rekening ${creatorProfile.bankName} ${creatorProfile.bankAccountNumber} a.n ${creatorProfile.bankAccountName}.`,
+            link: "/creator/earnings",
+          },
+        });
+
+        // Notifikasi ke admin sebagai catatan audit pencairan otomatis
         const admins = await tx.user.findMany({
           where: { role: "ADMIN" },
           select: { id: true },
@@ -305,8 +360,8 @@ export async function requestWithdrawalAction(
             data: admins.map((admin) => ({
               userId: admin.id,
               type: "GENERAL",
-              title: "Permintaan penarikan dana baru",
-              body: `${user.name} mengajukan penarikan ${formatIDR(fee.netAmount)} dari campaign "${campaign.title}".`,
+              title: "Penarikan dana dicairkan",
+              body: `${user.name} berhasil menarik ${formatIDR(fee.netAmount)} dari campaign "${campaign.title}". Dana otomatis masuk ke rekening.`,
               link: "/admin/submissions?tab=penarikan",
             })),
           });
@@ -315,15 +370,37 @@ export async function requestWithdrawalAction(
         await tx.auditLog.create({
           data: {
             actorId: user.id,
-            action: "withdrawal.request",
+            action: "withdrawal.instant_paid",
             entity: "Submission",
             entityId: submission.id,
             metadata: { grossAmount: earning.grossAmount, netAmount: fee.netAmount },
           },
         });
+
+        resultData = {
+          campaignTitle: campaign.title,
+          grossAmount: earning.grossAmount,
+          feeAmount: fee.feeAmount,
+          netAmount: fee.netAmount,
+          bankName: creatorProfile.bankName ?? "",
+          bankAccountNumber: creatorProfile.bankAccountNumber ?? "",
+          bankAccountName: creatorProfile.bankAccountName ?? "",
+          paidAt: now.toISOString(),
+        };
       },
       { isolationLevel: "Serializable" },
     );
+
+    // Jangan revalidatePath("/creator/earnings") langsung di sini supaya
+    // komponen form dan popup modal di sisi creator tidak unmount sebelum
+    // creator sempat melihat modal sukses. router.refresh() dipanggil saat
+    // modal ditutup.
+    revalidatePath("/admin/submissions");
+    revalidatePath("/admin/escrow");
+    return {
+      success: "Dana berhasil ditarik dan sudah masuk ke rekening!",
+      data: resultData,
+    };
   } catch (err) {
     console.error("[requestWithdrawalAction Error]", err);
     return {
@@ -333,12 +410,6 @@ export async function requestWithdrawalAction(
           : "Terjadi kesalahan sistem saat mengajukan penarikan.",
     };
   }
-
-  revalidatePath("/creator/earnings");
-  revalidatePath("/admin/submissions");
-  return {
-    success: "Penarikan diajukan. Menunggu approval admin sebelum dana ditransfer.",
-  };
 }
 
 /**

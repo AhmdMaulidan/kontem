@@ -25,6 +25,7 @@ import {
 } from "@/lib/labels";
 import { BankForm } from "./bank-form";
 import { WithdrawalForm } from "./withdrawal-form";
+import { WithdrawalSuccessModal } from "./withdrawal-modal";
 
 export default async function EarningsPage() {
   const user = await requireRole("CREATOR");
@@ -58,14 +59,23 @@ export default async function EarningsPage() {
       user.creatorProfile?.bankAccountName,
   );
 
-  const totalCair = payouts
-    .filter((p) => p.status === "PAID")
-    .reduce((sum, p) => sum + p.netAmount, 0);
-  const totalFee = payouts.reduce((sum, p) => sum + p.platformFee, 0);
-  const totalViews = payouts.reduce((sum, p) => sum + p.viewsCounted, 0);
+  const totalCair =
+    payouts
+      .filter((p) => p.status === "PAID")
+      .reduce((sum, p) => sum + p.netAmount, 0) +
+    withdrawals
+      .filter((w) => w.status === "PAID")
+      .reduce((sum, w) => sum + w.netAmount, 0);
+  const totalFee =
+    payouts.reduce((sum, p) => sum + p.platformFee, 0) +
+    withdrawals.reduce((sum, w) => sum + w.feeAmount, 0);
+  const totalViews =
+    payouts.reduce((sum, p) => sum + p.viewsCounted, 0) +
+    withdrawals.reduce((sum, w) => sum + w.viewsCounted, 0);
 
   return (
     <div>
+      <WithdrawalSuccessModal />
       <PageHeader
         title="Penghasilan"
         description="Riwayat payout dan rekening tujuan pencairan."

@@ -453,6 +453,38 @@ async function main() {
     },
   });
 
+  // Creator 7: Dimas Tester (Khusus Testing: Tarik Dana Saat Memenuhi Minimum Views)
+  const creatorTarikDana = await db.user.create({
+    data: {
+      role: "CREATOR",
+      email: "tarikdana@creator.id",
+      name: "Dimas Tester (Siap Tarik Dana)",
+      phone: "081288990007",
+      passwordHash,
+      status: "VERIFIED",
+      creatorProfile: {
+        create: {
+          city: "Jakarta",
+          province: "DKI Jakarta",
+          trustScore: 92,
+          bio: "Food & lifestyle creator. Akun demo khusus untuk pengujian alur penarikan dana dini creator saat memenuhi syarat minimum views.",
+          bankName: "BCA",
+          bankAccountNumber: "5412345678",
+          bankAccountName: "DIMAS TESTER",
+        },
+      },
+      socialAccounts: {
+        create: {
+          platform: "TIKTOK",
+          handle: "dimastarikdana",
+          profileUrl: "https://www.tiktok.com/@sibungbung",
+          followerCount: 35_000,
+          verifiedAt: daysFromNow(-20),
+        },
+      },
+    },
+  });
+
   // ================================================================
   // 5. CAMPAIGN 1: AKTIF (Bakso Malang Enggal Rawamangun)
   // ================================================================
@@ -647,6 +679,54 @@ async function main() {
     },
   });
 
+  // --- Video 4: Dimas Tester (MEMENUHI SYARAT MINIMUM VIEWS UNTUK TARIK DANA DINI)
+  // Campaign Bakso: minWithdrawalAmount = Rp 15.000 (cpmRate Rp 15.000, fee 3%).
+  // Views = 20.000 -> Earning Bruto = Rp 291.000 (Jauh melampaui minimum Rp 15.000).
+  // Status = APPROVED, withdrawal = null (belum ditarik).
+  // Di halaman /creator/earnings, tombol "Tarik Dana" AKTIF dan siap diklik.
+  const partTarikDana = await db.campaignParticipation.create({
+    data: {
+      campaignId: campaignBakso.id,
+      creatorId: creatorTarikDana.id,
+      status: "COMPLETED",
+      joinedAt: daysFromNow(-6),
+    },
+  });
+
+  const subTarikDana = await db.submission.create({
+    data: {
+      campaignId: campaignBakso.id,
+      creatorId: creatorTarikDana.id,
+      participationId: partTarikDana.id,
+      contentUrl: "https://www.tiktok.com/@sibungbung/video/7686608385516539157",
+      platform: "TIKTOK",
+      caption: "Makan bakso hangat di Rawamangun, kuah kaldunya nendang abis! #baksomalang #kulinerjakarta #fyp",
+      status: "APPROVED",
+      lastViews: 20_000,
+      lastLikes: 1_450,
+      lastComments: 42,
+      lastSyncedAt: daysFromNow(-1),
+      submittedAt: daysFromNow(-5),
+      reviewedById: vendorEnggal.id,
+      reviewedAt: daysFromNow(-4),
+      reviewNote: "Visualisasi bakso sangat menggugah selera dan engagement tinggi. Disetujui!",
+    },
+  });
+
+  for (let day = 4; day >= 0; day -= 1) {
+    const factor = 1 - day * 0.2;
+    await db.viewSnapshot.create({
+      data: {
+        submissionId: subTarikDana.id,
+        views: Math.max(500, Math.round(20_000 * factor)),
+        likes: Math.round(1_450 * factor),
+        comments: Math.round(42 * factor),
+        source: "API",
+        capturedAt: daysFromNow(-day),
+      },
+    });
+  }
+
   // ================================================================
   // 6. CAMPAIGN 2: AKTIF (Kopi Toko Djawa Menteng)
   // ================================================================
@@ -785,6 +865,51 @@ async function main() {
         completedAt: daysFromNow(-1),
       },
     ],
+  });
+
+  // --- Video Tambahan Dimas Tester (BELUM MEMENUHI MINIMUM VIEWS)
+  // Campaign Djawa: minWithdrawalAmount = Rp 20.000 (cpmRate Rp 15.000, fee 3%).
+  // Views = 600 -> Earning Bruto = Rp 8.730 (Kurang Rp 11.270 dari minimum).
+  // Status = APPROVED, withdrawal = null.
+  // Di halaman /creator/earnings, tombol "Tarik Dana" DISABLED dengan info kekurangan earning.
+  const partTarikKurang = await db.campaignParticipation.create({
+    data: {
+      campaignId: campaignDjawa.id,
+      creatorId: creatorTarikDana.id,
+      status: "COMPLETED",
+      joinedAt: daysFromNow(-4),
+    },
+  });
+
+  const subTarikKurang = await db.submission.create({
+    data: {
+      campaignId: campaignDjawa.id,
+      creatorId: creatorTarikDana.id,
+      participationId: partTarikKurang.id,
+      contentUrl: "https://www.youtube.com/shorts/CqmGN1cb_8U",
+      platform: "YOUTUBE",
+      caption: "Ngopi santai sore hari di Menteng #shorts #kopi",
+      status: "APPROVED",
+      lastViews: 600,
+      lastLikes: 45,
+      lastComments: 3,
+      lastSyncedAt: daysFromNow(-1),
+      submittedAt: daysFromNow(-3),
+      reviewedById: vendorDjawa.id,
+      reviewedAt: daysFromNow(-2),
+      reviewNote: "Video estetik dan disetujui. Views masih dalam progres.",
+    },
+  });
+
+  await db.viewSnapshot.create({
+    data: {
+      submissionId: subTarikKurang.id,
+      views: 600,
+      likes: 45,
+      comments: 3,
+      source: "API",
+      capturedAt: daysFromNow(-1),
+    },
   });
 
   // ================================================================
@@ -1239,6 +1364,7 @@ async function main() {
     { Role: "VENDOR (Verified)", Email: vendorPetakEnam.email, Nama: "Petak Enam Glodok", Platform: "-", Handle: "-" },
     { Role: "VENDOR (Verified)", Email: vendorCobanRondo.email, Nama: "Wisata Coban Rondo", Platform: "-", Handle: "-" },
     { Role: "VENDOR (Pending)", Email: vendorSegoSambel.email, Nama: "Sego Sambel Marem", Platform: "-", Handle: "-" },
+    { Role: "CREATOR (Siap Tarik)", Email: creatorTarikDana.email, Nama: "Dimas Tester (Siap Tarik)", Platform: "TIKTOK", Handle: "@dimastarikdana" },
     { Role: "CREATOR", Email: creatorSibungbung.email, Nama: "Siti Bungbung", Platform: "TIKTOK", Handle: "@sibungbung" },
     { Role: "CREATOR", Email: creatorAuntyFeni.email, Nama: "Aunty Feni Foodie", Platform: "YOUTUBE", Handle: "@auntyfeni" },
     { Role: "CREATOR", Email: creatorByan.email, Nama: "Byan Hardi", Platform: "YOUTUBE", Handle: "@byanhardTV" },
